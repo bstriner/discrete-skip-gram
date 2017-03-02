@@ -41,8 +41,8 @@ class S2SModel(object):
         x_loss = T.mean(-T.log(x_p(x_noised_input, z_gen)), axis=None) + \
                  T.mean(-T.log(1 - x_p(x_gen, z_input)), axis=None)
         # test w/ x_input and x_noised_input
-        z_loss = T.mean(-T.log(1 - z_p(x_noised_input, z_gen)), axis=None) + \
-                 T.mean(-T.log(z_p(x_gen, z_input)), axis=None)
+        z_loss = T.mean(-T.log(z_p(x_noised_input, z_gen)), axis=None) + \
+                 T.mean(-T.log(1 - z_p(x_gen, z_input)), axis=None)
 
         x_opt = RMSprop(1e-4)
         z_opt = RMSprop(1e-4)
@@ -65,12 +65,12 @@ class S2SModel(object):
             os.makedirs(os.path.dirname(path))
         with h5py.File(path, "w") as f:
             for p in self.all_params:
-                f.create_dataset(p.name, p.get_value())
+                f.create_dataset(p.name, data=p.get_value())
 
     def load(self, path):
         with h5py.File(path, 'r') as f:
             for p in self.all_params:
-                p.set_value(f[p.name])
+                p.set_value(f[p.name][:])
 
     def train_batch(self, x_input, z_input, x_noised_input):
         return self.train_f(x_input, z_input, x_noised_input)
