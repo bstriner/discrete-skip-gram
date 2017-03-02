@@ -120,8 +120,8 @@ class SequenceModel(object):
         self.W_w = glorot_uniform((hidden_dim, hidden_dim), "{}_W_w".format(name))  # z, (latent_dim, hidden_dim)
         self.b_w = zero((hidden_dim,), "{}_b_w".format(name))  # (hidden_dim,)
         # Output
-        self.W_o = glorot_uniform((hidden_dim, hidden_dim), "{}_W_i".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_o = zero((hidden_dim,), "{}_b_i".format(name))  # (hidden_dim,)
+        self.W_o = glorot_uniform((hidden_dim, hidden_dim), "{}_W_o".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_o = zero((hidden_dim,), "{}_b_o".format(name))  # (hidden_dim,)
         # Hidden state
         self.W_j = glorot_uniform((hidden_dim, hidden_dim), "{}_W_j".format(name))  # z, (latent_dim, hidden_dim)
         self.b_j = zero((hidden_dim,), "{}_b_j".format(name))  # (hidden_dim,)

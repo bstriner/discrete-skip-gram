@@ -10,8 +10,8 @@ import h5py
 
 class S2SModel(object):
     def __init__(self, x_k, x_depth, z_k, z_depth, hidden_dim):
-        self.z_model = SequenceModel("z_model", z_k, z_depth, hidden_dim, hidden_dim)
         self.x_model = SequenceModel("x_model", x_k, x_depth, hidden_dim, hidden_dim)
+        self.z_model = SequenceModel("z_model", z_k, z_depth, hidden_dim, hidden_dim)
         self.x_lstm = LSTM("x_lstm", x_k, x_depth, hidden_dim)
         self.z_lstm = LSTM("z_lstm", z_k, z_depth, hidden_dim)
 
@@ -41,8 +41,8 @@ class S2SModel(object):
         x_loss = T.mean(-T.log(x_p(x_noised_input, z_gen)), axis=None) + \
                  T.mean(-T.log(1 - x_p(x_gen, z_input)), axis=None)
         # test w/ x_input and x_noised_input
-        z_loss = T.mean(-T.log(1 - z_p(x_noised_input, z_gen)), axis=None) + \
-                 T.mean(-T.log(z_p(x_gen, z_input)), axis=None)
+        z_loss = T.mean(-T.log(z_p(x_noised_input, z_gen)), axis=None) + \
+                 T.mean(-T.log(1 - z_p(x_gen, z_input)), axis=None)
 
         x_opt = RMSprop(1e-4)
         z_opt = RMSprop(1e-4)
@@ -58,10 +58,20 @@ class S2SModel(object):
         self.autoencode_f = theano.function([x_input], [x_autoencoded])
         self.all_params = self.x_model.params + self.z_lstm.params + \
                           self.z_model.params + self.x_lstm.params
+        names = [p.name for p in self.all_params]
+        fail = False
+        for name in set(names):
+            count = names.count(name)
+            if count > 1:
+                print("Duplicate name: {} x {}".format(name, count))
+                fail = True
+        if fail:
+            raise ValueError("Duplicate name of parameter")
 
     def save(self, path):
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path))
+
         with h5py.File(path, "w") as f:
             for p in self.all_params:
                 f.create_dataset(p.name, data=p.get_value())

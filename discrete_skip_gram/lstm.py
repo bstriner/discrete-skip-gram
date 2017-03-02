@@ -67,8 +67,8 @@ class LSTM(object):
         self.W_w = glorot_uniform((hidden_dim, hidden_dim), "{}_W_w".format(name))
         self.b_w = zero((hidden_dim,), "{}_b_w".format(name))
         # Output
-        self.W_o = glorot_uniform((hidden_dim, hidden_dim), "{}_W_i".format(name))
-        self.b_o = zero((hidden_dim,), "{}_b_i".format(name))
+        self.W_o = glorot_uniform((hidden_dim, hidden_dim), "{}_W_o".format(name))
+        self.b_o = zero((hidden_dim,), "{}_b_o".format(name))
         # Hidden state
         self.W_j = glorot_uniform((hidden_dim, hidden_dim), "{}_W_j".format(name))
         self.b_j = zero((hidden_dim,), "{}_b_j".format(name))
