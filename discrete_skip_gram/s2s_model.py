@@ -3,13 +3,13 @@ from .lstm import LSTM
 import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 import os
 import h5py
 
 
 class S2SModel(object):
-    def __init__(self, x_k, x_depth, z_k, z_depth, hidden_dim):
+    def __init__(self, x_k, x_depth, z_k, z_depth, hidden_dim, lr, regularizer=None):
         self.x_model = SequenceModel("x_model", x_k, x_depth, hidden_dim, hidden_dim)
         self.z_model = SequenceModel("z_model", z_k, z_depth, hidden_dim, hidden_dim)
         self.x_lstm = LSTM("x_lstm", x_k, x_depth, hidden_dim)
@@ -38,17 +38,28 @@ class S2SModel(object):
         x_gen = decode(z_input)
         z_gen = encode(x_input)
 
-        x_loss = T.mean(-T.log(x_p(x_noised_input, z_gen)), axis=None) + \
-                 T.mean(-T.log(1 - x_p(x_gen, z_input)), axis=None)
+        eps = 1e-9
+        x_loss = T.mean(-T.log(eps+x_p(x_noised_input, z_gen)), axis=None)
+        #T.mean(-T.log(1 - x_p(x_gen, z_input)), axis=None)
         # test w/ x_input and x_noised_input
-        z_loss = T.mean(-T.log(1 - z_p(x_noised_input, z_gen)), axis=None) + \
-                 T.mean(-T.log(z_p(x_gen, z_input)), axis=None)
-
-        x_opt = RMSprop(1e-4)
-        z_opt = RMSprop(1e-4)
-        x_updates = x_opt.get_updates(self.x_model.params + self.z_lstm.params, {}, x_loss)
-        z_updates = z_opt.get_updates(self.z_model.params + self.x_lstm.params, {}, z_loss)
-        updates = x_updates + z_updates
+        #z_loss = T.mean(-T.log(z_p(x_noised_input, z_gen)), axis=None)
+        z_loss = T.mean(-T.log(eps+z_p(x_gen, z_input)), axis=None)
+        reg_loss = 0.0
+        if regularizer:
+            reg_loss += self.x_model.regularization_loss(regularizer)
+            reg_loss += self.z_model.regularization_loss(regularizer)
+            reg_loss += self.x_lstm.regularization_loss(regularizer)
+            reg_loss += self.z_lstm.regularization_loss(regularizer)
+        #x_opt = RMSprop(1e-4)
+        #z_opt = RMSprop(1e-4)
+        #x_updates = x_opt.get_updates(self.x_model.params + self.z_lstm.params, {}, x_loss)
+        #z_updates = z_opt.get_updates(self.z_model.params + self.x_lstm.params, {}, z_loss)
+        #updates = x_updates + z_updates
+        loss = x_loss+z_loss+reg_loss
+        opt = Adam(lr)
+        self.all_params = self.x_model.params + self.z_lstm.params + \
+                          self.z_model.params + self.x_lstm.params
+        updates = opt.get_updates(self.all_params, {}, loss)
         self.train_f = theano.function([x_input, z_input, x_noised_input], [x_loss, z_loss], updates=updates)
         self.encode_f = theano.function([x_input], [z_gen])
         self.decode_f = theano.function([z_input], [x_gen])
@@ -56,8 +67,6 @@ class S2SModel(object):
         x_autoencoded = decode(z_gen)
 
         self.autoencode_f = theano.function([x_input], [x_autoencoded])
-        self.all_params = self.x_model.params + self.z_lstm.params + \
-                          self.z_model.params + self.x_lstm.params
         names = [p.name for p in self.all_params]
         fail = False
         for name in set(names):

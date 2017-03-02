@@ -36,7 +36,7 @@ def lstm_function(x, h, y,
     h_t = f * h + i * w
     h1 = o * h_t
     h2 = T.tanh(T.dot(h1, W_j) + b_j)
-    #y_t = T.tanh(T.dot(h2, W_v) + b_v)
+    # y_t = T.tanh(T.dot(h2, W_v) + b_v)
     y_t = T.dot(h2, W_v) + b_v
     return h_t, y_t
 
@@ -91,3 +91,10 @@ class LSTM(object):
         (_, yr), _ = theano.scan(lstm_function, sequences=[xr], outputs_info=outputs_info, non_sequences=self.params)
         y = T.transpose(yr, (1, 0, 2))
         return y[:, -1, :]
+
+    def regularization_loss(self, W_regularizer):
+        ws = [self.W_h, self.U_h, self.W_f, self.W_i, self.W_w, self.W_o, self.W_j, self.W_y]
+        loss = 0.0
+        for w in ws:
+            loss += W_regularizer(w)
+        return loss

@@ -31,10 +31,10 @@ def inner_function(xprev, h, z,
     h1 = o * h_t
     h2 = T.tanh(T.dot(h1, W_j) + b_j)
     y_t = T.nnet.softmax(T.dot(h2, W_v) + b_v)
-    switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
-    ending = T.concatenate((T.ones((1,)), T.zeros((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
-    y_tt = (1 - switch) * y_t + switch * ending
-    return h_t, y_tt
+    #switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
+    #ending = T.concatenate((T.ones((1,)), T.zeros((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
+    #y_tt = (1 - switch) * y_t + switch * ending
+    return h_t, y_t
 
 
 # seq, prior, non-seq
@@ -166,3 +166,10 @@ class SequenceModel(object):
                                  non_sequences=[z] + self.params)
         x = T.transpose(xr, (1, 0)) - 1
         return theano.gradient.zero_grad(x)
+
+    def regularization_loss(self, W_regularizer):
+        ws = [self.W_h, self.U_h, self.V_h, self.W_f, self.W_i, self.W_w, self.W_o, self.W_j, self.W_y]
+        loss = 0.0
+        for w in ws:
+            loss += W_regularizer(w)
+        return loss
