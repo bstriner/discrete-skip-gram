@@ -40,13 +40,16 @@ def main():
     window = 5
     test_size = 128
     autoencoded_size = 32
+    checkpoint_frequency = 100
     for epoch in tqdm(range(nb_epoch), desc="Training"):
         generated_words = dataset.matrix_to_words(model.decode(prior.prior_samples(test_size)))
         write_generated(path_generated.format(epoch), generated_words)
         samples = dataset.sample_vectors(test_size)
         sample_words = dataset.matrix_to_words(samples)
         sample_autoencodings = [dataset.matrix_to_words(model.autoencode(samples)) for _ in range(autoencoded_size)]
-        write_autoencoded(path_autoencoded.format(epoch), sample_words, sample_autoencodings)
+        if epoch % checkpoint_frequency == 0:
+            write_autoencoded(path_autoencoded.format(epoch), sample_words, sample_autoencodings)
+
         model.save(path_model.format(epoch))
         x_loss = []
         z_loss = []
