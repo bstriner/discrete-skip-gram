@@ -27,6 +27,7 @@ def write_autoencoded(path, words, autoencodings):
 def main():
     path_generated = "output/discrete_skip_gram/generated-{:08d}.txt"
     path_autoencoded = "output/discrete_skip_gram/autoencoded-{:08d}.txt"
+    path_model = "output/discrete_skip_gram/model-{:08d}.h5"
 
     words = reuters_words()
     dataset = Dataset(words)
@@ -46,7 +47,7 @@ def main():
         sample_words = dataset.matrix_to_words(samples)
         sample_autoencodings = [dataset.matrix_to_words(model.autoencode(samples)) for _ in range(autoencoded_size)]
         write_autoencoded(path_autoencoded.format(epoch), sample_words, sample_autoencodings)
-
+        model.save(path_model.format(epoch))
         x_loss = []
         z_loss = []
         for _ in tqdm(range(nb_batch), desc="Epoch {}".format(epoch)):

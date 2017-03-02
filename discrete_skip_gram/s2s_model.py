@@ -4,6 +4,8 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 from keras.optimizers import RMSprop
+import os
+import h5py
 
 
 class S2SModel(object):
@@ -54,6 +56,21 @@ class S2SModel(object):
         x_autoencoded = decode(z_gen)
 
         self.autoencode_f = theano.function([x_input], [x_autoencoded])
+        self.all_params = self.x_model.params + self.z_lstm.params + \
+                          self.z_model.params + self.x_lstm.params + \
+                          x_opt.weights + z_opt.weights
+
+    def save(self, path):
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
+        with h5py.File(path, "w") as f:
+            for p in self.all_params:
+                f.create_dataset(p.name, p.get_value())
+
+    def load(self, path):
+        with h5py.File(path, 'r') as f:
+            for p in self.all_params:
+                p.set_value(f[p.name])
 
     def train_batch(self, x_input, z_input, x_noised_input):
         return self.train_f(x_input, z_input, x_noised_input)
