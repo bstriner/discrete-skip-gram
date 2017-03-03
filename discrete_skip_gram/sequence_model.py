@@ -31,9 +31,9 @@ def inner_function(xprev, h, z,
     h1 = o * h_t
     h2 = T.tanh(T.dot(h1, W_j) + b_j)
     y_t = T.nnet.softmax(T.dot(h2, W_v) + b_v)
-    #switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
-    #ending = T.concatenate((T.ones((1,)), T.zeros((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
-    #y_tt = (1 - switch) * y_t + switch * ending
+    switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
+    ending = T.concatenate((T.ones((1,)), T.zeros((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
+    y_t = (1 - switch) * y_t + switch * ending
     return h_t, y_t
 
 
@@ -93,6 +93,32 @@ def policy_function(rng, h, xprev, z,
     x_t = T.sum(gt, axis=1)
     x_t = T.clip(x_t, 0, p_t.shape[1] - 1)
     x_t += np.int32(1)
+    x_t = T.cast(x_t, "int32")
+    return h_t, x_t
+
+# seq, prior, non-seq
+def policy_deterministic_function(h, xprev, z,
+                    W_h, U_h, V_h, b_h,
+                    W_f, b_f,
+                    W_i, b_i,
+                    W_c, b_c,
+                    W_o, b_o,
+                    W_j, b_j,
+                    W_v, b_v):
+    """
+    Creates sequence of x
+    h = hidden state (n, hidden_dim) [prior]
+    xprev = output (n,) int [prior] (k+2)
+    z = context [non-sequence]
+    """
+    h_t, y_t = inner_function(xprev, h, z, W_h, U_h, V_h, b_h,
+                              W_f, b_f,
+                              W_i, b_i,
+                              W_c, b_c,
+                              W_o, b_o,
+                              W_j, b_j,
+                              W_v, b_v)
+    x_t = T.argmax(y_t, axis=1) + 1
     x_t = T.cast(x_t, "int32")
     return h_t, x_t
 
@@ -164,6 +190,16 @@ class SequenceModel(object):
                         T.zeros((n,), dtype='int32')]
         (_, xr), _ = theano.scan(policy_function, sequences=[rngr], outputs_info=outputs_info,
                                  non_sequences=[z] + self.params)
+        x = T.transpose(xr, (1, 0)) - 1
+        return theano.gradient.zero_grad(x)
+
+    def policy_deterministic(self, z):
+        # h, xprev, z,
+        n = z.shape[0]
+        outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
+                        T.zeros((n,), dtype='int32')]
+        (_, xr), _ = theano.scan(policy_deterministic_function, outputs_info=outputs_info,
+                                 non_sequences=[z] + self.params, n_steps=self.depth)
         x = T.transpose(xr, (1, 0)) - 1
         return theano.gradient.zero_grad(x)
 

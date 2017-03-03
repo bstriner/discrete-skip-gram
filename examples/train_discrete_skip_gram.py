@@ -25,12 +25,16 @@ def write_autoencoded(path, words, autoencodings):
             f.write("{}: {}\n".format(data[0], ", ".join(data[1:])))
 
 
-def experiment(path_generated, path_autoencoded, path_model, dataset,
-               window=5, hidden_dim=256, nb_epoch=1000,
+def experiment(path_generated, path_autoencoded, path_model, dataset, prior,
+               window=5, hidden_dim=256, nb_epoch=101,
                nb_batch=64, batch_size=128, lr=1e-4,
-               checkpoint_frequency=50, regularizer=None):
-    prior = Prior(32, 5, 10)
-    model = S2SModel(dataset.x_k, dataset.depth, prior.k, prior.maxlen, hidden_dim, lr=lr, regularizer=regularizer)
+               checkpoint_frequency=50, regularizer=None,
+               encode_deterministic=False, decode_deterministic=True,
+               adversarial_x=False, adversarial_z=False):
+
+    model = S2SModel(dataset.x_k, dataset.depth, prior.k, prior.maxlen, hidden_dim, lr=lr, regularizer=regularizer,
+                     encode_deterministic=encode_deterministic, decode_deterministic=decode_deterministic,
+                     adversarial_x=adversarial_x, adversarial_z=adversarial_z)
     test_size = 128
     autoencoded_size = 32
     for epoch in tqdm(range(nb_epoch), desc="Training"):
@@ -64,6 +68,7 @@ def main():
     dataset = Dataset(words)
     window = 5
     experiment(path_generated, path_autoencoded, path_model,
+               prior = Prior(64, 5, 10),
                dataset=dataset,
                window=window,
                nb_batch=256,

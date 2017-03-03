@@ -18,12 +18,15 @@ def main():
     dataset = Dataset(words)
     window = 0
     experiment(path_generated, path_autoencoded, path_model,
+               prior=Prior(16, 5, 10),
                dataset=dataset,
                window=window,
                nb_batch=256,
-               lr=1e-4,
+               lr=3e-4,
                hidden_dim=1024,
-               regularizer=l1l2(1e-6, 1e-6))
+               regularizer=l1l2(1e-8, 1e-8),
+               encode_deterministic=True,
+               decode_deterministic=False)
 
 
 if __name__ == "__main__":

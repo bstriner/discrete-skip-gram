@@ -5,12 +5,14 @@ import numpy as np
 class Dataset(object):
     def __init__(self, words):
         self.words = list(words)
+        self.unique_words = len(set(self.words))
         self.depth = max(len(word) for word in words)
         self.charset = list(sorted(list(set(itertools.chain.from_iterable(self.words)))))
         self.charmap = {char: i for i, char in enumerate(self.charset)}
         self.x_k = len(self.charset)
         self.word_matrix = self.words_to_matrix(self.words)
-        print("Dataset words: {}, characters: {}, max length: {}".format(len(self.words), self.x_k, self.depth))
+        print("Dataset words: {}, unique words: {}, characters: {}, max length: {}".format(
+            len(self.words), self.unique_words, self.x_k, self.depth))
 
     def word_to_vector(self, word):
         assert len(word) <= self.depth
