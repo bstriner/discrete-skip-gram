@@ -59,6 +59,7 @@ class WikiDataset(object):
             print("Processing")
             for doc in self.wiki.docs():
                 if doc.id in self.ids:
+                    print("Processing doc {}".format(doc.id))
                     mat = self.words_to_matrix(tokenize(doc.text))
                     with open(self.doc_path(doc.id), 'wb') as f:
                         np.save(f, mat)
@@ -94,6 +95,7 @@ class WikiDataset(object):
         total_word_count = 0
         length = 0
         for doc in self.wiki.docs():
+            print("Preprocessing doc {}".format(doc.id))
             words = tokenize(doc.text)
             doc_len = len(words)
             if doc_len >= self.min_length:
