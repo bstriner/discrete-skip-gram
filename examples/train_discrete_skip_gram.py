@@ -25,18 +25,29 @@ def write_autoencoded(path, words, autoencodings):
             f.write("{}: {}\n".format(data[0], ", ".join(data[1:])))
 
 
-def experiment(path_generated, path_autoencoded, path_model, dataset, prior,
+def write_encoded(path, words, encodings):
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    with open(path, 'w') as f:
+        for data in zip(words, *encodings):
+            strings = "".join(d for d in data[])
+            f.write("{}: {}\n".format(data[0], ", ".join("".join
+            ""[{}]
+            ".format(d for d in data[1:]))))
+
+
+def experiment(path_generated, path_autoencoded, path_encoded, path_model, dataset, prior,
                window=5, hidden_dim=256, nb_epoch=101,
                nb_batch=64, batch_size=128, lr=1e-4,
                checkpoint_frequency=50, regularizer=None,
                encode_deterministic=False, decode_deterministic=True,
                adversarial_x=False, adversarial_z=False):
-
     model = S2SModel(dataset.x_k, dataset.depth, prior.k, prior.maxlen, hidden_dim, lr=lr, regularizer=regularizer,
                      encode_deterministic=encode_deterministic, decode_deterministic=decode_deterministic,
                      adversarial_x=adversarial_x, adversarial_z=adversarial_z)
     test_size = 128
     autoencoded_size = 32
+    encoded_size = 16
     for epoch in tqdm(range(nb_epoch), desc="Training"):
         generated_words = dataset.matrix_to_words(model.decode(prior.prior_samples(test_size)))
         write_generated(path_generated.format(epoch), generated_words)
@@ -44,6 +55,8 @@ def experiment(path_generated, path_autoencoded, path_model, dataset, prior,
         sample_words = dataset.matrix_to_words(samples)
         sample_autoencodings = [dataset.matrix_to_words(model.autoencode(samples)) for _ in range(autoencoded_size)]
         write_autoencoded(path_autoencoded.format(epoch), sample_words, sample_autoencodings)
+        sample_encodings = [model.encode(sample_words) for _ in range(encoded_size)]
+        write_encoded(path_encoded)
         if epoch % checkpoint_frequency == 0:
             model.save(path_model.format(epoch))
         x_loss = []
@@ -68,7 +81,7 @@ def main():
     dataset = Dataset(words)
     window = 5
     experiment(path_generated, path_autoencoded, path_model,
-               prior = Prior(64, 5, 10),
+               prior=Prior(64, 5, 10),
                dataset=dataset,
                window=window,
                nb_batch=256,
