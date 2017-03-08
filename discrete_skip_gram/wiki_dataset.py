@@ -90,8 +90,8 @@ class WikiDataset(object):
     def preprocess_data(self):
         print("Preprocessing")
         ids = []
-        charset = []
-        unique_words = []
+        charset = set()
+        unique_words = set()
         total_word_count = 0
         length = 0
         for doc in self.wiki.docs():
@@ -104,14 +104,14 @@ class WikiDataset(object):
                 ids.append(doc.id)
                 total_word_count += doc_len
                 for word in words:
-                    if word not in unique_words:
-                        unique_words.append(word)
+                    unique_words.add(word)
                     for char in word:
-                        if char not in charset:
-                            charset.append(char)
+                        charset.add(char)
                         if len(word) > length:
                             length = len(word)
+        charset = list(charset)
         charset.sort()
         ids.sort()
+        unique_words = list(unique_words)
         unique_words.sort()
         return length, charset, ids, unique_words, total_word_count
