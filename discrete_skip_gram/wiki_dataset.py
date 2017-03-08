@@ -85,7 +85,7 @@ class WikiDataset(object):
                 pickle.dump(data, f)
 
         self.length, self.charset, self.ids, self.unique_words, self.total_word_count = data
-        self.charmap = {c: i for i, c in enumerate(self.chars)}
+        self.charmap = {c: i for i, c in enumerate(self.charset)}
 
     def preprocess_data(self):
         print("Preprocessing")
