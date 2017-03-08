@@ -56,6 +56,7 @@ class WikiDataset(object):
     def process(self):
         self.preprocess()
         if not os.path.exists(self.log_path()):
+            print("Processing")
             for doc in self.wiki.docs():
                 if doc.id in self.ids:
                     mat = self.words_to_matrix(tokenize(doc.text))
@@ -86,6 +87,7 @@ class WikiDataset(object):
         self.charmap = {c: i for i, c in enumerate(self.chars)}
 
     def preprocess_data(self):
+        print("Preprocessing")
         ids = []
         charset = []
         words = []

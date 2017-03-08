@@ -3,6 +3,7 @@ import argparse
 from discrete_skip_gram.wiki_model import WikiModel
 from discrete_skip_gram.wiki_dataset import WikiDataset
 
+#5339722 docs in dump
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Train a DQN to control hyperparameters.')
