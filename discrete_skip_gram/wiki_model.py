@@ -7,7 +7,7 @@ class WikiDoc(object):
     def __init__(self, url, text, id, title):
         self.url = url
         self.text = text
-        self.id = id
+        self.id = int(id)
         self.title = title
 
 
