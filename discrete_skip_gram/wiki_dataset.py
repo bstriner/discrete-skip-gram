@@ -27,7 +27,7 @@ class WikiDataset(object):
         self.charset = None
         self.ids = None
         self.charmap = None
-        self.unique_word_count = None
+        self.unique_words = None
         self.total_word_count = None
 
     def data_path(self):
@@ -48,7 +48,7 @@ class WikiDataset(object):
             f.write("Data path: {}\n".format(self.data_path()))
             f.write("Doc count: {}\n".format(len(self.ids)))
             f.write("Total word count: {}\n".format(self.total_word_count))
-            f.write("Unique word count: {}\n".format(self.unique_word_count))
+            f.write("Unique word count: {}\n".format(len(self.unique_words)))
             f.write("Character count: {}\n".format(len(self.charset)))
             f.write("Longest word: {}\n".format(self.length))
             f.write("Charset: {}\n".format(", ".join("[{}]".format(c) for c in self.charset)))
@@ -79,31 +79,33 @@ class WikiDataset(object):
             with open(self.data_path(), 'rb') as f:
                 data = pickle.load(f)
         else:
-            make_path(self.data_path())
             data = self.preprocess_data()
+            make_path(self.data_path())
             with open(self.data_path(), 'wb') as f:
                 pickle.dump(data, f)
 
-        self.length, self.charset, self.ids, self.unique_word_count, self.total_word_count = data
+        self.length, self.charset, self.ids, self.unique_words, self.total_word_count = data
         self.charmap = {c: i for i, c in enumerate(self.chars)}
 
     def preprocess_data(self):
         print("Preprocessing")
         ids = []
         charset = []
-        words = []
+        unique_words = []
         total_word_count = 0
         length = 0
         for doc in self.wiki.docs():
             print("Preprocessing doc {}".format(doc.id))
             words = tokenize(doc.text)
             doc_len = len(words)
-            if doc_len >= self.min_length:
+            if doc_len < self.min_length:
+                print("Skipping doc {}, length {}".format(doc.id, doc_len))
+            else:
                 ids.append(doc.id)
                 total_word_count += doc_len
                 for word in words:
-                    if word not in words:
-                        words.append(word)
+                    if word not in unique_words:
+                        unique_words.append(word)
                     for char in word:
                         if char not in charset:
                             charset.append(char)
@@ -111,5 +113,5 @@ class WikiDataset(object):
                             length = len(word)
         charset.sort()
         ids.sort()
-        unique_word_count = len(words)
-        return length, charset, ids, unique_word_count, total_word_count
+        unique_words.sort()
+        return length, charset, ids, unique_words, total_word_count
