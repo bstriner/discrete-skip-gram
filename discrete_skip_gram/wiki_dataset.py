@@ -41,7 +41,7 @@ class WikiDataset(object):
                             'docs',
                             "{:03d}".format(doc_id / 1000000),
                             "{:03d}".format((doc_id % 1000000) / 1000),
-                            "{:09d}.npy".format(doc_id))
+                            "{:09d}.npz".format(doc_id))
 
     def write_log(self):
         with open(self.log_path(), 'w') as f:
@@ -64,17 +64,17 @@ class WikiDataset(object):
                     docpath = self.doc_path(doc_id=doc.id)
                     make_path(docpath)
                     with open(docpath, 'wb') as f:
-                        np.save(f, mat)
+                        np.savez_compressed(f, words=mat)
             self.write_log()
 
     def word_to_vector(self, word):
         vec = [self.charmap[c] + 1 for c in word]
         while len(vec) < self.length:
             vec.append(0)
-        return np.array(vec).reshape((1, -1)).astype(np.int32)
+        return np.array(vec).reshape((1, -1)).astype(np.int16)
 
     def words_to_matrix(self, words):
-        return np.vstack(self.word_to_vector(word) for word in words)
+        return np.vstack(self.word_to_vector(word) for word in words).astype(np.int16)
 
     def preprocess(self):
         if os.path.exists(self.data_path()):
