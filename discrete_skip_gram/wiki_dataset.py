@@ -61,7 +61,9 @@ class WikiDataset(object):
                 if doc.id in self.ids:
                     print("Processing doc {}".format(doc.id))
                     mat = self.words_to_matrix(tokenize(doc.text))
-                    with open(self.doc_path(doc.id), 'wb') as f:
+                    docpath = self.doc_path(doc_id=doc.id)
+                    make_path(docpath)
+                    with open(docpath, 'wb') as f:
                         np.save(f, mat)
             self.write_log()
 
