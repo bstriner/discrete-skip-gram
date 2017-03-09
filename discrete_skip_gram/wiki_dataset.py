@@ -74,7 +74,12 @@ class WikiDataset(object):
         return np.array(vec).reshape((1, -1)).astype(np.int16)
 
     def words_to_matrix(self, words):
-        return np.vstack(self.word_to_vector(word) for word in words).astype(np.int16)
+        n = len(words)
+        mat = np.zeros((n, self.length), dtype=np.int16)
+        for i, word in enumerate(words):
+            for j, c in enumerate(word):
+                mat[i, j] = self.charmap[c]+1
+        return mat
 
     def preprocess(self):
         if os.path.exists(self.data_path()):
