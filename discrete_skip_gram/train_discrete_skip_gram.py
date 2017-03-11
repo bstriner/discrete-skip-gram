@@ -54,7 +54,7 @@ def train_discrete_skip_gram(path_generated, path_autoencoded, path_encoded, pat
         sample_autoencodings = [dataset.matrix_to_words(model.autoencode(samples)) for _ in range(autoencoded_size)]
         write_autoencoded(path_autoencoded.format(epoch), sample_words, sample_autoencodings)
         sample_encodings = [model.encode(samples) for _ in range(encoded_size)]
-        write_encoded(path_encoded, sample_words, sample_encodings)
+        write_encoded(path_encoded.format(epoch), sample_words, sample_encodings)
         if epoch % checkpoint_frequency == 0:
             model.save(path_model.format(epoch))
         x_loss = []
