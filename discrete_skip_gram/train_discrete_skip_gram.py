@@ -30,13 +30,11 @@ def write_encoded(path, words, encodings):
         os.makedirs(os.path.dirname(path))
     with open(path, 'w') as f:
         for data in zip(words, *encodings):
-            strings = "".join(d for d in data[])
-            f.write("{}: {}\n".format(data[0], ", ".join("".join
-            ""[{}]
-            ".format(d for d in data[1:]))))
+            strings = "; ".join("".join("[{}]".format(c-1) for c in d if c > 0) for d in data[1:])
+            f.write("{}: {}\n".format(data[0], strings))
 
 
-def experiment(path_generated, path_autoencoded, path_encoded, path_model, dataset, prior,
+def train_discrete_skip_gram(path_generated, path_autoencoded, path_encoded, path_model, dataset, prior,
                window=5, hidden_dim=256, nb_epoch=101,
                nb_batch=64, batch_size=128, lr=1e-4,
                checkpoint_frequency=50, regularizer=None,
@@ -55,8 +53,8 @@ def experiment(path_generated, path_autoencoded, path_encoded, path_model, datas
         sample_words = dataset.matrix_to_words(samples)
         sample_autoencodings = [dataset.matrix_to_words(model.autoencode(samples)) for _ in range(autoencoded_size)]
         write_autoencoded(path_autoencoded.format(epoch), sample_words, sample_autoencodings)
-        sample_encodings = [model.encode(sample_words) for _ in range(encoded_size)]
-        write_encoded(path_encoded)
+        sample_encodings = [model.encode(samples) for _ in range(encoded_size)]
+        write_encoded(path_encoded, sample_words, sample_encodings)
         if epoch % checkpoint_frequency == 0:
             model.save(path_model.format(epoch))
         x_loss = []
@@ -71,24 +69,3 @@ def experiment(path_generated, path_autoencoded, path_encoded, path_model, datas
         z_loss = np.mean(z_loss, axis=None)
         tqdm.write("Epoch: {}, X loss: {}, Z loss: {}".format(epoch, x_loss, z_loss))
 
-
-def main():
-    path = "output/discrete_skip_gram"
-    path_generated = os.path.join(path, "generated-{:08d}.txt")
-    path_autoencoded = os.path.join(path, "autoencoded-{:08d}.txt")
-    path_model = os.path.join(path, "model-{:08d}.h5")
-    words = reuters_words()
-    dataset = Dataset(words)
-    window = 5
-    experiment(path_generated, path_autoencoded, path_model,
-               prior=Prior(64, 5, 10),
-               dataset=dataset,
-               window=window,
-               nb_batch=256,
-               lr=1e-5,
-               hidden_dim=1024,
-               regularizer=l1l2(1e-6, 1e-6))
-
-
-if __name__ == "__main__":
-    main()

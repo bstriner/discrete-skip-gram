@@ -107,10 +107,10 @@ class S2SModel(object):
         return xloss, zloss
 
     def autoencode(self, x):
-        return self.autoencode_f(x)[0]
+        return self.autoencode_f(x.astype(np.int32))[0]
 
     def encode(self, x):
-        return self.encode_f(x)[0]
+        return self.encode_f(x.astype(np.int32))[0]
 
     def decode(self, z):
-        return self.decode_f(z)[0]
+        return self.decode_f(z.astype(np.int32))[0]

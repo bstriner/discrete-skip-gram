@@ -1,4 +1,4 @@
-from train_discrete_skip_gram import experiment
+from reuters_discrete_skip_gram import experiment
 from discrete_skip_gram.dataset import Dataset
 from discrete_skip_gram.corpora import shakespeare_words
 from discrete_skip_gram.prior import Prior
