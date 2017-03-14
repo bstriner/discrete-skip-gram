@@ -8,9 +8,24 @@ from keras.layers import Input
 import numpy as np
 from keras.optimizers import Adam, RMSprop
 from tqdm import tqdm
+import theano.tensor.extra_ops as E
 from theano.tensor.shared_randomstreams import RandomStreams
 from theano import function
 from .backend import cumprod, cumsum
+
+
+def grid_space(shape):
+    row = E.repeat(T.reshape(T.arange(shape[0]), (-1, 1)), repeats=shape[1], axis=1)
+    col = E.repeat(T.reshape(T.arange(shape[1]), (1, -1)), repeats=shape[0], axis=0)
+    return row, col
+
+
+def hinge_targets(y, k):
+    ret = T.ones((y.shape[0], y.shape[1], k), dtype='int8') * -1
+    r, c = grid_space(y.shape)
+    ret = T.set_subtensor(ret[T.flatten(r), T.flatten(c), T.flatten(y)], 1)
+    # T.arange(y.shape[0]), T.arange(y.shape[1]), y], 1)
+    return ret
 
 
 def inner_function(xprev, h, z,
@@ -33,6 +48,54 @@ def inner_function(xprev, h, z,
     y_t = T.nnet.softmax(T.dot(h2, W_v) + b_v)
     switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
     ending = T.concatenate((T.ones((1,)), T.zeros((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
+    y_t = (1 - switch) * y_t + switch * ending
+    return h_t, y_t
+
+def inner_temperature_function(xprev, h, z, temperature,
+                   W_h, U_h, V_h, b_h,
+                   W_f, b_f,
+                   W_i, b_i,
+                   W_c, b_c,
+                   W_o, b_o,
+                   W_j, b_j,
+                   W_v, b_v
+                   ):
+    hh = T.tanh(T.dot(h, W_h) + U_h[xprev, :] + T.dot(z, V_h) + b_h)
+    f = T.nnet.sigmoid(T.dot(hh, W_f) + b_f)
+    i = T.nnet.sigmoid(T.dot(hh, W_i) + b_i)
+    o = T.nnet.sigmoid(T.dot(hh, W_c) + b_c)
+    w = T.tanh(T.dot(hh, W_o) + b_o)
+    h_t = f * h + i * w
+    h1 = o * h_t
+    h2 = T.tanh(T.dot(h1, W_j) + b_j)
+    y_t = T.nnet.softmax(T.dot(h2, W_v) + b_v)
+    temp = T.log(y_t)/temperature
+    y_t = T.exp(temp)/T.sum(T.exp(temp), axis=1, keepdims=True)
+    switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
+    ending = T.concatenate((T.ones((1,)), T.zeros((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
+    y_t = (1 - switch) * y_t + switch * ending
+    return h_t, y_t
+
+def inner_function_hinge(xprev, h, z,
+                         W_h, U_h, V_h, b_h,
+                         W_f, b_f,
+                         W_i, b_i,
+                         W_c, b_c,
+                         W_o, b_o,
+                         W_j, b_j,
+                         W_v, b_v
+                         ):
+    hh = T.tanh(T.dot(h, W_h) + U_h[xprev, :] + T.dot(z, V_h) + b_h)
+    f = T.nnet.sigmoid(T.dot(hh, W_f) + b_f)
+    i = T.nnet.sigmoid(T.dot(hh, W_i) + b_i)
+    o = T.nnet.sigmoid(T.dot(hh, W_c) + b_c)
+    w = T.tanh(T.dot(hh, W_o) + b_o)
+    h_t = f * h + i * w
+    h1 = o * h_t
+    h2 = T.tanh(T.dot(h1, W_j) + b_j)
+    y_t = T.dot(h2, W_v) + b_v
+    switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
+    ending = T.concatenate((T.ones((1,)), -1 * T.ones((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
     y_t = (1 - switch) * y_t + switch * ending
     return h_t, y_t
 
@@ -63,6 +126,32 @@ def likelihood_function(xprev, x, h, y, z,
                               W_v, b_v)
     y_tt = y_t[T.arange(y_t.shape[0]), x]
     return h_t, y_tt
+
+
+def hinge_function(xprev, x, h, y, z,
+                   W_h, U_h, V_h, b_h,
+                   W_f, b_f,
+                   W_i, b_i,
+                   W_c, b_c,
+                   W_o, b_o,
+                   W_j, b_j,
+                   W_v, b_v):
+    """
+    Returns sequences of likelihoods given sequences of X
+    xprev = previous output (n,) int [sequence] (k+2)
+    x = output (n,) int [sequence] (k+1)
+    h = hidden state (n, hidden_dim) [prior]
+    y = last discriminator value (unused) [prior]
+    z = context [non-sequence]
+    """
+    h_t, y_t = inner_function_hinge(xprev, h, z, W_h, U_h, V_h, b_h,
+                                    W_f, b_f,
+                                    W_i, b_i,
+                                    W_c, b_c,
+                                    W_o, b_o,
+                                    W_j, b_j,
+                                    W_v, b_v)
+    return h_t, y_t
 
 
 # seq, prior, non-seq
@@ -97,7 +186,7 @@ def policy_function(rng, h, xprev, z,
     return h_t, x_t
 
 # seq, prior, non-seq
-def policy_deterministic_function(h, xprev, z,
+def policy_temperature_function(rng, h, xprev, z, temperature,
                     W_h, U_h, V_h, b_h,
                     W_f, b_f,
                     W_i, b_i,
@@ -105,6 +194,67 @@ def policy_deterministic_function(h, xprev, z,
                     W_o, b_o,
                     W_j, b_j,
                     W_v, b_v):
+    """
+    Creates sequence of x given rng
+    rng = random [0-1] [sequence]
+    h = hidden state (n, hidden_dim) [prior]
+    xprev = output (n,) int [prior] (k+2)
+    z = context [non-sequence]
+    """
+    h_t, y_t = inner_temperature_function(xprev, h, z, temperature,
+                            W_h, U_h, V_h, b_h,
+                              W_f, b_f,
+                              W_i, b_i,
+                              W_c, b_c,
+                              W_o, b_o,
+                              W_j, b_j,
+                              W_v, b_v)
+    p_t = cumsum(y_t)
+    gt = T.gt(rng.dimshuffle((0, 'x')), p_t)
+    x_t = T.sum(gt, axis=1)
+    x_t = T.clip(x_t, 0, p_t.shape[1] - 1)
+    x_t += np.int32(1)
+    x_t = T.cast(x_t, "int32")
+    return h_t, x_t
+
+
+# seq, prior, non-seq
+def policy_hinge_function(h, xprev, z,
+                          W_h, U_h, V_h, b_h,
+                          W_f, b_f,
+                          W_i, b_i,
+                          W_c, b_c,
+                          W_o, b_o,
+                          W_j, b_j,
+                          W_v, b_v):
+    """
+    Creates sequence of x given rng
+    rng = random [0-1] [sequence]
+    h = hidden state (n, hidden_dim) [prior]
+    xprev = output (n,) int [prior] (k+2)
+    z = context [non-sequence]
+    """
+    h_t, y_t = inner_function_hinge(xprev, h, z, W_h, U_h, V_h, b_h,
+                                    W_f, b_f,
+                                    W_i, b_i,
+                                    W_c, b_c,
+                                    W_o, b_o,
+                                    W_j, b_j,
+                                    W_v, b_v)
+    x_t = T.argmax(y_t, axis=1) + 1
+    x_t = T.cast(x_t, "int32")
+    return h_t, x_t
+
+
+# seq, prior, non-seq
+def policy_deterministic_function(h, xprev, z,
+                                  W_h, U_h, V_h, b_h,
+                                  W_f, b_f,
+                                  W_i, b_i,
+                                  W_c, b_c,
+                                  W_o, b_o,
+                                  W_j, b_j,
+                                  W_v, b_v):
     """
     Creates sequence of x
     h = hidden state (n, hidden_dim) [prior]
@@ -176,6 +326,19 @@ class SequenceModel(object):
         p = T.transpose(pr, (1, 0))
         return p
 
+    def hinge(self, x, z):
+        # xprev, x, h, y, z
+        n = x.shape[0]
+        xprev = T.concatenate((T.zeros((n, 1), dtype='int32'), 1 + x[:, :-1]), axis=1)
+        xr = T.transpose(x, (1, 0))
+        xprevr = T.transpose(xprev, (1, 0))
+        outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
+                        T.zeros((n, self.k+1), dtype='float32')]
+        (_, pr), _ = theano.scan(hinge_function, sequences=[xprevr, xr], outputs_info=outputs_info,
+                                 non_sequences=[z] + self.params)
+        p = T.transpose(pr, (1, 0, 2))
+        return p
+
     def likelihood(self, x, z):
         return cumprod(self.partial_likelihood(x, z))
 
@@ -193,12 +356,33 @@ class SequenceModel(object):
         x = T.transpose(xr, (1, 0)) - 1
         return theano.gradient.zero_grad(x)
 
+    def policy_temperature(self, rng, z, temperature):
+        # rng, h, xprev, z,
+        n = rng.shape[0]
+        rngr = T.transpose(rng, (1, 0))
+        outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
+                        T.zeros((n,), dtype='int32')]
+        (_, xr), _ = theano.scan(policy_temperature_function, sequences=[rngr], outputs_info=outputs_info,
+                                 non_sequences=[z, temperature] + self.params)
+        x = T.transpose(xr, (1, 0)) - 1
+        return theano.gradient.zero_grad(x)
+
     def policy_deterministic(self, z):
         # h, xprev, z,
         n = z.shape[0]
         outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
                         T.zeros((n,), dtype='int32')]
         (_, xr), _ = theano.scan(policy_deterministic_function, outputs_info=outputs_info,
+                                 non_sequences=[z] + self.params, n_steps=self.depth)
+        x = T.transpose(xr, (1, 0)) - 1
+        return theano.gradient.zero_grad(x)
+
+    def policy_hinge(self, z):
+        # h, xprev, z,
+        n = z.shape[0]
+        outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
+                        T.zeros((n,), dtype='int32')]
+        (_, xr), _ = theano.scan(policy_hinge_function, outputs_info=outputs_info,
                                  non_sequences=[z] + self.params, n_steps=self.depth)
         x = T.transpose(xr, (1, 0)) - 1
         return theano.gradient.zero_grad(x)

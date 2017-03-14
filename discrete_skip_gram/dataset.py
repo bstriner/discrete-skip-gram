@@ -98,15 +98,18 @@ class DatasetFiles(Dataset):
         wordcount = words.shape[0]
         ind = np.random.randint(0, wordcount)
         w1 = words[ind, :]
-        indmin = max(0, ind - window)
-        indmax = min(wordcount - 1, ind + window)
-        opts = list(range(indmin, ind)) + list(range(ind + 1, indmax + 1))
-        optlen = len(opts)
-        assert optlen > 0
-        x = np.random.randint(0, optlen)
-        ind2 = opts[x]
-        w2 = words[ind2, :]
-        return w1, w2
+        if window == 0:
+            return w1, w1
+        else:
+            indmin = max(0, ind - window)
+            indmax = min(wordcount - 1, ind + window)
+            opts = list(range(indmin, ind)) + list(range(ind + 1, indmax + 1))
+            optlen = len(opts)
+            assert optlen > 0
+            x = np.random.randint(0, optlen)
+            ind2 = opts[x]
+            w2 = words[ind2, :]
+            return w1, w2
 
     def sample_vector(self):
         fileid = self.sample_fileid()

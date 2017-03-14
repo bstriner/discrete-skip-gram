@@ -1,4 +1,4 @@
-from .sequence_model import SequenceModel
+from .sequence_model import SequenceModel, hinge_targets
 from .lstm import LSTM
 import theano
 import theano.tensor as T
@@ -8,14 +8,16 @@ import os
 import h5py
 import numpy as np
 
+
 class S2SModel(object):
     def __init__(self, x_k, x_depth, z_k, z_depth, hidden_dim, lr, regularizer=None,
                  encode_deterministic=False, decode_deterministic=True,
-                 adversarial_x=False, adversarial_z=False):
+                 adversarial_x=False, adversarial_z=False,
+                 decay_z=None):
         self.x_model = SequenceModel("x_model", x_k, x_depth, hidden_dim, hidden_dim)
         self.z_model = SequenceModel("z_model", z_k, z_depth, hidden_dim, hidden_dim)
-        self.x_lstm = LSTM("x_lstm", x_k, x_depth, hidden_dim)
-        self.z_lstm = LSTM("z_lstm", z_k, z_depth, hidden_dim)
+        self.x_lstm = LSTM("x_lstm", x_k, hidden_dim)
+        self.z_lstm = LSTM("z_lstm", z_k, hidden_dim)
 
         x_input = T.imatrix("x_input")
         x_noised_input = T.imatrix("x_noised_input")
@@ -23,12 +25,19 @@ class S2SModel(object):
 
         srng = RandomStreams(seed=234)
 
+        _epoch = theano.shared(np.float32(0), "epoch")
+        parameter_updates = [(_epoch, _epoch + 1)]
+
         def encode(x):
             if encode_deterministic:
-                return self.z_model.policy_deterministic(self.x_lstm.call(x))
+                return self.z_model.policy_hinge(self.x_lstm.call(x))
             else:
                 rng = srng.uniform(size=(x.shape[0], z_depth), low=0, high=1, dtype='float32')
-                return self.z_model.policy(rng, self.x_lstm.call(x))
+                if decay_z:
+                    _temperature = np.float32(1.0) / (np.float32(1.0) + _epoch*np.float32(decay_z))
+                    return self.z_model.policy_temperature(rng, self.x_lstm.call(x), _temperature)
+                else:
+                    return self.z_model.policy(rng, self.x_lstm.call(x))
 
         def decode(z):
             if decode_deterministic:
@@ -38,21 +47,49 @@ class S2SModel(object):
                 return self.x_model.policy(rng, self.z_lstm.call(z))
 
         def z_p(x, z):
-            return self.z_model.likelihood(z, self.x_lstm.call(x))
+            if encode_deterministic:
+                return self.z_model.hinge(z, self.x_lstm.call(x))
+            else:
+                return self.z_model.likelihood(z, self.x_lstm.call(x))
 
         def x_p(x, z):
-            return self.x_model.likelihood(x, self.z_lstm.call(z))
+            if decode_deterministic:
+                return self.x_model.hinge(x, self.z_lstm.call(z))
+            else:
+                return self.x_model.likelihood(x, self.z_lstm.call(z))
 
         x_gen = decode(z_input)
         z_gen = encode(x_input)
 
         eps = 1e-8
-        x_loss = T.mean(-T.log(eps+x_p(x_noised_input, z_gen)), axis=None)
-        if adversarial_x:
-            x_loss += T.mean(-T.log(eps+1 - x_p(x_gen, z_input)), axis=None)
-        z_loss = T.mean(-T.log(eps+z_p(x_gen, z_input)), axis=None)
-        if adversarial_z:
-            z_loss += T.mean(-T.log(eps+1 - z_p(x_noised_input, z_gen)), axis=None)
+        # eps = 0
+        # x loss
+        if decode_deterministic:
+            x_targets = hinge_targets(x_input, k=x_k + 1)
+            x_pred = x_p(x_input, z_gen)
+            x_loss = T.mean(T.nnet.relu(-x_targets * x_pred + 1), axis=None)
+
+        else:
+            x_loss = T.mean(-T.log(eps + x_p(x_noised_input, z_gen)), axis=None)
+            if adversarial_x:
+                x_loss += T.mean(-T.log(eps + 1 - x_p(x_gen, z_input)), axis=None)
+
+        # z loss
+        if encode_deterministic:
+            z_targets = hinge_targets(z_input, k=z_k + 1)
+            z_pred = z_p(x_gen, z_input)
+            z_loss = T.mean(T.nnet.relu(-z_targets * z_pred + 1), axis=None)
+            if adversarial_z:
+                z_targets2 = hinge_targets(z_gen, k=z_k + 1)
+                z_pred2 = z_p(x_input, z_gen)
+                z_loss2 = T.mean(T.nnet.relu(-z_targets2 * z_pred2 + 1), axis=None)
+                z_loss -= z_loss2
+
+        else:
+            z_loss = T.mean(-T.log(eps + z_p(x_gen, z_input)), axis=None)
+            if adversarial_z:
+                z_loss += T.mean(-T.log(eps + 1 - z_p(x_input, z_gen)), axis=None)
+        # z_loss = T.mean(-T.log(eps + z_p(x_gen, z_input)), axis=None)
 
         reg_loss = 0.0
         if regularizer:
@@ -66,11 +103,12 @@ class S2SModel(object):
         # z_updates = z_opt.get_updates(self.z_model.params + self.x_lstm.params, {}, z_loss)
         # updates = x_updates + z_updates
         loss = x_loss + z_loss + reg_loss
-        opt = Adam(lr)
+        opt = RMSprop(lr)
         self.all_params = self.x_model.params + self.z_lstm.params + \
                           self.z_model.params + self.x_lstm.params
         updates = opt.get_updates(self.all_params, {}, loss)
-        self.train_f = theano.function([x_input, z_input, x_noised_input], [x_loss, z_loss], updates=updates)
+        self.train_f = theano.function([x_input, z_input, x_noised_input], [x_loss, z_loss],
+                                       updates=updates + parameter_updates)
         self.encode_f = theano.function([x_input], [z_gen])
         self.decode_f = theano.function([z_input], [x_gen])
 

@@ -47,8 +47,7 @@ class LSTM(object):
     x = input (int)
     """
 
-    def __init__(self, name, k, depth, hidden_dim):
-        self.depth = depth
+    def __init__(self, name, k, hidden_dim):
         self.k = k
         self.hidden_dim = hidden_dim
 

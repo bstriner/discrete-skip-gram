@@ -39,10 +39,10 @@ def train_discrete_skip_gram(path_generated, path_autoencoded, path_encoded, pat
                nb_batch=64, batch_size=128, lr=1e-4,
                checkpoint_frequency=50, regularizer=None,
                encode_deterministic=False, decode_deterministic=True,
-               adversarial_x=False, adversarial_z=False):
+               adversarial_x=False, adversarial_z=False, decay_z=None):
     model = S2SModel(dataset.x_k, dataset.depth, prior.k, prior.maxlen, hidden_dim, lr=lr, regularizer=regularizer,
                      encode_deterministic=encode_deterministic, decode_deterministic=decode_deterministic,
-                     adversarial_x=adversarial_x, adversarial_z=adversarial_z)
+                     adversarial_x=adversarial_x, adversarial_z=adversarial_z, decay_z=decay_z)
     test_size = 128
     autoencoded_size = 32
     encoded_size = 16
