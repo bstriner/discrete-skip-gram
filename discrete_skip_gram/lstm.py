@@ -3,7 +3,7 @@ import os
 # os.environ["THEANO_FLAGS"] = "mode=FAST_COMPILE,device=cpu,floatX=float32"
 import theano
 import theano.tensor as T
-from keras.initializations import zero, glorot_uniform
+from keras.initializers import zero, glorot_uniform
 from keras.layers import Input
 import numpy as np
 from keras.optimizers import Adam, RMSprop
@@ -12,7 +12,7 @@ from theano.tensor.shared_randomstreams import RandomStreams
 from theano import function
 from .backend import cumprod, cumsum
 
-
+import keras.backend as K
 def lstm_function(x, h, y,
                   W_h, U_h, b_h,
                   W_f, b_f,
@@ -40,6 +40,11 @@ def lstm_function(x, h, y,
     y_t = T.dot(h2, W_v) + b_v
     return h_t, y_t
 
+def make_W(shape, name):
+    return K.variable(glorot_uniform()(shape), name=name)
+def make_b(shape, name):
+    return K.variable(zero()(shape), name=name)
+
 
 class LSTM(object):
     """
@@ -52,28 +57,28 @@ class LSTM(object):
         self.hidden_dim = hidden_dim
 
         # Hidden representation
-        self.W_h = glorot_uniform((hidden_dim, hidden_dim), "{}_W_h".format(name))  # h, (hidden_dim, hidden_dim)
-        self.U_h = glorot_uniform((k + 1, hidden_dim), "{}_U_h".format(name))  # x, (k+1, hidden_dim)
-        self.b_h = zero((hidden_dim,), "{}_b_h".format(name))  # (hidden_dim,)
+        self.W_h = make_W((hidden_dim, hidden_dim), "{}_W_h".format(name))  # h, (hidden_dim, hidden_dim)
+        self.U_h = make_W((k + 1, hidden_dim), "{}_U_h".format(name))  # x, (k+1, hidden_dim)
+        self.b_h = make_b((hidden_dim,), "{}_b_h".format(name))  # (hidden_dim,)
 
         # Forget gate
-        self.W_f = glorot_uniform((hidden_dim, hidden_dim), "{}_W_f".format(name))
-        self.b_f = zero((hidden_dim,), "{}_b_f".format(name))
+        self.W_f = make_W((hidden_dim, hidden_dim), "{}_W_f".format(name))
+        self.b_f = make_b((hidden_dim,), "{}_b_f".format(name))
         # Input gate
-        self.W_i = glorot_uniform((hidden_dim, hidden_dim), "{}_W_i".format(name))
-        self.b_i = zero((hidden_dim,), "{}_b_i".format(name))
+        self.W_i = make_W((hidden_dim, hidden_dim), "{}_W_i".format(name))
+        self.b_i = make_b((hidden_dim,), "{}_b_i".format(name))
         # Write gate
-        self.W_w = glorot_uniform((hidden_dim, hidden_dim), "{}_W_w".format(name))
-        self.b_w = zero((hidden_dim,), "{}_b_w".format(name))
+        self.W_w = make_W((hidden_dim, hidden_dim), "{}_W_w".format(name))
+        self.b_w = make_b((hidden_dim,), "{}_b_w".format(name))
         # Output
-        self.W_o = glorot_uniform((hidden_dim, hidden_dim), "{}_W_o".format(name))
-        self.b_o = zero((hidden_dim,), "{}_b_o".format(name))
+        self.W_o = make_W((hidden_dim, hidden_dim), "{}_W_o".format(name))
+        self.b_o = make_b((hidden_dim,), "{}_b_o".format(name))
         # Hidden state
-        self.W_j = glorot_uniform((hidden_dim, hidden_dim), "{}_W_j".format(name))
-        self.b_j = zero((hidden_dim,), "{}_b_j".format(name))
+        self.W_j = make_W((hidden_dim, hidden_dim), "{}_W_j".format(name))
+        self.b_j = make_b((hidden_dim,), "{}_b_j".format(name))
         # y predictions
-        self.W_y = glorot_uniform((hidden_dim, hidden_dim), "{}_W_y".format(name))
-        self.b_y = zero((hidden_dim,), "{}_b_y".format(name))
+        self.W_y = make_W((hidden_dim, hidden_dim), "{}_W_y".format(name))
+        self.b_y = make_b((hidden_dim,), "{}_b_y".format(name))
         # self.clip_params = [self.W_h, self.U_h, self.W_f, self.W_i, self.W_w, self.W_o, self.W_j, self.W_y]
         self.params = [self.W_h, self.U_h, self.b_h,
                        self.W_f, self.b_f,

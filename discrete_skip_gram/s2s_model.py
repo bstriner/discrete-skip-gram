@@ -103,12 +103,22 @@ class S2SModel(object):
         # z_updates = z_opt.get_updates(self.z_model.params + self.x_lstm.params, {}, z_loss)
         # updates = x_updates + z_updates
         loss = x_loss + z_loss + reg_loss
+        """
         opt = RMSprop(lr)
         self.all_params = self.x_model.params + self.z_lstm.params + \
                           self.z_model.params + self.x_lstm.params
         updates = opt.get_updates(self.all_params, {}, loss)
         self.train_f = theano.function([x_input, z_input, x_noised_input], [x_loss, z_loss],
                                        updates=updates + parameter_updates)
+                """
+        zopt = RMSprop(1e-3)
+        xopt = RMSprop(1e-4)
+        zparams = self.z_model.params + self.x_lstm.params
+        xparams = self.x_model.params + self.z_lstm.params
+        zupdates = zopt.get_updates(zparams, {}, z_loss+reg_loss)
+        xupdates = xopt.get_updates(xparams, {}, x_loss+reg_loss)
+        self.train_f = theano.function([x_input, z_input, x_noised_input],[x_loss, z_loss], updates=zupdates+xupdates)
+
         self.encode_f = theano.function([x_input], [z_gen])
         self.decode_f = theano.function([z_input], [x_gen])
 

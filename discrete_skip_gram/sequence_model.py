@@ -3,7 +3,7 @@ import os
 # os.environ["THEANO_FLAGS"] = "mode=FAST_COMPILE,device=cpu,floatX=float32"
 import theano
 import theano.tensor as T
-from keras.initializations import zero, glorot_uniform
+from keras.initializers import zero, glorot_uniform
 from keras.layers import Input
 import numpy as np
 from keras.optimizers import Adam, RMSprop
@@ -12,7 +12,7 @@ import theano.tensor.extra_ops as E
 from theano.tensor.shared_randomstreams import RandomStreams
 from theano import function
 from .backend import cumprod, cumsum
-
+import keras.backend as K
 
 def grid_space(shape):
     row = E.repeat(T.reshape(T.arange(shape[0]), (-1, 1)), repeats=shape[1], axis=1)
@@ -128,7 +128,7 @@ def likelihood_function(xprev, x, h, y, z,
     return h_t, y_tt
 
 
-def hinge_function(xprev, x, h, y, z,
+def hinge_function(xprev, h, y, z,
                    W_h, U_h, V_h, b_h,
                    W_f, b_f,
                    W_i, b_i,
@@ -272,6 +272,10 @@ def policy_deterministic_function(h, xprev, z,
     x_t = T.cast(x_t, "int32")
     return h_t, x_t
 
+def make_W(shape, name):
+    return K.variable(glorot_uniform()(shape), name=name)
+def make_b(shape, name):
+    return K.variable(zero()(shape), name=name)
 
 class SequenceModel(object):
     def __init__(self, name, k, depth, latent_dim, hidden_dim):
@@ -281,29 +285,29 @@ class SequenceModel(object):
         self.hidden_dim = hidden_dim
 
         # Hidden representation
-        self.W_h = glorot_uniform((hidden_dim, hidden_dim), "{}_W_h".format(name))  # h, (hidden_dim, hidden_dim)
-        self.U_h = glorot_uniform((k + 2, hidden_dim), "{}_U_h".format(name))  # x, (k+1, hidden_dim)
-        self.V_h = glorot_uniform((latent_dim, hidden_dim), "{}_V_h".format(name))  # z (latent_dim, hidden_dim)
-        self.b_h = zero((hidden_dim,), "{}_b_h".format(name))  # (hidden_dim,)
+        self.W_h = make_W((hidden_dim, hidden_dim), "{}_W_h".format(name))  # h, (hidden_dim, hidden_dim)
+        self.U_h = make_W((k + 2, hidden_dim), "{}_U_h".format(name))  # x, (k+1, hidden_dim)
+        self.V_h = make_W((latent_dim, hidden_dim), "{}_V_h".format(name))  # z (latent_dim, hidden_dim)
+        self.b_h = make_b((hidden_dim,), "{}_b_h".format(name))  # (hidden_dim,)
 
         # Forget gate
-        self.W_f = glorot_uniform((hidden_dim, hidden_dim), "{}_W_f".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_f = zero((hidden_dim,), "{}_b_f".format(name))  # (hidden_dim,)
+        self.W_f = make_W((hidden_dim, hidden_dim), "{}_W_f".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_f = make_b((hidden_dim,), "{}_b_f".format(name))  # (hidden_dim,)
         # Input gate
-        self.W_i = glorot_uniform((hidden_dim, hidden_dim), "{}_W_i".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_i = zero((hidden_dim,), "{}_b_i".format(name))  # (hidden_dim,)
+        self.W_i = make_W((hidden_dim, hidden_dim), "{}_W_i".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_i = make_b((hidden_dim,), "{}_b_i".format(name))  # (hidden_dim,)
         # Write gate
-        self.W_w = glorot_uniform((hidden_dim, hidden_dim), "{}_W_w".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_w = zero((hidden_dim,), "{}_b_w".format(name))  # (hidden_dim,)
+        self.W_w = make_W((hidden_dim, hidden_dim), "{}_W_w".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_w = make_b((hidden_dim,), "{}_b_w".format(name))  # (hidden_dim,)
         # Output
-        self.W_o = glorot_uniform((hidden_dim, hidden_dim), "{}_W_o".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_o = zero((hidden_dim,), "{}_b_o".format(name))  # (hidden_dim,)
+        self.W_o = make_W((hidden_dim, hidden_dim), "{}_W_o".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_o = make_b((hidden_dim,), "{}_b_o".format(name))  # (hidden_dim,)
         # Hidden state
-        self.W_j = glorot_uniform((hidden_dim, hidden_dim), "{}_W_j".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_j = zero((hidden_dim,), "{}_b_j".format(name))  # (hidden_dim,)
+        self.W_j = make_W((hidden_dim, hidden_dim), "{}_W_j".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_j = make_b((hidden_dim,), "{}_b_j".format(name))  # (hidden_dim,)
         # y predictions
-        self.W_y = glorot_uniform((hidden_dim, k + 1), "{}_W_y".format(name))  # z, (latent_dim, hidden_dim)
-        self.b_y = zero((k + 1,), "{}_b_y".format(name))  # (hidden_dim,)
+        self.W_y = make_W((hidden_dim, k + 1), "{}_W_y".format(name))  # z, (latent_dim, hidden_dim)
+        self.b_y = make_b((k + 1,), "{}_b_y".format(name))  # (hidden_dim,)
         # self.clip_params = [self.W_h, self.U_h, self.W_f, self.W_i, self.W_w, self.W_o, self.W_j, self.W_y]
         self.params = [self.W_h, self.U_h, self.V_h, self.b_h,
                        self.W_f, self.b_f,
@@ -329,12 +333,12 @@ class SequenceModel(object):
     def hinge(self, x, z):
         # xprev, x, h, y, z
         n = x.shape[0]
+        #xprev = T.concatenate((T.zeros((n, 1), dtype='int32'), 1 + x[:, :-1]), axis=1)
         xprev = T.concatenate((T.zeros((n, 1), dtype='int32'), 1 + x[:, :-1]), axis=1)
-        xr = T.transpose(x, (1, 0))
         xprevr = T.transpose(xprev, (1, 0))
         outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
                         T.zeros((n, self.k+1), dtype='float32')]
-        (_, pr), _ = theano.scan(hinge_function, sequences=[xprevr, xr], outputs_info=outputs_info,
+        (_, pr), _ = theano.scan(hinge_function, sequences=[xprevr], outputs_info=outputs_info,
                                  non_sequences=[z] + self.params)
         p = T.transpose(pr, (1, 0, 2))
         return p

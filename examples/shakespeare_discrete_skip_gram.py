@@ -22,7 +22,7 @@ def main():
                window=0, hidden_dim=512, nb_epoch=1001,
                nb_batch=256, batch_size=128, lr=1e-3,
                checkpoint_frequency=50, regularizer=None,
-               encode_deterministic=False, decode_deterministic=False,
+               encode_deterministic=True, decode_deterministic=False,
                adversarial_x=False, adversarial_z=False,
                              decay_z=0.001)
 
