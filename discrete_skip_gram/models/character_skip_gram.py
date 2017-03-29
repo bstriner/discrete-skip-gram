@@ -35,8 +35,8 @@ def loss_layer(y_k):
         loss_raw = (-target_y * T.log(_dec_y)) + (-(1 - target_y) * T.log(1 - _dec_y))
         loss_weighted = loss_raw * (_enc_p.dimshuffle((0, 1, 'x', 2, 'x')))
         # mask loss
-        mask = T.eq(_y, 0).dimshuffle((0, 'x', 1, 'x', 'x'))
-        loss = (1 - mask) * loss_weighted
+        mask = T.neq(_y, 0).dimshuffle((0, 'x', 1, 'x', 'x'))
+        loss = mask * loss_weighted
         return T.sum(T.sum(T.sum(T.sum(loss, axis=-1), axis=-1), axis=-1), axis=-1, keepdims=True)
 
     return Lambda(f, output_shape=lambda _x: (_x[0][0], 1), name="loss_layer")
@@ -48,7 +48,7 @@ class CharacterSkipGram(object):
         char_lstm = CharacterLSTM(x_k, units=units)
         encoder_lstm = EncoderLSTM(latent_k, units=units)
         decoder_h_lstm = DiscreteLSTM(latent_k + 1, units=units, return_sequences=True)
-        decoder_hy_lstm = DiscreteLSTM(y_k + 2, units=units, return_sequences=True)
+        decoder_hy_lstm = DiscreteLSTM(y_k + 3, units=units, return_sequences=True)
         decoder_merge = DecoderMerge(y_k=y_k, z_k=latent_k, units=units)
 
         x = Input((None,), dtype='int32')

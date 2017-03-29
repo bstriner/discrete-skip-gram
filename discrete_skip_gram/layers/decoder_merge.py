@@ -60,7 +60,7 @@ class DecoderMerge(Layer):
         assert (len(dec_h) == 3)
         return dec_h[0], dec_h[1], hy[1], self.z_k, self.y_k + 2
 
-    def inner_step(self, hy, y0, dec_h, *params):
+    def inner_step(self, hy, dec_h, *params):
         (h1_W, h1_U, h1_b,
          h2_W, h2_b,
          y_W, y_b) = params
@@ -70,9 +70,8 @@ class DecoderMerge(Layer):
         y1 = softmax_2d(y1)
         return y1
 
-    def step(self, dec_h, y0, hy, *params):
-        n = dec_h.shape[0]
-        outputs_info = [T.zeros((n, self.z_k, self.y_k + 2), dtype='float32')]
+    def step(self, dec_h, hy, *params):
+        outputs_info = [None]
         y1, _ = theano.scan(self.inner_step, sequences=[hy], outputs_info=outputs_info,
                             non_sequences=[dec_h] + list(params))
         return y1
@@ -86,9 +85,7 @@ class DecoderMerge(Layer):
         """
         hyr = T.transpose(hy, (1, 0, 2))
         dec_h_r = T.transpose(dec_h, (1, 0, 2))
-        n = hy.shape[0]
-        depth = hy.shape[1]
-        outputs_info = [T.zeros((depth, n, self.z_k, self.y_k + 2), dtype='float32')]
+        outputs_info = [None]
         outputr, _ = theano.scan(self.step, sequences=dec_h_r, outputs_info=outputs_info,
                                  non_sequences=[hyr] + self.non_sequences)
         # outputr: z_depth, x_depth, n, z_k, x_k

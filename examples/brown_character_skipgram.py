@@ -1,5 +1,5 @@
 import os
-os.environ["THEANO_FLAGS"]="optimizer=None"
+#os.environ["THEANO_FLAGS"]="optimizer=None"
 
 from nltk.corpus import brown
 import itertools
