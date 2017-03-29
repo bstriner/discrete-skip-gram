@@ -23,8 +23,8 @@ def main():
                nb_batch=256, batch_size=128, lr=1e-3,
                checkpoint_frequency=50, regularizer=None,
                encode_deterministic=True, decode_deterministic=False,
-               adversarial_x=False, adversarial_z=False,
-                             decay_z=0.001)
+               adversarial_x=False, adversarial_z=False)
+#                             decay_z=0.001)
 
 if __name__ == "__main__":
     main()

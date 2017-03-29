@@ -30,7 +30,7 @@ class S2SModel(object):
 
         def encode(x):
             if encode_deterministic:
-                return self.z_model.policy_hinge(self.x_lstm.call(x))
+                return self.z_model.policy_hinge(self.x_lstm.call(x), exploration=0.3)
             else:
                 rng = srng.uniform(size=(x.shape[0], z_depth), low=0, high=1, dtype='float32')
                 if decay_z:
@@ -41,7 +41,7 @@ class S2SModel(object):
 
         def decode(z):
             if decode_deterministic:
-                return self.x_model.policy_deterministic(self.z_lstm.call(z))
+                return self.x_model.policy_hinge(self.z_lstm.call(z), exploration=1e-1)
             else:
                 rng = srng.uniform(size=(z.shape[0], x_depth), low=0, high=1, dtype='float32')
                 return self.x_model.policy(rng, self.z_lstm.call(z))
@@ -59,14 +59,15 @@ class S2SModel(object):
                 return self.x_model.likelihood(x, self.z_lstm.call(z))
 
         x_gen = decode(z_input)
-        z_gen = encode(x_input)
+        z_gen = self.z_model.policy_hinge(self.x_lstm.call(x_input), exploration=1e-1)
+        z_gen_det = self.z_model.policy_hinge(self.x_lstm.call(x_input), exploration=0)
 
         eps = 1e-8
         # eps = 0
         # x loss
         if decode_deterministic:
-            x_targets = hinge_targets(x_input, k=x_k + 1)
-            x_pred = x_p(x_input, z_gen)
+            x_targets = hinge_targets(x_noised_input, k=x_k + 1)
+            x_pred = x_p(x_noised_input, z_gen)
             x_loss = T.mean(T.nnet.relu(-x_targets * x_pred + 1), axis=None)
 
         else:
@@ -112,7 +113,7 @@ class S2SModel(object):
                                        updates=updates + parameter_updates)
                 """
         zopt = RMSprop(1e-3)
-        xopt = RMSprop(1e-4)
+        xopt = RMSprop(1e-3)
         zparams = self.z_model.params + self.x_lstm.params
         xparams = self.x_model.params + self.z_lstm.params
         zupdates = zopt.get_updates(zparams, {}, z_loss+reg_loss)
@@ -125,6 +126,7 @@ class S2SModel(object):
         x_autoencoded = decode(z_gen)
 
         self.autoencode_f = theano.function([x_input], [x_autoencoded])
+        self.all_params = zparams+xparams
         names = [p.name for p in self.all_params]
         fail = False
         for name in set(names):

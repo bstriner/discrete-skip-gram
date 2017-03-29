@@ -94,9 +94,6 @@ def inner_function_hinge(xprev, h, z,
     h1 = o * h_t
     h2 = T.tanh(T.dot(h1, W_j) + b_j)
     y_t = T.dot(h2, W_v) + b_v
-    switch = T.eq(xprev, 1).dimshuffle((0, 'x'))
-    ending = T.concatenate((T.ones((1,)), -1 * T.ones((y_t.shape[1] - 1,)))).dimshuffle(('x', 0))
-    y_t = (1 - switch) * y_t + switch * ending
     return h_t, y_t
 
 
@@ -219,7 +216,7 @@ def policy_temperature_function(rng, h, xprev, z, temperature,
 
 
 # seq, prior, non-seq
-def policy_hinge_function(h, xprev, z,
+def policy_hinge_function(rngf, rngi, h, xprev, z, exploration,
                           W_h, U_h, V_h, b_h,
                           W_f, b_f,
                           W_i, b_i,
@@ -241,7 +238,9 @@ def policy_hinge_function(h, xprev, z,
                                     W_o, b_o,
                                     W_j, b_j,
                                     W_v, b_v)
-    x_t = T.argmax(y_t, axis=1) + 1
+    switch = exploration > rngf
+    x_t = T.argmax(y_t, axis=1)
+    x_t = switch*rngi + (1-switch)*x_t
     x_t = T.cast(x_t, "int32")
     return h_t, x_t
 
@@ -283,6 +282,7 @@ class SequenceModel(object):
         self.k = k
         self.latent_dim = latent_dim
         self.hidden_dim = hidden_dim
+        self.srng = RandomStreams(123)
 
         # Hidden representation
         self.W_h = make_W((hidden_dim, hidden_dim), "{}_W_h".format(name))  # h, (hidden_dim, hidden_dim)
@@ -343,6 +343,19 @@ class SequenceModel(object):
         p = T.transpose(pr, (1, 0, 2))
         return p
 
+    def policy_hinge(self, z, exploration):
+        # h, xprev, z,
+        n = z.shape[0]
+        rngf = self.srng.uniform(size=(self.depth, n), low=0, high=1)
+        rngi = self.srng.random_integers(size=(self.depth, n), low=0, high=self.k)
+
+        outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
+                        T.zeros((n,), dtype='int32')]
+        (_, xr), _ = theano.scan(policy_hinge_function, outputs_info=outputs_info, sequences=[rngf, rngi],
+                                 non_sequences=[z, exploration] + self.params)
+        x = T.transpose(xr, (1, 0)) - 1
+        return theano.gradient.zero_grad(x)
+
     def likelihood(self, x, z):
         return cumprod(self.partial_likelihood(x, z))
 
@@ -381,15 +394,7 @@ class SequenceModel(object):
         x = T.transpose(xr, (1, 0)) - 1
         return theano.gradient.zero_grad(x)
 
-    def policy_hinge(self, z):
-        # h, xprev, z,
-        n = z.shape[0]
-        outputs_info = [T.zeros((n, self.hidden_dim), dtype='float32'),
-                        T.zeros((n,), dtype='int32')]
-        (_, xr), _ = theano.scan(policy_hinge_function, outputs_info=outputs_info,
-                                 non_sequences=[z] + self.params, n_steps=self.depth)
-        x = T.transpose(xr, (1, 0)) - 1
-        return theano.gradient.zero_grad(x)
+
 
     def regularization_loss(self, W_regularizer):
         ws = [self.W_h, self.U_h, self.V_h, self.W_f, self.W_i, self.W_w, self.W_o, self.W_j, self.W_y]
