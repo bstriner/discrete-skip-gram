@@ -10,7 +10,7 @@ from discrete_skip_gram.datasets.utils import clean_docs, simple_clean, get_word
 from discrete_skip_gram.datasets.character_dataset import get_charset, docs_to_arrays, skip_gram_generator
 from discrete_skip_gram.models.character_skip_gram import CharacterSkipGram
 from discrete_skip_gram.datasets.corpus import brown_docs
-
+from discrete_skip_gram.callbacks.write_encodings import WriteEncodings
 
 def main():
     docs = brown_docs()
@@ -32,8 +32,9 @@ def main():
     steps_per_epoch = 256
     model = CharacterSkipGram(latent_depth, latent_k, x_k, x_k, units)
     model.model.summary()
+    cb = WriteEncodings(model.encoder, adocs, charset, "output/brown_character_skipgram/encoded-{:08d}.txt")
     model.model.fit_generator(skip_gram_generator(adocs, window, batch_size), epochs=epochs,
-                              steps_per_epoch=steps_per_epoch)
+                              steps_per_epoch=steps_per_epoch, callbacks=[cb])
 
 
 if __name__ == "__main__":

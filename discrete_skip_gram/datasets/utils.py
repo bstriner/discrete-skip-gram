@@ -28,3 +28,6 @@ def get_words(docs):
     words = list(set(itertools.chain.from_iterable(docs)))
     words.sort()
     return words
+
+def format_encoding(enc):
+    return "".join(chr(ord('a')+enc[i]) for i in range(enc.shape[0]))

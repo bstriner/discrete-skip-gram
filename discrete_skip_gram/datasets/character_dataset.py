@@ -19,6 +19,9 @@ def word_to_array(word, charmap):
         x[i] = charmap[c] + 1
     return x
 
+def array_to_word(array, charset):
+    return "".join(charset[array[i]-2] for i in range(array.shape[0]) if array[i]>2)
+
 
 def docs_to_arrays(docs, charmap):
     return [[word_to_array(word, charmap) for word in doc] for doc in docs]
@@ -51,9 +54,10 @@ def skip_gram_batch(adocs, window, n):
     for i, (x, y) in enumerate(grams):
         xs[i, :x.shape[0]] = x + 1
         ys[i, :y.shape[0]] = y + 1
-    return [xs, ys], [np.zeros((n, 1), dtype=np.float32)]
+    return xs, ys
 
 
 def skip_gram_generator(adocs, window, n):
     while True:
-        yield skip_gram_batch(adocs, window, n)
+        xs, ys = skip_gram_batch(adocs, window, n)
+        yield [xs, ys], [np.zeros((n, 1), dtype=np.float32)]
