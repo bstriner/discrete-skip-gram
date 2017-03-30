@@ -35,7 +35,7 @@ def main():
     print "Total wordcount: {}".format(count)
     print "Unique words: {}, Filtered: {}".format(len(wordcounts), len(wordset))
 
-    model = WordDQN(z_depth, z_k, x_k=k, y_k=k, units=units, discount=0.8)
+    model = WordDQN(z_depth, z_k, x_k=k, y_k=k, units=units, discount=0.8, initial_exploration=0.2)
     model.summary()
 
     def callback(epoch):

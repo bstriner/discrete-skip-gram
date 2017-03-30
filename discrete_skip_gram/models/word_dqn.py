@@ -57,7 +57,7 @@ class WordDQN(object):
         y = softmax_nd_layer()(h)
 
         def decoder_loss((_y, _input_y)):
-            tmp = T.log(_y)
+            tmp = -T.log(_y)
             return tmp[T.arange(tmp.shape[0]), :, T.flatten(_input_y)]
 
         dloss = Lambda(decoder_loss, output_shape=lambda (_y, _input_y): (_y[0], _y[1]))([y, input_y])
@@ -90,24 +90,44 @@ class WordDQN(object):
 
     def fit_generator(self, gen, epochs=1000, batches=256, samples=4, callback=None):
         for epoch in tqdm(range(epochs), desc="Training"):
+            all_losses = [[],[],[]]
             for _ in tqdm(range(batches), desc="Epoch {}".format(epoch)):
                 # get samples
                 samps = [next(gen) for _ in range(samples)]
                 # encode samples
                 encoded = [self.model_encoder.predict_on_batch(s[0]) for s in samps]
                 # train decoder
+                dloss = []
                 for s, e in zip(samps, encoded):
-                    self.model_decoder.train_on_batch([e, s[1]], np.zeros((e.shape[0], self.z_depth)))
-
+                    l=self.model_decoder.train_on_batch([e, s[1]], np.zeros((e.shape[0], self.z_depth)))
+                    assert np.isfinite(l)
+                    dloss.append(l)
+                dloss = np.mean(dloss, axis=None)
                 # test samples
-                tsamps = [next(gen) for _ in range(samples)]
+                #tsamps = [next(gen) for _ in range(samples)]
                 # encode
-                tencoded = [self.model_encoder.predict_on_batch(s[0]) for s in tsamps]
+                #tencoded = [self.model_encoder.predict_on_batch(s[0]) for s in tsamps]
                 # test decoder
-                losses = [self.model_decoder.predict_on_batch([e, s[1]]) for e, s in zip(tencoded, tsamps)]
+                losses = [self.model_decoder.predict_on_batch([e, s[1]]) for e, s in zip(encoded, samps)]
                 values = [rewards_to_values(-loss, discount=self.discount) for loss in losses]
                 # train value
-                for s, e, v in zip(tsamps, tencoded, values):
-                    self.model_value.train_on_batch([s[0], e], v)
+                vloss = []
+                for s, e, v in zip(samps, encoded, values):
+                    l=self.model_value.train_on_batch([s[0], e], v)
+                    assert np.isfinite(l)
+                    vloss.append(l)
+                vloss = np.mean(vloss, axis=None)
+                tdloss = np.mean([np.mean(l, axis=None) for l in losses], axis=None)
+                tqdm.write("Value Loss: {}, Decoder Loss: {}, Test Decoder Loss: {}".format(vloss, dloss, tdloss))
+
+                all_losses[0].append(vloss)
+                all_losses[1].append(dloss)
+                all_losses[2].append(tdloss)
+            tqdm.write("Epoch: {}, Value Loss: {}, Decoder Loss: {}, Test Decoder Loss: {}".format(
+                epoch,
+                np.mean(all_losses[0], axis=None),
+                np.mean(all_losses[1], axis=None),
+                np.mean(all_losses[2], axis=None)
+            ))
             if callback:
                 callback(epoch)
