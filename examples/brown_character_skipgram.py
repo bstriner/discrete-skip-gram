@@ -33,6 +33,7 @@ def main():
     model = CharacterSkipGram(latent_depth, latent_k, x_k, x_k, units)
     model.model.summary()
     cb = WriteEncodings(model.encoder, adocs, charset, "output/brown_character_skipgram/encoded-{:08d}.txt")
+    #cb.on_epoch_end(0,None)
     model.model.fit_generator(skip_gram_generator(adocs, window, batch_size), epochs=epochs,
                               steps_per_epoch=steps_per_epoch, callbacks=[cb])
 

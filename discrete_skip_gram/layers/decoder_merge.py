@@ -5,10 +5,6 @@ from keras.engine import InputSpec
 from keras import initializers, regularizers
 from .utils import W, b, pair
 
-def softmax_2d(x):
-    e = T.exp(x)
-    s = T.sum(e, axis=-1, keepdims=True)
-    return e/s
 
 
 class DecoderMerge(Layer):

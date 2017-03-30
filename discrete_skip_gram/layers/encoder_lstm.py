@@ -66,7 +66,7 @@ class EncoderLSTM(Layer):
         assert (len(rng) == 2)
         return [(z[0], self.k), (z[0], rng[1])]
 
-    def step(self, rng, h0, p0, y0, z, *params):
+    def step(self, rng, h0, y0, z, *params):
         (h_W, h_U, h_V, h_b,
          f_W, f_b,
          i_W, i_b,
@@ -92,7 +92,7 @@ class EncoderLSTM(Layer):
         rngr = T.transpose(rng, (1, 0))
         n = z.shape[0]
         outputs_info = [T.extra_ops.repeat(self.h0, n, axis=0),
-                        T.zeros((n, self.k), dtype='float32'),
+                        None,
                         T.zeros((n,), dtype='int32')]
         (hr, pr, yr), _ = theano.scan(self.step, sequences=rngr, outputs_info=outputs_info,
                                       non_sequences=[z] + self.non_sequences)

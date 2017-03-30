@@ -12,13 +12,8 @@ import numpy as np
 import theano.tensor as T
 
 
-def shift_tensor():
-    return Lambda(lambda _x: T.concatenate((T.zeros((_x.shape[0], 1), dtype=_x.dtype), _x[:, :-1] + 1), axis=1),
-                  output_shape=lambda _x: _x)
 
 
-def custom_loss(_, y_pred):
-    return T.mean(y_pred, axis=None)
 
 
 def loss_layer(y_k):
@@ -32,7 +27,7 @@ def loss_layer(y_k):
         target_y = target_y.dimshuffle((0, 'x', 1, 'x', 2))
         # calculate loss
         # _dec_y = T.clip(_dec_y, K.epsilon(), 1.0 - K.epsilon())
-        loss_raw = (-target_y * T.log(_dec_y)) + (-(1 - target_y) * T.log(1 - _dec_y))
+        loss_raw = (-target_y * T.log(_dec_y)) #+ (-(1 - target_y) * T.log(1 - _dec_y))
         loss_weighted = loss_raw * (_enc_p.dimshuffle((0, 1, 'x', 2, 'x')))
         # mask loss
         mask = T.neq(_y, 0).dimshuffle((0, 'x', 1, 'x', 'x'))
