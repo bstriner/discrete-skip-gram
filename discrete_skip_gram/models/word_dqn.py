@@ -18,16 +18,18 @@ class WordDQN(object):
     def __init__(self, z_depth, z_k, x_k, y_k, units, discount=0.8,
                  initial_exploration=0.1):
         self.z_depth = z_depth
+        self.z_k = z_k
+        self.x_k = x_k
         self.discount = discount
 
         input_x = Input((1,), dtype='int32', name="input_x")
         input_z = Input((z_depth,), dtype='int32', name="input_z")
         input_y = Input((1,), dtype='int32', name="input_y")
-        opt_v = Adam(1e-3)
+        opt_v = Adam(1e-4)
         opt_d = Adam(1e-3)
 
         # Value model
-        embedding_x = Embedding(x_k, units)
+        embedding_x = Embedding(x_k, units, name='embedding_x')
         embedded_x = embedding_x(input_x)
         embedded_x = drop_dim_2()(embedded_x)
 
@@ -46,7 +48,7 @@ class WordDQN(object):
         self.model_encoder_deterministic = Model(inputs=[input_x], outputs=[encoded_z_deterministic])
 
         # Decoder model
-        embedding_z = Embedding(z_k, units)
+        embedding_z = Embedding(z_k, units, name='embedding_z')
         lstm_z = LSTM(units, return_sequences=True)
         embedded_z = embedding_z(input_z)
 
@@ -88,7 +90,13 @@ class WordDQN(object):
         print "Decoder"
         self.model_decoder.summary()
 
-    def fit_generator(self, gen, epochs=1000, batches=256, samples=4, callback=None):
+    def fit_generator(self, gen,
+                      epochs=1000,
+                      batches=256,
+                      samples=1,
+                      decoder_batches=4,
+                      value_batches=4,
+                      callback=None):
         for epoch in tqdm(range(epochs), desc="Training"):
             all_losses = [[],[],[]]
             for _ in tqdm(range(batches), desc="Epoch {}".format(epoch)):
@@ -96,12 +104,16 @@ class WordDQN(object):
                 samps = [next(gen) for _ in range(samples)]
                 # encode samples
                 encoded = [self.model_encoder.predict_on_batch(s[0]) for s in samps]
+                for e in encoded:
+                    if not (np.all(e >= 0) and np.all(e < self.z_k)):
+                        raise ValueError("Invalid encoding: {}".format(e))
                 # train decoder
                 dloss = []
-                for s, e in zip(samps, encoded):
-                    l=self.model_decoder.train_on_batch([e, s[1]], np.zeros((e.shape[0], self.z_depth)))
-                    assert np.isfinite(l)
-                    dloss.append(l)
+                for _ in range(decoder_batches):
+                    for s, e in zip(samps, encoded):
+                        l=self.model_decoder.train_on_batch([e, s[1]], np.zeros((e.shape[0], self.z_depth)))
+                        assert np.isfinite(l)
+                        dloss.append(l)
                 dloss = np.mean(dloss, axis=None)
                 # test samples
                 #tsamps = [next(gen) for _ in range(samples)]
@@ -112,18 +124,22 @@ class WordDQN(object):
                 values = [rewards_to_values(-loss, discount=self.discount) for loss in losses]
                 # train value
                 vloss = []
-                for s, e, v in zip(samps, encoded, values):
-                    l=self.model_value.train_on_batch([s[0], e], v)
-                    assert np.isfinite(l)
-                    vloss.append(l)
+                for _ in range(value_batches):
+                    for s, e, v in zip(samps, encoded, values):
+                        l=self.model_value.train_on_batch([s[0], e], v)
+                        assert np.isfinite(l)
+                        vloss.append(l)
                 vloss = np.mean(vloss, axis=None)
                 tdloss = np.mean([np.mean(l, axis=None) for l in losses], axis=None)
-                tqdm.write("Value Loss: {}, Decoder Loss: {}, Test Decoder Loss: {}".format(vloss, dloss, tdloss))
+                tqdm.write("Value Loss: {:.03f}, Decoder Loss: {:.03f}, Test Decoder Loss: {:.03f}".format(
+                    vloss,
+                    dloss,
+                    tdloss))
 
                 all_losses[0].append(vloss)
                 all_losses[1].append(dloss)
                 all_losses[2].append(tdloss)
-            tqdm.write("Epoch: {}, Value Loss: {}, Decoder Loss: {}, Test Decoder Loss: {}".format(
+            tqdm.write("Epoch: {}, Value Loss: {:.03f}, Decoder Loss: {:.03f}, Test Decoder Loss: {:.03f}".format(
                 epoch,
                 np.mean(all_losses[0], axis=None),
                 np.mean(all_losses[1], axis=None),

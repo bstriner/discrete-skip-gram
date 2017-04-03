@@ -38,3 +38,7 @@ def skip_gram_generator(adocs, window, n):
     while True:
         yield skip_gram_batch(adocs, window, n)
 
+def skip_gram_ones_generator(adocs, window, n):
+    while True:
+        yield [list(skip_gram_batch(adocs, window, n)), np.ones((n,1), dtype=np.float32)]
+

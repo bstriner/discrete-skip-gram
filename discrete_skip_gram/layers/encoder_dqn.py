@@ -102,7 +102,7 @@ class DQNEncoderValue(Layer):
         (hr, vr), _ = theano.scan(self.step, sequences=[zprevr, zr],
                                       outputs_info=outputs_info,
                                       non_sequences=[x] + self.non_sequences)
-        v = T.transpose(vr, (1, 0)) - 1
+        v = T.transpose(vr, (1, 0))
         return v
 
 class DQNEncoderPolicy(Layer):
