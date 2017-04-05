@@ -2,7 +2,8 @@ from keras.layers import Input, Embedding, Dense, Lambda, Activation
 from theano import tensor as T
 from keras.models import Model
 from keras.optimizers import Adam
-from ..layers.ngram_layer import NgramLayer
+from ..layers.ngram_layer import NgramLayer, NgramLayerGenerator
+from theano.tensor.shared_randomstreams import RandomStreams
 
 
 class WordNgramNoContext(object):
@@ -24,6 +25,14 @@ class WordNgramNoContext(object):
         opt = Adam(lr)
         self.model = Model(inputs=[input_x], outputs=[nll])
         self.model.compile(opt, loss_f)
+
+        srng = RandomStreams(123)
+        z_test = Input((1,), dtype='float32')
+        rng = Lambda(lambda _x: srng.uniform(low=0, high=1, size=(_x.shape[0], window * 2), dtype='float32'),
+                     output_shape=lambda _x: (_x[0], window * 2))(z_test)
+        gen = NgramLayerGenerator(ngram_layer)
+        y_gen = gen([z_test, rng])
+        self.model_predict = Model(inputs=[z_test], outputs=[y_gen])
 
     def train(self, batch_size, epochs, steps_per_epoch, **kwargs):
         gen = self.dataset.skipgram_generator_no_context(n=batch_size, window=self.window)

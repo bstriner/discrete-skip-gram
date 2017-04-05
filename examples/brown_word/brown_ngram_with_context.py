@@ -37,13 +37,27 @@ def main():
     model = WordNgramWithContext(ds, hidden_dim=hidden_dim, window=window, lr=1e-3)
     csvpath = "{}/history.csv".format(outputpath)
     makepath(csvpath)
-    cb = CSVLogger(csvpath)
     validation_n = 4096
     vd = ds.cbow_batch(n=validation_n, window=window, test=True)
+    def on_epoch_end(epoch, logs):
+        path = "{}/generated-{:08d}.txt".format(outputpath, epoch)
+        n = 128
+        x, y = ds.cbow_batch(n=n, window=window, test=True)
+        xpred = model.model_predict.predict(y, verbose=0)
+        with open(path,'w') as f:
+            for i in range(n):
+                w = ds.get_word(y[i,0])
+                ctx = [ds.get_word(xpred[i,j]) for j in range(window*2)]
+                lctx = " ".join(ctx[:window])
+                rctx = " ".join(ctx[window:])
+                f.write("{}: {} [{}] {}\n".format(w, lctx, w, rctx))
+
+    csvcb = CSVLogger(csvpath)
+    gencb = LambdaCallback(on_epoch_end=on_epoch_end)
     model.train(batch_size=batch_size,
                 epochs=epochs,
                 steps_per_epoch=steps_per_epoch,
-                callbacks=[cb],
+                callbacks=[csvcb, gencb],
                 validation_data=([vd[1], vd[0]], np.ones((validation_n, 1), dtype=np.float32)))
 
 

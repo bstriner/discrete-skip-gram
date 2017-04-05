@@ -37,14 +37,26 @@ def main():
     model = WordNgramNoContext(ds, hidden_dim=hidden_dim, window=window, lr=1e-3)
     csvpath = "{}/history.csv".format(outputpath)
     makepath(csvpath)
-    cb = CSVLogger(csvpath)
+    csvcb = CSVLogger(csvpath)
     validation_n = 4096
     vd = ds.cbow_batch(n=validation_n, window=window, test=True)
+    def on_epoch_end(epoch, logs):
+        path = "{}/generated-{:08d}.txt".format(outputpath, epoch)
+        n = 128
+        x = np.zeros((n,1), dtype=np.float32)
+        y = model.model_predict.predict(x, verbose=0)
+        with open(path, 'w') as f:
+            for i in range(n):
+                ctx = [ds.get_word(y[i, j]) for j in range(window * 2)]
+                lctx = " ".join(ctx[:window])
+                rctx = " ".join(ctx[window:])
+                f.write("{} [SKIP] {}\n".format(lctx, rctx))
+    gencb = LambdaCallback(on_epoch_end=on_epoch_end)
     model.train(batch_size=batch_size,
                 epochs=epochs,
                 steps_per_epoch=steps_per_epoch,
                 validation_data=(vd[0], np.ones((validation_n, 1), dtype=np.float32)),
-                callbacks=[cb])
+                callbacks=[csvcb, gencb])
 
 
 if __name__ == "__main__":
