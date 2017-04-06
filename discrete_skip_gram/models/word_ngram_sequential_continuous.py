@@ -12,7 +12,7 @@ from discrete_skip_gram.layers.ngram_layer_distributed import NgramLayerDistribu
 
 
 class WordNgramSequentialContinuous(object):
-    def __init__(self, dataset, schedule, hidden_dim=256, window=3, lr=1e-3, z_depth=8, z_k=2):
+    def __init__(self, dataset, schedule, hidden_dim=256, window=3, lr=1e-3, z_depth=8, z_k=2, reg=None):
         self.dataset = dataset
         self.schedule = schedule
         self.hidden_dim = hidden_dim
@@ -28,13 +28,13 @@ class WordNgramSequentialContinuous(object):
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((window * 2,), dtype='int32', name='input_y')
 
-        embedding = Embedding(k, hidden_dim)
+        embedding = Embedding(k, hidden_dim, embeddings_regularizer=reg)
         embedded = drop_dim_2()(embedding(input_x))
-        encoder = EncoderLSTMContinuous(z_depth=z_depth, z_k=z_k, units=self.hidden_dim)
+        encoder = EncoderLSTMContinuous(z_depth=z_depth, z_k=z_k, units=self.hidden_dim, kernel_regularizer=reg)
         z = encoder(embedded)  # n, z_depth, z_k
-        hlstm = LSTM(self.hidden_dim, return_sequences=True)
+        hlstm = LSTM(self.hidden_dim, return_sequences=True, kernel_regularizer=reg, recurrent_regularizer=reg)
         h = hlstm(z)
-        ngram_layer = NgramLayerDistributed(k=k, units=self.hidden_dim)
+        ngram_layer = NgramLayerDistributed(k=k, units=self.hidden_dim, kernel_regularizer=reg)
         nll_partial = ngram_layer([h, input_y])  # n, z_depth, window*2
         nll = Lambda(lambda _x: T.mean(_x, axis=2), output_shape=lambda _x: (_x[0], _x[1]))(nll_partial)  # n, z_depth
 

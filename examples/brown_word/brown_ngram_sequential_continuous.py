@@ -20,12 +20,13 @@ from discrete_skip_gram.datasets.word_dataset import docs_to_arrays, skip_gram_g
 from discrete_skip_gram.datasets.corpus import brown_docs
 from discrete_skip_gram.models.word_ngram_sequential_continuous import WordNgramSequentialContinuous
 from discrete_skip_gram.models.util import makepath
+from keras.regularizers import L1L2
 
 
 def main():
     outputpath = "output/brown/ngram_sequential_continuous"
     min_count = 5
-    batch_size = 64
+    batch_size = 128
     epochs = 100
     steps_per_epoch = 256
     window = 3
@@ -33,6 +34,7 @@ def main():
     z_k = 2
     z_depth = 6
     decay = 0.85
+    reg = L1L2(1e-5, 1e-5)
 
     docs = clean_docs(brown_docs(), simple_clean)
     docs, tdocs = docs[:-5], docs[-5:]
@@ -41,7 +43,7 @@ def main():
     k = ds.k
     schedule = np.power(decay, np.arange(z_depth))
     model = WordNgramSequentialContinuous(ds, z_k=z_k, z_depth=z_depth, schedule=schedule,
-
+                                          reg=reg,
                                           hidden_dim=hidden_dim, window=window, lr=1e-3)
     csvpath = "{}/history.csv".format(outputpath)
     makepath(csvpath)

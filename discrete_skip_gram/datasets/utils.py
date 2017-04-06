@@ -3,6 +3,7 @@ from collections import Counter
 import itertools
 import numpy as np
 
+
 def stem_word():
     stemmer = PorterStemmer()
 
@@ -54,10 +55,10 @@ def format_encoding_sequential_continuous(enc):
     depth = enc.shape[0]
     fmt = []
     for i in range(depth):
-        e = enc[i,:]
+        e = enc[i, :]
         s = np.greater(e, 0).astype(np.int32)
         t = 0
         for j in range(k):
-            t += np.power(2, k) * s[j]
-        fmt.append(chr(ord('a')+t))
+            t += np.power(2, j) * s[j]
+        fmt.append(chr(ord('a') + t))
     return "".join(fmt)
