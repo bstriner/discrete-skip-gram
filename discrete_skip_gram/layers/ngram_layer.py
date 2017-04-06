@@ -24,14 +24,7 @@ class NgramLayer(Layer):
         self.supports_masking = False
         Layer.__init__(self)
 
-    def build(self, input_shape):
-        assert len(input_shape) == 2
-        z = input_shape[0]
-        x = input_shape[1]
-        assert (len(z) == 2)
-        assert (len(x) == 2)
-        input_dim = z[1]
-
+    def build_params(self, input_dim):
         h_W, h_b = pair(self, (self.k + 1, self.units), "h")
         h_U = W(self, (self.units, self.units), "h_U")
         h_V = W(self, (input_dim, self.units), "h_V")
@@ -53,6 +46,16 @@ class NgramLayer(Layer):
         h0 = b(self, (1, self.units), "h0")
         self.h0 = h0
         self.built = True
+
+    def build(self, input_shape):
+        assert len(input_shape) == 2
+        z = input_shape[0]
+        x = input_shape[1]
+        assert (len(z) == 2)
+        assert (len(x) == 2)
+        input_dim = z[1]
+        self.build_params(input_dim)
+
 
     def compute_mask(self, inputs, mask=None):
         print ("Compute mask {}".format(mask))

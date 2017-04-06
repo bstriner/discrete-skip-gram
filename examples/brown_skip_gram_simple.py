@@ -23,21 +23,16 @@ from discrete_skip_gram.models.word_dqn import WordDQN
 
 def main():
     outputpath = "output/brown_skip_gram_simple"
-    min_count = 20
-    z_depth = 5
+    min_count = 5
     z_k = 8
-    units = 256
-    batch_size = 64
-    window = 5
-    samples = 1
-    batches = 256
-    decoder_batches = 4
-    value_batches = 4
-    epochs = 1000
+    batch_size = 128
+    window = 3
+    epochs = 500
 
     docs = clean_docs(brown_docs(), simple_clean)
     ds = WordDataset(docs, min_count)
     ds.summary()
+    k = ds.k
 
     # hidden = 64
     x = Input((1,), dtype='int32')
@@ -70,7 +65,7 @@ def main():
     weighted_loss = Lambda(lambda (_loss, _z): T.sum(_loss * _z, axis=1, keepdims=True),
                            output_shape=lambda _x: (_x[0], 1))([loss, z])  # n, 1
 
-    initial_reg_weight = 1e-2
+    initial_reg_weight = 0
     eps = K.epsilon()
     if initial_reg_weight > 0:
         reg_weight = K.variable(initial_reg_weight, dtype='float32', name='reg_weight')
@@ -78,8 +73,14 @@ def main():
         # reg = -reg_weight * T.mean(T.sum(T.square(z-0.5), axis=1), axis=0)
         sm.add_loss(reg)
 
+    def certainty(y_true, y_pred):
+        return T.mean(T.max(z, axis=1), axis=0)
+
+    def nll(y_true, y_pred):
+        return T.mean(weighted_loss, axis=None)
+
     model_nll = Model(inputs=[x, yreal], output=[weighted_loss])
-    model_nll.compile(Adam(1e-3), lambda ytrue, ypred: ypred)
+    model_nll.compile(Adam(1e-3), lambda ytrue, ypred: ypred, metrics=[certainty, nll])
 
     model_zp = Model(inputs=[x], output=[z])
 
@@ -119,7 +120,7 @@ def main():
     if not os.path.exists(os.path.dirname(csvp)):
         os.makedirs(os.path.dirname(csvp))
     csvcb = CSVLogger(csvp)
-    model_nll.fit_generator(gen, epochs=100, steps_per_epoch=1024, callbacks=[cb, csvcb])
+    model_nll.fit_generator(gen, epochs=epochs, steps_per_epoch=1024, callbacks=[cb, csvcb])
 
 
 if __name__ == "__main__":

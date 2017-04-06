@@ -1,7 +1,7 @@
 from nltk.stem.porter import PorterStemmer
 from collections import Counter
 import itertools
-
+import numpy as np
 
 def stem_word():
     stemmer = PorterStemmer()
@@ -34,6 +34,7 @@ def get_words(docs):
     words.sort()
     return words
 
+
 def count_words(docs):
     """
     count word occurences
@@ -42,5 +43,21 @@ def count_words(docs):
     """
     return Counter(itertools.chain.from_iterable(docs))
 
+
 def format_encoding(enc):
-    return "".join(chr(ord('a')+enc[i]) for i in range(enc.shape[0]))
+    return "".join(chr(ord('a') + enc[i]) for i in range(enc.shape[0]))
+
+
+def format_encoding_sequential_continuous(enc):
+    assert (len(enc.shape) == 2)
+    k = enc.shape[1]
+    depth = enc.shape[0]
+    fmt = []
+    for i in range(depth):
+        e = enc[i,:]
+        s = np.greater(e, 0).astype(np.int32)
+        t = 0
+        for j in range(k):
+            t += np.power(2, k) * s[j]
+        fmt.append(chr(ord('a')+t))
+    return "".join(fmt)

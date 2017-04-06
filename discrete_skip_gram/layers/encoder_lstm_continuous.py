@@ -79,9 +79,8 @@ class EncoderLSTMContinuous(Layer):
     def call(self, x):
         n = x.shape[0]
         outputs_info = [T.extra_ops.repeat(self.h0, n, axis=0),
-                        None,
                         None]
-        (hr, yr), _ = theano.scan(self.step, outputs_info=outputs_info,
-                                      non_sequences=[x] + self.non_sequences)
+        (hr, yr), _ = theano.scan(self.step, outputs_info=outputs_info, n_steps=self.z_depth,
+                                  non_sequences=[x] + self.non_sequences)
         y = T.transpose(yr, (1, 0, 2))
-        return y  #n, z_depth, z_k
+        return y  # n, z_depth, z_k

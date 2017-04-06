@@ -15,7 +15,7 @@ class WordNgramWithContext(object):
         k = self.dataset.k
 
         input_x = Input((1,), dtype='int32', name='input_x')
-        input_y = Input((window * 2,), dtype='int32', name='input_x')
+        input_y = Input((window * 2,), dtype='int32', name='input_y')
 
         embedding = Embedding(k, hidden_dim)
         z = drop_dim_2()(embedding(input_x))

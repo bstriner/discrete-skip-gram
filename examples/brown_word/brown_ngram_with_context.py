@@ -39,15 +39,16 @@ def main():
     makepath(csvpath)
     validation_n = 4096
     vd = ds.cbow_batch(n=validation_n, window=window, test=True)
+
     def on_epoch_end(epoch, logs):
         path = "{}/generated-{:08d}.txt".format(outputpath, epoch)
         n = 128
         x, y = ds.cbow_batch(n=n, window=window, test=True)
         xpred = model.model_predict.predict(y, verbose=0)
-        with open(path,'w') as f:
+        with open(path, 'w') as f:
             for i in range(n):
-                w = ds.get_word(y[i,0])
-                ctx = [ds.get_word(xpred[i,j]) for j in range(window*2)]
+                w = ds.get_word(y[i, 0])
+                ctx = [ds.get_word(xpred[i, j]) for j in range(window * 2)]
                 lctx = " ".join(ctx[:window])
                 rctx = " ".join(ctx[window:])
                 f.write("{}: {} [{}] {}\n".format(w, lctx, w, rctx))
