@@ -27,14 +27,16 @@ def main():
     outputpath = "output/brown/ngram_sequential_continuous"
     min_count = 5
     batch_size = 128
-    epochs = 100
+    epochs = 1000
     steps_per_epoch = 256
     window = 3
     hidden_dim = 256
     z_k = 2
     z_depth = 6
-    decay = 0.85
-    reg = L1L2(1e-5, 1e-5)
+    #4^6 = 4096
+    decay = 0.9
+    reg = L1L2(1e-6, 1e-6)
+    lr = 3e-4
 
     docs = clean_docs(brown_docs(), simple_clean)
     docs, tdocs = docs[:-5], docs[-5:]
@@ -44,7 +46,7 @@ def main():
     schedule = np.power(decay, np.arange(z_depth))
     model = WordNgramSequentialContinuous(ds, z_k=z_k, z_depth=z_depth, schedule=schedule,
                                           reg=reg,
-                                          hidden_dim=hidden_dim, window=window, lr=1e-3)
+                                          hidden_dim=hidden_dim, window=window, lr=lr)
     csvpath = "{}/history.csv".format(outputpath)
     makepath(csvpath)
     csvcb = CSVLogger(csvpath)
@@ -66,15 +68,18 @@ def main():
 
         if (epoch + 1) % 10 == 0:
             path = "{}/encoded-{:08d}.csv".format(outputpath, epoch)
+            x = np.arange(k).reshape((-1, 1))
+            z = model.model_encode.predict(x, verbose=0)
+            znorm = z - np.mean(z, axis=0, keepdims=True)
             with open(path, 'w') as f:
                 w = csv.writer(f)
-                x = np.arange(k).reshape((-1, 1))
-                z = model.model_encode.predict(x, verbose=0)
                 w.writerow(["Idx", "Word", "Encoding"])
                 for i in range(k):
                     word = ds.get_word(i)
-                    enc = format_encoding_sequential_continuous(z[i, :, :])
+                    enc = format_encoding_sequential_continuous(znorm[i, :, :])
                     w.writerow([i, word, enc])
+            path = "{}/encoded-array-{:08d}.txt".format(outputpath, epoch)
+            np.save(path, z)
 
     gencb = LambdaCallback(on_epoch_end=on_epoch_end)
     model.train(batch_size=batch_size,
