@@ -13,7 +13,8 @@ class EncoderLSTMContinuous(Layer):
 
     def __init__(self, z_depth, z_k, units,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
-                 bias_initializer='zero', bias_regularizer=None):
+                 bias_initializer='zero', bias_regularizer=None,
+                 activity_regularizer=None):
         self.z_depth = z_depth
         self.z_k = z_k
         self.units = units
@@ -21,6 +22,7 @@ class EncoderLSTMContinuous(Layer):
         self.bias_initializer = initializers.get(bias_initializer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
+        self.activity_regularizer = regularizers.get(activity_regularizer)
         self.input_spec = InputSpec(min_ndim=2)
         self.supports_masking = False
         Layer.__init__(self)

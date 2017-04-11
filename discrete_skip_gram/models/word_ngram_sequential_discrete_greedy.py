@@ -7,12 +7,15 @@ from ..layers.ngram_layer import NgramLayer, NgramLayerGenerator
 from ..layers.utils import drop_dim_2
 from theano.tensor.shared_randomstreams import RandomStreams
 import keras.backend as K
-from discrete_skip_gram.layers.encoder_lstm_continuous import EncoderLSTMContinuous
+from discrete_skip_gram.layers.encoder_lstm import EncoderLSTM
 from discrete_skip_gram.layers.ngram_layer_distributed import NgramLayerDistributed
+from discrete_skip_gram.layers.decoder_lstm_skipgram import DecoderLSTMSkipgram
 
 
-class WordNgramSequentialContinuous(object):
-    def __init__(self, dataset, schedule, hidden_dim=256, window=3, lr=1e-3, z_depth=8, z_k=2, reg=None, act_reg=None):
+class WordNgramSequentialDiscreteGreedy(object):
+    def __init__(self, dataset, schedule,
+                 hidden_dim=256, window=3, lr=1e-3, z_depth=6, z_k=4,
+                 reg=None):
         self.dataset = dataset
         self.schedule = schedule
         self.hidden_dim = hidden_dim
@@ -30,11 +33,13 @@ class WordNgramSequentialContinuous(object):
 
         embedding = Embedding(k, hidden_dim, embeddings_regularizer=reg)
         embedded = drop_dim_2()(embedding(input_x))
-        encoder = EncoderLSTMContinuous(z_depth=z_depth, z_k=z_k, units=self.hidden_dim, kernel_regularizer=reg,
-                                        activity_regularizer=act_reg)
-        z = encoder(embedded)  # n, z_depth, z_k
-        hlstm = LSTM(self.hidden_dim, return_sequences=True, kernel_regularizer=reg, recurrent_regularizer=reg)
-        h = hlstm(z)
+        encoder = EncoderLSTM(k=z_k, units=self.hidden_dim, kernel_regularizer=reg)
+        pz, z = encoder(embedded)  # n, z_depth, z_k
+        #pz: n, z_depth, z_k (float32)
+        #z: n, z_depth (int)
+        hlstm = DecoderLSTMSkipgram(z_k=z_k, y_k=k, units=self.hidden_dim)
+        h = hlstm([z, input_y]) # n, z_depth, y_depth
+
         ngram_layer = NgramLayerDistributed(k=k, units=self.hidden_dim, kernel_regularizer=reg)
         nll_partial = ngram_layer([h, input_y])  # n, z_depth, window*2
         nll = Lambda(lambda _x: T.mean(_x, axis=2), output_shape=lambda _x: (_x[0], _x[1]))(nll_partial)  # n, z_depth

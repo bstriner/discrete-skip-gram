@@ -57,8 +57,6 @@ def format_encoding_sequential_continuous(enc):
     for i in range(depth):
         e = enc[i, :]
         s = np.greater(e, 0).astype(np.int32)
-        t = 0
-        for j in range(k):
-            t += np.power(2, j) * s[j]
+        t = np.sum(np.power(2, np.arange(k))*s)
         fmt.append(chr(ord('a') + t))
     return "".join(fmt)
