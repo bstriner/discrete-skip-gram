@@ -1,38 +1,34 @@
-from keras.layers import Input, Embedding, Dense, Reshape, Activation, Lambda
 from keras.models import Model
 from keras.callbacks import LambdaCallback, CSVLogger
 from keras import backend as K
-import os
 # os.environ["THEANO_FLAGS"]="optimizer=None"
 import csv
 import theano.tensor as T
 
-from nltk.corpus import brown
 import itertools
-from nltk.stem.porter import PorterStemmer
 import numpy as np
-from keras.optimizers import Adam
 from discrete_skip_gram.layers.utils import softmax_nd_layer
-from discrete_skip_gram.datasets.utils import clean_docs, simple_clean, get_words, count_words, \
-    format_encoding_sequential_continuous
-from discrete_skip_gram.datasets.word_dataset import docs_to_arrays, skip_gram_generator, skip_gram_batch, \
+from discrete_skip_gram.datasets.utils import clean_docs, simple_clean, format_encoding_sequential_continuous
+from discrete_skip_gram.datasets.word_dataset import docs_to_arrays, skip_gram_batch, \
     skip_gram_ones_generator, WordDataset
 from discrete_skip_gram.datasets.corpus import brown_docs
-from discrete_skip_gram.models.word_ngram_sequential_continuous import WordNgramSequentialContinuous
+from discrete_skip_gram.models.word_skipgram_unrolled import WordSkipgramUnrolled
 from discrete_skip_gram.models.util import makepath
 from keras.regularizers import L1L2
 from discrete_skip_gram.regularizers.tanh_regularizer import TanhRegularizer
 
+
+#maybe try movie_reviews or reuters
 def main():
-    outputpath = "output/brown/ngram_sequential_discrete_greedy"
+    outputpath = "output/brown/skipgram_unrolled"
     min_count = 5
     batch_size = 128
     epochs = 1000
     steps_per_epoch = 256
     window = 3
-    hidden_dim = 256
+    units = 256
     z_k = 2
-    z_depth = 6
+    z_depth = 8
     #4^6 = 4096
     decay = 0.9
     reg = L1L2(1e-6, 1e-6)
@@ -45,9 +41,10 @@ def main():
     ds.summary()
     k = ds.k
     schedule = np.power(decay, np.arange(z_depth))
-    model = WordNgramSequentialContinuous(ds, z_k=z_k, z_depth=z_depth, schedule=schedule,
+    model = WordSkipgramUnrolled(dataset=ds, z_k=z_k, z_depth=z_depth, schedule=schedule,
+                                 window=window,
                                           reg=reg, act_reg=act_reg,
-                                          hidden_dim=hidden_dim, window=window, lr=lr)
+                                          units=units,lr=lr)
     csvpath = "{}/history.csv".format(outputpath)
     makepath(csvpath)
     csvcb = CSVLogger(csvpath)
@@ -57,30 +54,34 @@ def main():
     def on_epoch_end(epoch, logs):
         path = "{}/generated-{:08d}.txt".format(outputpath, epoch)
         n = 128
+        samples = 8
         _, x = ds.cbow_batch(n=n, window=window, test=True)
-        y = model.model_predict.predict(x, verbose=0)
+        ys = [model.model_predict.predict(x, verbose=0) for _ in samples]
         with open(path, 'w') as f:
             for i in range(n):
+                strs= []
                 w = ds.get_word(x[i, 0])
-                ctx = [ds.get_word(y[i, j]) for j in range(window * 2)]
-                lctx = " ".join(ctx[:window])
-                rctx = " ".join(ctx[window:])
-                f.write("{} [{}] {}\n".format(lctx, w, rctx))
+                for y in ys:
+                    ctx = [ds.get_word(y[i, j]) for j in range(window * 2)]
+                    lctx = " ".join(ctx[:window])
+                    rctx = " ".join(ctx[window:])
+                    strs.append("{} [{}] {}".format(lctx, w, rctx))
+                f.write("{}: {}\n").format(w, strs.join(" | "))
 
         if (epoch + 1) % 10 == 0:
             path = "{}/encoded-{:08d}.csv".format(outputpath, epoch)
             x = np.arange(k).reshape((-1, 1))
-            z = model.model_encode.predict(x, verbose=0)
-            znorm = z - np.mean(z, axis=0, keepdims=True)
+            zs = model.model_encode.predict(x, verbose=0)
             with open(path, 'w') as f:
                 w = csv.writer(f)
-                w.writerow(["Idx", "Word", "Encoding"])
+                w.writerow(["Idx", "Word", "Encoding"]+["Cat {}".format(i) for i in range(len(zs))])
                 for i in range(k):
                     word = ds.get_word(i)
-                    enc = format_encoding_sequential_continuous(znorm[i, :, :])
-                    w.writerow([i, word, enc])
-            path = "{}/encoded-array-{:08d}.txt".format(outputpath, epoch)
-            np.save(path, z)
+                    enc = [z[i,0] for z in zs]
+                    encf = "".join(chr(ord('a')+e) for e in enc)
+                    w.writerow([i, word, encf]+enc)
+#            path = "{}/encoded-array-{:08d}.txt".format(outputpath, epoch)
+#            np.save(path, z)
 
     gencb = LambdaCallback(on_epoch_end=on_epoch_end)
     model.train(batch_size=batch_size,

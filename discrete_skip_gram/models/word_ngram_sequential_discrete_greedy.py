@@ -7,59 +7,44 @@ from ..layers.ngram_layer import NgramLayer, NgramLayerGenerator
 from ..layers.utils import drop_dim_2
 from theano.tensor.shared_randomstreams import RandomStreams
 import keras.backend as K
-from discrete_skip_gram.layers.encoder_lstm import EncoderLSTM
+from discrete_skip_gram.layers.encoder_lstm_deterministic import EncoderLSTMDeterministic
 from discrete_skip_gram.layers.ngram_layer_distributed import NgramLayerDistributed
 from discrete_skip_gram.layers.decoder_lstm_skipgram import DecoderLSTMSkipgram
 
 
 class WordNgramSequentialDiscreteGreedy(object):
-    def __init__(self, dataset, schedule,
+    def __init__(self, dataset,
                  hidden_dim=256, window=3, lr=1e-3, z_depth=6, z_k=4,
                  reg=None):
         self.dataset = dataset
-        self.schedule = schedule
         self.hidden_dim = hidden_dim
         self.window = window
         self.z_depth = z_depth
         self.z_k = z_k
         k = self.dataset.k
-        assert (len(schedule.shape) == 1)
-        assert (schedule.shape[0] == z_depth)
-
-        sched = K.variable(schedule, dtype='float32', name='schedule')
 
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((window * 2,), dtype='int32', name='input_y')
 
         embedding = Embedding(k, hidden_dim, embeddings_regularizer=reg)
         embedded = drop_dim_2()(embedding(input_x))
-        encoder = EncoderLSTM(k=z_k, units=self.hidden_dim, kernel_regularizer=reg)
+        encoder = EncoderLSTMDeterministic(k=self.z_k, depth=self.z_depth, units=self.hidden_dim,
+                                           kernel_regularizer=reg)
         pz, z = encoder(embedded)  # n, z_depth, z_k
         #pz: n, z_depth, z_k (float32)
         #z: n, z_depth (int)
         hlstm = DecoderLSTMSkipgram(z_k=z_k, y_k=k, units=self.hidden_dim)
-        h = hlstm([z, input_y]) # n, z_depth, y_depth
+        nll = hlstm([z, input_y]) # n, z_depth, z_k
 
-        ngram_layer = NgramLayerDistributed(k=k, units=self.hidden_dim, kernel_regularizer=reg)
-        nll_partial = ngram_layer([h, input_y])  # n, z_depth, window*2
-        nll = Lambda(lambda _x: T.mean(_x, axis=2), output_shape=lambda _x: (_x[0], _x[1]))(nll_partial)  # n, z_depth
-
-        weighted_loss = Lambda(lambda _nll: T.sum(_nll * (sched.dimshuffle(('x', 0))), axis=1, keepdims=True),
-                               output_shape=lambda _nll: (_nll[0], 1))(nll)
+        weighted_loss = Lambda(lambda (_nll, _pz): T.sum(T.sum(_nll*_pz,axis=1), axis=1, keepdims=True),
+                               output_shape=lambda (_nll, _pz): (_nll[0],1))([nll, pz])
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
 
-        def nll_initial(ytrue, ypred):
-            return T.mean(nll[:, 0], axis=0)
-
-        def nll_final(ytrue, ypred):
-            return T.mean(nll[:, -1], axis=0)
-
         opt = Adam(lr)
         self.model = Model(inputs=[input_x, input_y], outputs=[weighted_loss])
-
-        self.model.compile(opt, loss_f, metrics=[nll_initial, nll_final])
+        self.model.compile(opt, loss_f)
 
         srng = RandomStreams(123)
         rng = Lambda(lambda _x: srng.uniform(low=0, high=1, size=(_x.shape[0], window * 2), dtype='float32'),
