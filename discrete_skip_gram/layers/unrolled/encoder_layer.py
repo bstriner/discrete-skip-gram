@@ -20,13 +20,13 @@ class EncoderLayer(Layer):
         Layer.__init__(self)
 
     def compute_mask(self, inputs, mask=None):
-        print ("Compute mask {}".format(mask))
+        #print ("Compute mask {}".format(mask))
         return mask
     def build(self, (h0, z0, x)):
         h_dim = h0[1]
         x_dim = x[1]
         self.h_W, self.h_b = pair(self, (h_dim, self.units), "h")
-        self.h_U = W(self, (self.z_k, self.units), "h_U")
+        self.h_U = W(self, (self.z_k+1, self.units), "h_U")
         self.h_V = W(self, (x_dim, self.units), "h_V")
         self.f = pair(self, (self.units, self.units), "f")
         self.i = pair(self, (self.units, self.units), "i")
@@ -36,8 +36,8 @@ class EncoderLayer(Layer):
         self.y = pair(self, (self.units, self.z_k), "y")
         self.built = True
 
-    def compute_output_shape(self, input_shape):
-        return [(input_shape[0], self.units), (input_shape[0], self.z_k)]
+    def compute_output_shape(self, (h0, z0, x)):
+        return [(h0[0], self.units), (h0[0], self.z_k)]
 
     def call(self, (h0, z0, x)):
         h = T.tanh(T.dot( h0,self.h_W)+self.h_U[T.flatten(z0),:]+T.dot(x,self.h_V)+self.h_b)
@@ -48,11 +48,11 @@ class EncoderLayer(Layer):
 
         h1 = (h0*f)+(c*i)
         t1 = T.tanh(T.dot(h1*o, self.t[0])+self.t[1])
-        print "ND"
-        print h0.ndim
-        print z0.ndim
-        print x.ndim
-        print h1.ndim
-        print t1.ndim
+        #print "ND"
+        #print h0.ndim
+        #print z0.ndim
+        #print x.ndim
+        #print h1.ndim
+        #print t1.ndim
         p1 = T.nnet.softmax(T.dot(t1, self.y[0])+self.y[1])
         return [h1, p1]

@@ -85,23 +85,23 @@ class SkipgramLayer(Layer):
         o = T.nnet.sigmoid(T.dot(h, o_W) + o_b)
         h1 = (h0 * f) + (c * i)
         t = T.tanh(T.dot(o * h1, t_W) + t_b)
-        print "NDim sg"
-        print y0.ndim
-        print y1.ndim
-        print h0.ndim
-        print z.ndim
-        print h.ndim
-        print h1.ndim
-        print t.ndim
+        #print "NDim sg"
+        #print y0.ndim
+        #print y1.ndim
+        #print h0.ndim
+        #print z.ndim
+        #print h.ndim
+        #print h1.ndim
+        #print t.ndim
         p1 = T.nnet.softmax(T.dot(t, y_W) + y_b)
-        nll1 = -T.log(p1[T.arange(p1.shape[0]), T.flatten(y0)])
+        nll1 = -T.log(p1[T.arange(p1.shape[0]), T.flatten(y1)])
         #nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
 
     def call(self, (z, y)):
         # z: input context: n, input_dim
         # y: ngram: n, depth int32
-        print "Z NDIM: {}".format(z.ndim)
+        #print "Z NDIM: {}".format(z.ndim)
         yr = T.transpose(y, (1, 0))
         yshifted = shift_tensor(y)
         yshiftedr = T.transpose(yshifted, (1, 0))
@@ -130,7 +130,7 @@ class SkipgramPolicyLayer(Layer):
         self.built = True
 
     def compute_mask(self, inputs, mask=None):
-        print ("Compute mask {}".format(mask))
+        #print ("Compute mask {}".format(mask))
         return mask
 
     def compute_output_shape(self, input_shape):

@@ -20,7 +20,8 @@ class SamplerLayer(Layer):
         csum = T.cumsum(p, axis=1)
         n = p.shape[0]
         rng = self.srng.uniform(low=0, high=1, size=(n,), dtype='float32')
-        sample = T.sum(T.gt(rng.dimshuffle(('x', 0)), csum), axis=1, keepdims=True)
+        #print "CSuM ndim: {}".format(csum.ndim)
+        sample = T.sum(T.gt(rng.dimshuffle((0, 'x')), csum), axis=1, keepdims=True)
         if self.offset:
             sample += self.offset
         sample = T.cast(sample, dtype='int32')

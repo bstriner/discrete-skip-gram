@@ -32,7 +32,7 @@ class DecoderLayer(Layer):
         self.built = True
 
     def compute_mask(self, inputs, mask=None):
-        print ("Compute mask {}".format(mask))
+        #print ("Compute mask {}".format(mask))
         return mask
 
     def compute_output_shape(self, input_shape):

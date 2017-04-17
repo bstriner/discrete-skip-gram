@@ -1,7 +1,9 @@
+import os
+
+#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 from keras.models import Model
 from keras.callbacks import LambdaCallback, CSVLogger
 from keras import backend as K
-# os.environ["THEANO_FLAGS"]="optimizer=None"
 import csv
 import theano.tensor as T
 
@@ -25,10 +27,10 @@ def main():
     batch_size = 128
     epochs = 1000
     steps_per_epoch = 256
-    window = 3
-    units = 256
+    window = 2
+    units = 512
     z_k = 2
-    z_depth = 8
+    z_depth = 10
     #4^6 = 4096
     decay = 0.9
     reg = L1L2(1e-6, 1e-6)
@@ -56,7 +58,7 @@ def main():
         n = 128
         samples = 8
         _, x = ds.cbow_batch(n=n, window=window, test=True)
-        ys = [model.model_predict.predict(x, verbose=0) for _ in samples]
+        ys = [model.predict_model.predict(x, verbose=0) for _ in range(samples)]
         with open(path, 'w') as f:
             for i in range(n):
                 strs= []
@@ -66,12 +68,12 @@ def main():
                     lctx = " ".join(ctx[:window])
                     rctx = " ".join(ctx[window:])
                     strs.append("{} [{}] {}".format(lctx, w, rctx))
-                f.write("{}: {}\n").format(w, strs.join(" | "))
+                f.write("{}: {}\n".format(w, " | ".join(strs    )))
 
         if (epoch + 1) % 10 == 0:
             path = "{}/encoded-{:08d}.csv".format(outputpath, epoch)
             x = np.arange(k).reshape((-1, 1))
-            zs = model.model_encode.predict(x, verbose=0)
+            zs = model.encode_model.predict(x, verbose=0)
             with open(path, 'w') as f:
                 w = csv.writer(f)
                 w.writerow(["Idx", "Word", "Encoding"]+["Cat {}".format(i) for i in range(len(zs))])
@@ -80,6 +82,8 @@ def main():
                     enc = [z[i,0] for z in zs]
                     encf = "".join(chr(ord('a')+e) for e in enc)
                     w.writerow([i, word, encf]+enc)
+            path = "{}/weights-{:08d}.h5".format(outputpath, epoch)
+            model.model.save_weights(path)
 #            path = "{}/encoded-array-{:08d}.txt".format(outputpath, epoch)
 #            np.save(path, z)
 
