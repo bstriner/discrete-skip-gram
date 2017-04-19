@@ -17,7 +17,7 @@ class EncoderLayer(Layer):
         self.bias_initializer = initializers.get(bias_initializer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = InputSpec(min_ndim=2)
-        Layer.__init__(self, , **kwargs)
+        Layer.__init__(self, **kwargs)
 
     def compute_mask(self, inputs, mask=None):
         #print ("Compute mask {}".format(mask))
