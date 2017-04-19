@@ -152,7 +152,6 @@ class SkipgramBatchPolicyLayer(Layer):
         t2 = T.dot(t1, y_W) + y_b
         t3 = T.reshape(t2, (-1, self.layer.z_k, self.layer.y_k))
         p1 = softmax_nd(t3)
-        print "P1!!!!!!:{}".format(p1.ndim)
         p1 = p1[T.arange(p1.shape[0]), T.flatten(znext), :]
         c1 = T.cumsum(p1, axis=1)
         y1 = T.sum(T.gt(rng.dimshuffle((0, 'x')), c1), axis=1) + 1

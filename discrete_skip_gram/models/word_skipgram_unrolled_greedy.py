@@ -1,12 +1,14 @@
+import csv
+
 import numpy as np
 import theano
-from tqdm import tqdm
+from keras.callbacks import LambdaCallback, CSVLogger
 from keras.layers import Input, Embedding, Lambda, Activation
 from keras.models import Model
 from keras.optimizers import Adam
 from theano import tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
-from keras.callbacks import LambdaCallback, CSVLogger
+from tqdm import tqdm
 
 from ..layers.unrolled.bias_layer import BiasLayer
 from ..layers.unrolled.decoder_layer import DecoderLayer
@@ -14,7 +16,7 @@ from ..layers.unrolled.sampler_deterministic_layer import SamplerDeterministicLa
 from ..layers.unrolled.skipgram_batch_layer import SkipgramBatchLayer, SkipgramBatchPolicyLayer
 from ..layers.utils import drop_dim_2, zeros_layer, add_layer
 
-import csv
+
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
 
@@ -94,6 +96,10 @@ class WordSkipgramUnrolledGreedy(object):
 
             opt = Adam(lr)
             model.compile(opt, loss_f)
+            model._make_train_function()
+            embedding.trainable=False
+            decoder_layer.trainable=False
+            skipgram_layer.trainable=False
             self.models.append(model)
 
             # Prediction model
@@ -117,32 +123,32 @@ class WordSkipgramUnrolledGreedy(object):
     def train(self, batch_size, epochs, steps_per_epoch, output_path, **kwargs):
         gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
         for idx, (model, pred_model, enc_model) in tqdm(enumerate(zip(self.models,
-                                                                    self.predict_models,
-                                                                    self.encode_models)),
-                                                 desc="Training Models"):
+                                                                      self.predict_models,
+                                                                      self.encode_models)),
+                                                        desc="Training Models"):
 
             def on_epoch_end(epoch, logs):
-                path = "{}/model-{}-generated-{:08d}.txt".format(output_path, idx, epoch)
-                n = 128
-                samples = 8
-                _, x = self.dataset.cbow_batch(n=n, window=self.window, test=True)
-                ys = [model.predict_model.predict(x, verbose=0) for _ in range(samples)]
-                with open(path, 'w') as f:
-                    for i in range(n):
-                        strs = []
-                        w = self.dataset.get_word(x[i, 0])
-                        for y in ys:
-                            ctx = [self.dataset.get_word(y[i, j]) for j in range(self.window * 2)]
-                            lctx = " ".join(ctx[:self.window])
-                            rctx = " ".join(ctx[self.window:])
-                            strs.append("{} [{}] {}".format(lctx, w, rctx))
-                        f.write("{}: {}\n".format(w, " | ".join(strs)))
-
                 if (epoch + 1) % 5 == 0:
+                    path = "{}/model-{}-generated-{:08d}.txt".format(output_path, idx, epoch)
+                    n = 128
+                    samples = 8
+                    _, x = self.dataset.cbow_batch(n=n, window=self.window, test=True)
+                    ys = [pred_model.predict(x, verbose=0) for _ in range(samples)]
+                    with open(path, 'w') as f:
+                        for i in range(n):
+                            strs = []
+                            w = self.dataset.get_word(x[i, 0])
+                            for y in ys:
+                                ctx = [self.dataset.get_word(y[i, j]) for j in range(self.window * 2)]
+                                lctx = " ".join(ctx[:self.window])
+                                rctx = " ".join(ctx[self.window:])
+                                strs.append("{} [{}] {}".format(lctx, w, rctx))
+                            f.write("{}: {}\n".format(w, " | ".join(strs)))
+
                     path = "{}/model-{}-encoded-{:08d}.csv".format(output_path, idx, epoch)
                     x = np.arange(self.dataset.k).reshape((-1, 1))
-                    ret = model.encode_model.predict(x, verbose=0)
-                    pzs, zs = ret[:idx+1], ret[idx+1:]
+                    ret = enc_model.predict(x, verbose=0)
+                    pzs, zs = ret[:idx + 1], ret[idx + 1:]
 
                     # if z_depth == 1:
                     #    zs = [zs]
@@ -158,7 +164,7 @@ class WordSkipgramUnrolledGreedy(object):
                             encf = "".join(chr(ord('a') + e) for e in enc)
                             w.writerow([i, word, encf] + enc + pzfs)
                     path = "{}/model-{}-weights-{:08d}.h5".format(output_path, idx, epoch)
-                    model.model.save_weights(path)
+                    model.save_weights(path)
 
             csvpath = "{}/model-{}-history.csv".format(output_path, idx)
             cbs = [LambdaCallback(on_epoch_end=on_epoch_end), CSVLogger(csvpath)]
