@@ -76,7 +76,7 @@ def main():
                     strs.append("{} [{}] {}".format(lctx, w, rctx))
                 f.write("{}: {}\n".format(w, " | ".join(strs)))
 
-        if (epoch + 0) % 5 == 0:
+        if (epoch + 1) % 5 == 0:
             path = "{}/encoded-{:08d}.csv".format(outputpath, epoch)
             x = np.arange(k).reshape((-1, 1))
             ret = model.encode_model.predict(x, verbose=0)
@@ -100,7 +100,7 @@ def main():
         #            path = "{}/encoded-array-{:08d}.txt".format(outputpath, epoch)
         #            np.save(path, z)
 
-    gencb = LambdaCallback(on_epoch_begin=on_epoch_end)
+    gencb = LambdaCallback(on_epoch_end=on_epoch_end)
     model.train(batch_size=batch_size,
                 epochs=epochs,
                 steps_per_epoch=steps_per_epoch,
