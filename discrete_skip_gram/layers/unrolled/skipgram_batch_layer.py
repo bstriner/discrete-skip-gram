@@ -14,7 +14,7 @@ class SkipgramBatchLayer(Layer):
 
     def __init__(self, y_k, z_k, units, mean=True,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
-                 bias_initializer='zero', bias_regularizer=None):
+                 bias_initializer='zero', bias_regularizer=None, **kwargs):
         self.y_k = y_k
         self.z_k = z_k
         self.units = units
@@ -25,7 +25,7 @@ class SkipgramBatchLayer(Layer):
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
         self.supports_masking = False
-        Layer.__init__(self)
+        Layer.__init__(self, **kwargs)
 
     def build_params(self, input_dim):
         h_W, h_b = pair(self, (self.y_k + 1, self.units), "h")

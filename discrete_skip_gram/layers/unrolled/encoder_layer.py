@@ -9,7 +9,7 @@ from theano.tensor.shared_randomstreams import RandomStreams
 class EncoderLayer(Layer):
     def __init__(self,units, z_k,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
-                 bias_initializer='zero', bias_regularizer=None):
+                 bias_initializer='zero', bias_regularizer=None, **kwargs):
         self.units = units
         self.z_k=z_k
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -17,7 +17,7 @@ class EncoderLayer(Layer):
         self.bias_initializer = initializers.get(bias_initializer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = InputSpec(min_ndim=2)
-        Layer.__init__(self)
+        Layer.__init__(self, , **kwargs)
 
     def compute_mask(self, inputs, mask=None):
         #print ("Compute mask {}".format(mask))

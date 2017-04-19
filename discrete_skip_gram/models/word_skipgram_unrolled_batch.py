@@ -85,7 +85,8 @@ class WordSkipgramUnrolledBatch(object):
         for zidx, z in enumerate(zs):
             ht, zh = decoder_layer([ht, zt])
             nll = skipgram_layer([zh, input_y]) #n, z_k
-            loss = Lambda(lambda (_a, _b): _a * _b, output_shape=lambda (_a, _b):_a)([nll, pzs[zidx]])
+            loss = Lambda(lambda (_a, _b): T.sum(_a * _b, axis=1, keepdims=True),
+                          output_shape=lambda (_a, _b):(_a[0],1))([nll, pzs[zidx]])
             losses.append(loss)
             zt = add_layer(1)(z)
             zhs.append(zh)

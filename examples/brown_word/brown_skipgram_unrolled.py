@@ -35,7 +35,7 @@ def main():
     #balance_reg = 0
     #certainty_reg = 0
     lr = 3e-4
-    batch = False
+    batch = True
 
     docs = clean_docs(brown_docs(), simple_clean)
     docs, tdocs = docs[:-5], docs[-5:]
