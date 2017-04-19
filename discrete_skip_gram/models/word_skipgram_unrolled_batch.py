@@ -10,14 +10,14 @@ from ..layers.unrolled.bias_layer import BiasLayer
 from ..layers.unrolled.decoder_layer import DecoderLayer
 from ..layers.unrolled.encoder_layer import EncoderLayer
 from ..layers.unrolled.sampler_layer import SamplerLayer
-from ..layers.unrolled.skipgram_layer import SkipgramLayer, SkipgramPolicyLayer
+from ..layers.unrolled.skipgram_batch_layer import SkipgramBatchLayer, SkipgramBatchPolicyLayer
 from ..layers.unrolled.sampler_deterministic_layer import SamplerDeterministicLayer
 from ..layers.utils import drop_dim_2, zeros_layer, ones_layer, add_layer
 
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
 
-class WordSkipgramUnrolled(object):
+class WordSkipgramUnrolledBatch(object):
     def __init__(self, dataset, units, window, z_depth, z_k, schedule,
                  lr=1e-4,
                  act_reg=None,
@@ -79,47 +79,15 @@ class WordSkipgramUnrolled(object):
         losses = []
         decoder_h0 = BiasLayer(units)
         ht = decoder_h0(input_x)
-        decoder_layer = DecoderLayer(units, z_k=z_k, kernel_regularizer=reg)
-        skipgram_layer = SkipgramLayer(units=units, k=x_k, kernel_regularizer=reg)
+        zt = zeros_layer(1, dtype='int32')(input_x)
+        decoder_layer = DecoderLayer(units, z_k=z_k+1, kernel_regularizer=reg)
+        skipgram_layer = SkipgramBatchLayer(units=units, y_k=x_k, z_k=z_k, kernel_regularizer=reg)
         for zidx, z in enumerate(zs):
-            zlosses = []
-            #tmp = []
-            for zind in range(z_k):
-                ztmp = ones_layer(units=1, scale=zind, dtype='int32')(z)
-                _, zh = decoder_layer([ht, ztmp])
-                nll = skipgram_layer([zh, input_y])
-                loss = selection_layer(zind)([nll, pzs[zidx]])
-                #tmp.append(zh)
-                zlosses.append(loss)
-                """
-                print "Loss: {}".format(loss._keras_shape)       
-                _n = 128
-                _x = np.random.randint(low=0, high=x_k, size=(_n, 1))
-                _y = np.random.randint(low=0, high=x_k, size=(_n, self.y_depth))
-                tm = Model([input_x, input_y], loss)
-                _loss =tm.predict([_x, _y])
-                print "_loss Shape: {} / {}".format(_loss.shape, loss._keras_shape)
-                tm = Model([input_x, input_y], nll)
-                _nll =tm.predict([_x, _y])
-                print "_nll Shape: {} / {}".format(_nll.shape, nll._keras_shape)
-                tm = Model([input_x, input_y], pzs[i])
-                _nll =tm.predict([_x, _y])
-                print "pzs[i] Shape: {} / {}".format(_nll.shape, pzs[i]._keras_shape)
-                """
-            """    
-            _n = 5
-            _x = np.random.randint(low=0, high=x_k, size=(_n, 1))
-            m = Model([input_x], tmp)
-            _tmp = m.predict([_x])
-            for t in _tmp:
-                print "TMP: {}".format(t.shape)
-                print t
-            raise ValueError()
-            """
-            zloss = Add()(zlosses)
-            losses.append(zloss)
-
-            ht, zh = decoder_layer([ht, z])
+            ht, zh = decoder_layer([ht, zt])
+            nll = skipgram_layer([zh, input_y]) #n, z_k
+            loss = Lambda(lambda (_a, _b): _a * _b, output_shape=lambda (_a, _b):_a)([nll, pzs[zidx]])
+            losses.append(loss)
+            zt = add_layer(1)(z)
             zhs.append(zh)
 
         # nllconcat = Concatenate()(losses)
@@ -164,8 +132,8 @@ class WordSkipgramUnrolled(object):
         print "NLL Shape: {} / {}".format(_nll.shape, nlltot._keras_shape)
         """
         # Prediction model
-        policy_layer = SkipgramPolicyLayer(skipgram_layer, srng=srng, depth=self.y_depth)
-        ygen = policy_layer(zhs[-1])
+        policy_layer = SkipgramBatchPolicyLayer(skipgram_layer, srng=srng, depth=self.y_depth)
+        ygen = policy_layer([zhs[-1], zs[-1]])
         self.predict_model = Model([input_x], ygen)
 
         # Encoder model
@@ -185,14 +153,16 @@ class WordSkipgramUnrolled(object):
         input_zs = [Input((1,), dtype='int32', name="input_z_{}".format(i)) for i in range(z_depth)]
 
         ht = decoder_h0(input_zs[0])
+        zt = zeros_layer(1, dtype='int32')(input_zs[0])
         #        decoder_layer = DecoderLayer(units, z_k=z_k, kernel_regularizer=reg)
         #        skipgram_layer = SkipgramLayer(units=units, k=x_k, kernel_regularizer=reg)
         #        policy_layer = SkipgramPolicyLayer(skipgram_layer, srng=srng, depth=self.y_depth)
 
         for z in input_zs:
-            ht, zhdec = decoder_layer([ht, z])
+            ht, zhdec = decoder_layer([ht, zt])
+            zt = add_layer(1)(z)
 
-        ygen = policy_layer(zhdec)
+        ygen = policy_layer([zhdec, z])
         self.decoder_model = Model(input_zs, ygen)
 
     def train(self, batch_size, epochs, steps_per_epoch, **kwargs):

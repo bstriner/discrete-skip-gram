@@ -33,9 +33,9 @@ class NgramLayerDistributed(NgramLayer):
         assert (len(x) == 2)
         return x[0], z[1], x[1]
 
-    def wrapper_step(self, z, xprev, x, *params):
+    def wrapper_step(self, z, xprev, x, h0, *params):
         n = z.shape[0]
-        outputs_info = [T.extra_ops.repeat(self.h0, n, axis=0),
+        outputs_info = [T.extra_ops.repeat(h0, n, axis=0),
                         None]
         (hr, nllr), _ = theano.scan(self.step, sequences=[xprev, x], outputs_info=outputs_info,
                                     non_sequences=[z] + list(params))
@@ -69,6 +69,6 @@ class NgramLayerDistributed(NgramLayer):
         xshiftedr = T.transpose(xshifted, (1, 0))
         outputs_info = [None]
         nllr, _ = theano.scan(self.wrapper_step, sequences=[zr], outputs_info=outputs_info,
-                              non_sequences=[xshiftedr, xr] + self.non_sequences)
+                              non_sequences=[xshiftedr, xr, self.h0] + self.non_sequences)
         nll = T.transpose(nllr, (1, 0, 2))
         return nll

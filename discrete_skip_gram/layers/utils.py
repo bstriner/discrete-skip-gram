@@ -1,6 +1,6 @@
+import numpy as np
 from keras.layers import Lambda
 from theano import tensor as T
-import numpy as np
 
 
 def W(model, shape, name):
@@ -56,5 +56,14 @@ def rewards_to_values(r, discount=0.75):
 def drop_dim_2():
     return Lambda(lambda _x: _x[:, 0, :], output_shape=lambda _x: (_x[0], _x[2]))
 
+
 def zeros_layer(units, dtype='float32'):
-    return Lambda(lambda _x: T.zeros((_x.shape[0], units), dtype=dtype), output_shape=lambda _x: (_x[0],units))
+    return Lambda(lambda _x: T.zeros((_x.shape[0], units), dtype=dtype), output_shape=lambda _x: (_x[0], units))
+
+
+def ones_layer(units, scale=1, dtype='float32'):
+    return Lambda(lambda _x: T.ones((_x.shape[0], units), dtype=dtype) * scale, output_shape=lambda _x: (_x[0], units))
+
+
+def add_layer(value):
+    return Lambda(lambda _x: _x + value, output_shape=lambda _x: _x)

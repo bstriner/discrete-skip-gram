@@ -28,7 +28,7 @@ def main():
     batch_size = 128
     window = 3
     epochs = 500
-
+    steps_per_epoch = 32
     docs = clean_docs(brown_docs(), simple_clean)
     ds = WordDataset(docs, min_count)
     ds.summary()
@@ -65,12 +65,18 @@ def main():
     weighted_loss = Lambda(lambda (_loss, _z): T.sum(_loss * _z, axis=1, keepdims=True),
                            output_shape=lambda _x: (_x[0], 1))([loss, z])  # n, 1
 
-    initial_reg_weight = 0
     eps = K.epsilon()
+    initial_reg_weight = 1e-3
     if initial_reg_weight > 0:
         reg_weight = K.variable(initial_reg_weight, dtype='float32', name='reg_weight')
         reg = reg_weight * T.mean(T.sum(T.log(z + eps) + T.log(1 - z + eps), axis=1), axis=0)
         # reg = -reg_weight * T.mean(T.sum(T.square(z-0.5), axis=1), axis=0)
+        sm.add_loss(reg)
+
+    balance_reg = 1e-2
+    if balance_reg > 0:
+        balance_reg = K.variable(np.float32(balance_reg), dtype='float32', name='balance_reg')
+        reg = T.mean(-T.log(T.mean(z, axis=0)+eps), axis=0) * balance_reg
         sm.add_loss(reg)
 
     def certainty(y_true, y_pred):
@@ -79,8 +85,11 @@ def main():
     def nll(y_true, y_pred):
         return T.mean(weighted_loss, axis=None)
 
+    def kl(y_true, y_pred):
+        return T.mean(-T.log(T.mean(z, axis=0)), axis=0)
+
     model_nll = Model(inputs=[x, yreal], output=[weighted_loss])
-    model_nll.compile(Adam(1e-3), lambda ytrue, ypred: ypred, metrics=[certainty, nll])
+    model_nll.compile(Adam(1e-3), lambda ytrue, ypred: ypred, metrics=[certainty, nll, kl])
 
     model_zp = Model(inputs=[x], output=[z])
 
@@ -100,7 +109,7 @@ def main():
             for i in range(n):
                 w = ds.get_word(x[i, 0])
                 f.write("{}: {}\n".format(w, ", ".join("{:.03f}".format(_z) for _z in zp[i, :])))
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 5 == 0:
             p = "{}/vocab-{:08d}.csv".format(outputpath, epoch)
             x = np.arange(ds.k, dtype=np.int32).reshape((-1, 1))
             zp = model_zp.predict(x, verbose=0)
@@ -119,8 +128,8 @@ def main():
     csvp = "{}/history.csv".format(outputpath)
     if not os.path.exists(os.path.dirname(csvp)):
         os.makedirs(os.path.dirname(csvp))
-    csvcb = CSVLogger(csvp)
-    model_nll.fit_generator(gen, epochs=epochs, steps_per_epoch=1024, callbacks=[cb, csvcb])
+    csvcb = CSVLogger(csvp, append=True)
+    model_nll.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_per_epoch, callbacks=[cb, csvcb])
 
 
 if __name__ == "__main__":

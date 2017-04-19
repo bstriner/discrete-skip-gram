@@ -46,5 +46,5 @@ class DecoderLayer(Layer):
         o = T.nnet.sigmoid(T.dot(h, self.o[0]) + self.o[1])
         h1 = (h0 * f) + (c * i)
         t1 = T.tanh(T.dot(h1 * o, self.t[0]) + self.t[1])
-        zh = T.tanh(T.dot(t1, self.y[0]) + self.y[1])
+        zh = T.dot(t1, self.y[0]) + self.y[1]
         return [h1, zh]

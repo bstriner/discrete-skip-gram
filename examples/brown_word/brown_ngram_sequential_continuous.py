@@ -1,9 +1,10 @@
+import os
+#os.environ["THEANO_FLAGS"]="optimizer=None"
+os.environ["THEANO_FLAGS"]="device=cpu"
 from keras.layers import Input, Embedding, Dense, Reshape, Activation, Lambda
 from keras.models import Model
 from keras.callbacks import LambdaCallback, CSVLogger
 from keras import backend as K
-import os
-# os.environ["THEANO_FLAGS"]="optimizer=None"
 import csv
 import theano.tensor as T
 
@@ -30,14 +31,16 @@ def main():
     epochs = 1000
     steps_per_epoch = 256
     window = 3
-    hidden_dim = 256
+    hidden_dim = 512
     z_k = 2
     z_depth = 6
     #4^6 = 4096
     decay = 0.9
-    reg = L1L2(1e-6, 1e-6)
-    act_reg = TanhRegularizer(1e-3)
-    lr = 3e-4
+    #reg = L1L2(1e-6, 1e-6)
+    reg = None
+    #act_reg = TanhRegularizer(1e-3)
+    act_reg = None
+    lr = 1e-3 #3e-4
 
     docs = clean_docs(brown_docs(), simple_clean)
     docs, tdocs = docs[:-5], docs[-5:]
