@@ -1,36 +1,39 @@
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
-import csv
 import os
 
 import numpy as np
-from keras.callbacks import CSVLogger
+from keras.regularizers import L1L2
 
 from discrete_skip_gram.datasets.corpus import brown_docs
 from discrete_skip_gram.datasets.utils import clean_docs, simple_clean
 from discrete_skip_gram.datasets.word_dataset import WordDataset
 from discrete_skip_gram.models.util import makepath
-from discrete_skip_gram.models.word_skipgram_unrolled2 import WordSkipgramUnrolled2
+from discrete_skip_gram.models.word_skipgram_sequential_softmax import WordSkipgramSequentialSofttmax
 from discrete_skip_gram.regularizers.tanh_regularizer import TanhRegularizer
 
 
 # maybe try movie_reviews or reuters
 def main():
-    outputpath = "output/brown/skipgram_unrolled2"
+    outputpath = "output/brown/skipgram_sequential_softmax"
     min_count = 5
     batch_size = 128
-    epochs = 1000
+    epochs = 500
+    # epochs = 5
     steps_per_epoch = 256
+    # steps_per_epoch = 2
     window = 2
-    units = 512
+    units = 256
     z_k = 4
     z_depth = 7
     # 4^6 = 4096
     decay = 0.9
+    schedule = np.power(decay, np.arange(z_depth))
     # reg = L1L2(1e-6, 1e-6)
     reg = None
     act_reg = TanhRegularizer(1e-3)
     balance_reg = 1e-2
     certainty_reg = 1e-2
+    kernel_regularizer = L1L2(1e-6, 1e-6)
     # balance_reg = 0
     # certainty_reg = 0
     lr = 3e-4
@@ -39,16 +42,14 @@ def main():
     docs, tdocs = docs[:-5], docs[-5:]
     ds = WordDataset(docs, min_count, tdocs=tdocs)
     ds.summary()
-    model = WordSkipgramUnrolled2(dataset=ds, z_k=z_k, z_depth=z_depth,
-                                       window=window,
-                                       reg=reg, act_reg=act_reg,
-                                       balance_reg=balance_reg,
-                                       certainty_reg=certainty_reg,
-                                       units=units, lr=lr)
-    csvpath = "{}/history.csv".format(outputpath)
-    makepath(csvpath)
-    if os.path.exists(csvpath):
-        os.remove(csvpath)
+    model = WordSkipgramSequentialSofttmax(dataset=ds, z_k=z_k, z_depth=z_depth,
+                                           window=window,
+                                           kernel_regularizer=kernel_regularizer,
+                                           schedule=schedule,
+                                           # reg=reg, act_reg=act_reg,
+                                           # balance_reg=balance_reg,
+                                           # certainty_reg=certainty_reg,
+                                           units=units, lr=lr)
     validation_n = 4096
     vd = ds.cbow_batch(n=validation_n, window=window, test=True)
 

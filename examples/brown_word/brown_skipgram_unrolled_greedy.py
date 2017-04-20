@@ -18,8 +18,10 @@ def main():
     outputpath = "output/brown/skipgram_unrolled_greedy"
     min_count = 5
     batch_size = 128
-    epochs = 50
-    steps_per_epoch = 256
+    #epochs = 50
+    epochs = 5
+    #steps_per_epoch = 256
+    steps_per_epoch = 2
     window = 2
     units = 512
     z_k = 4

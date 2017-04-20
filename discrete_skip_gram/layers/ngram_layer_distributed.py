@@ -7,9 +7,9 @@ from .utils import W, b, pair, shift_tensor
 from .ngram_layer import NgramLayer
 
 
-class NgramLayerDistributed(NgramLayer):
+class  NgramLayerDistributed(NgramLayer):
     """
-    Given a flattened representation of x, encode as a series of symbols
+    Given a context, predict a sequence of symbols
     """
 
     def __init__(self, *args, **kwargs):
@@ -31,7 +31,10 @@ class NgramLayerDistributed(NgramLayer):
         x = input_shape[1]
         assert (len(z) == 3)
         assert (len(x) == 2)
-        return x[0], z[1], x[1]
+        if self.mean:
+            return x[0], z[1]
+        else:
+            return x[0], z[1], x[1]
 
     def wrapper_step(self, z, xprev, x, h0, *params):
         n = z.shape[0]
@@ -41,24 +44,6 @@ class NgramLayerDistributed(NgramLayer):
                                     non_sequences=[z] + list(params))
         return nllr
 
-    """
-    def call(self, (z, x)):
-        # z: input context: n, depth, input_dim
-        # x: ngram: n, depth int32
-        # output: n, z_depth, window*2
-        zflat = T.reshape(z, (z.shape[0]*z.shape[1],z.shape[2]))
-        xr = T.transpose(x, (1, 0))
-        xshifted = shift_tensor(x)
-        xshiftedr = T.transpose(xshifted, (1, 0))
-        xsrr = T.repeat(xshiftedr, z.shape[1], axis=1)
-        xrr = T.repeat(xr, z.shape[1], axis=1)
-        n = z.shape[0]
-        outputs_info = [None]
-        nllr, _ = theano.scan(self.step, sequences=[xsrr, xrr], outputs_info=outputs_info,
-                              non_sequences=[zflat] + self.non_sequences)
-        nll = T.transpose(nllr, (1, 0, 2))
-        return nll
-    """
     def call(self, (z, x)):
         # z: input context: n, depth, input_dim
         # x: ngram: n, depth int32
@@ -71,4 +56,6 @@ class NgramLayerDistributed(NgramLayer):
         nllr, _ = theano.scan(self.wrapper_step, sequences=[zr], outputs_info=outputs_info,
                               non_sequences=[xshiftedr, xr, self.h0] + self.non_sequences)
         nll = T.transpose(nllr, (1, 0, 2))
+        if self.mean:
+            nll = T.mean(nll, axis=2)
         return nll

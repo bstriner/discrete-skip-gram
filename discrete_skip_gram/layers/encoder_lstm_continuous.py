@@ -12,12 +12,14 @@ class EncoderLSTMContinuous(Layer):
     """
 
     def __init__(self, z_depth, z_k, units,
+                 activation=T.tanh,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None,
                  activity_regularizer=None):
         self.z_depth = z_depth
         self.z_k = z_k
         self.units = units
+        self.activation = activation
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
@@ -75,7 +77,7 @@ class EncoderLSTMContinuous(Layer):
         o = T.nnet.sigmoid(T.dot(h, o_W) + o_b)
         h1 = (h0 * f) + (c * i)
         t = T.tanh(T.dot(o * h1, t_W) + t_b)
-        y1 = T.tanh(T.dot(t, y_W) + y_b)
+        y1 = self.activation(T.dot(t, y_W) + y_b)
         return h1, y1
 
     def call(self, x):

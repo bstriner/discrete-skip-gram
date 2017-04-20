@@ -98,7 +98,7 @@ class WordSkipgramUnrolledGreedy(object):
             model.compile(opt, loss_f)
             model._make_train_function()
             embedding.trainable=False
-            decoder_layer.trainable=False
+            #decoder_layer.trainable=False
             skipgram_layer.trainable=False
             self.models.append(model)
 

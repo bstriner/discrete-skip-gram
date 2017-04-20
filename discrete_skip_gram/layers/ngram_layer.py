@@ -12,10 +12,12 @@ class NgramLayer(Layer):
     """
 
     def __init__(self, k, units,
+                 mean = True,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None):
         self.k = k
         self.units = units
+        self.mean = mean
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
@@ -67,7 +69,10 @@ class NgramLayer(Layer):
         x = input_shape[1]
         assert (len(z) == 2)
         assert (len(x) == 2)
-        return x
+        if self.mean:
+            return x[0],1
+        else:
+            return x
 
     def step(self, xprev, x, h0, z, *params):
         (h_W, h_U, h_V, h_b,
@@ -100,23 +105,22 @@ class NgramLayer(Layer):
         (hr, nllr), _ = theano.scan(self.step, sequences=[xshiftedr, xr], outputs_info=outputs_info,
                                     non_sequences=[z] + self.non_sequences)
         nll = T.transpose(nllr, (1, 0))
+        if self.mean:
+            nll = T.mean(nll, axis=1)
         return nll
 
 
 class NgramLayerGenerator(Layer):
-    def __init__(self, layer):
+    def __init__(self, layer, srng, depth):
         self.layer = layer
-        self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
+        self.srng=srng
+        self.depth=depth
+        self.input_spec = InputSpec(ndim=2)
         self.supports_masking = False
         Layer.__init__(self)
 
     def build(self, input_shape):
         assert len(input_shape) == 2
-        z = input_shape[0]
-        x = input_shape[1]
-        assert (len(z) == 2)
-        assert (len(x) == 2)
-        input_dim = z[1]
         self.built = True
 
     def compute_mask(self, inputs, mask=None):
@@ -125,11 +129,7 @@ class NgramLayerGenerator(Layer):
 
     def compute_output_shape(self, input_shape):
         assert len(input_shape) == 2
-        z = input_shape[0]
-        rng = input_shape[1]
-        assert (len(z) == 2)
-        assert (len(rng) == 2)
-        return rng
+        return input_shape[0], self.depth
 
     def step(self, rng, h0, x0, z, *params):
         (h_W, h_U, h_V, h_b,
@@ -152,11 +152,12 @@ class NgramLayerGenerator(Layer):
         y1 = T.cast(y1, 'int32')
         return h1, y1
 
-    def call(self, (z, rng)):
+    def call(self, z):
         # z: input context: n, input_dim
         # rng: rng: n, depth float32
-        rngr = T.transpose(rng, (1, 0))
+
         n = z.shape[0]
+        rngr = self.srng.uniform(low=0, high=1, dtype='float32', size=(self.depth, n))
         outputs_info = [T.extra_ops.repeat(self.layer.h0, n, axis=0),
                         T.zeros((n,), dtype='int32')]
         (hr, yr), _ = theano.scan(self.step, sequences=[rngr], outputs_info=outputs_info,
