@@ -1,3 +1,7 @@
+"""
+Each element of sequence is an embedding layer
+"""
+
 import csv
 
 import numpy as np
@@ -52,7 +56,7 @@ class WordSkipgramUnrolled2(object):
         ht = decoder_h0(input_x)
         zt = zeros_layer(1, dtype='int32')(input_x)
         eps = 1e-6
-        sampler = SamplerDeterministicLayer()
+        sampler = SamplerDeterministicLayer(offset=0)
         losses = []
 
         def loss_f(ytrue, ypred):
@@ -129,7 +133,7 @@ class WordSkipgramUnrolled2(object):
         gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
 
         def on_epoch_end(epoch, logs):
-            if (epoch + 1) % 5 == 0:
+            if (epoch + 1) % 10 == 0:
                 path = "{}/generated-{:08d}.txt".format(output_path, epoch)
                 n = 128
                 samples = 8
@@ -149,7 +153,7 @@ class WordSkipgramUnrolled2(object):
                 path = "{}/encoded-{:08d}.csv".format(output_path, epoch)
                 x = np.arange(self.dataset.k).reshape((-1, 1))
                 ret = self.encode_model.predict(x, verbose=0)
-                pzs, zs = ret[:self.z_depth], ret[self.z_depth + 1:]
+                pzs, zs = ret[:self.z_depth], ret[self.z_depth:]
 
                 # if z_depth == 1:
                 #    zs = [zs]
@@ -168,6 +172,6 @@ class WordSkipgramUnrolled2(object):
                 self.model.save_weights(path)
 
         csvpath = "{}/history.csv".format(output_path)
-        cbs = [LambdaCallback(on_epoch_end=on_epoch_end), CSVLogger(csvpath)]
+        cbs = [LambdaCallback(on_epoch_begin=on_epoch_end), CSVLogger(csvpath)]
         self.model.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_per_epoch, callbacks=cbs,
                                  verbose=1, **kwargs)

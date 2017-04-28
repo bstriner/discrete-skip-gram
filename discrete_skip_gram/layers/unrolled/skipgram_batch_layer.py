@@ -87,9 +87,10 @@ class SkipgramBatchLayer(Layer):
         h1 = (h0 * f) + (c * i)
         t1 = T.tanh(T.dot(o * h1, t_W) + t_b)
         t2 = T.dot(t1, y_W) + y_b
-        t3 = T.reshape(t2, (-1, self.z_k, self.y_k))
+        t3 = T.reshape(t2, (t2.shape[0], self.z_k, self.y_k))
         p1 = softmax_nd(t3)
-        nll1 = -T.log(p1[T.arange(p1.shape[0]), :, y1])
+        eps = 1e-6
+        nll1 = -T.log(p1[T.arange(p1.shape[0]), :, y1]+eps)
         # nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
 
@@ -150,10 +151,10 @@ class SkipgramBatchPolicyLayer(Layer):
         h1 = (h0 * f) + (c * i)
         t1 = T.tanh(T.dot(o * h1, t_W) + t_b)
         t2 = T.dot(t1, y_W) + y_b
-        t3 = T.reshape(t2, (-1, self.layer.z_k, self.layer.y_k))
+        t3 = T.reshape(t2, (t2.shape[0], self.layer.z_k, self.layer.y_k))
         p1 = softmax_nd(t3)
-        p1 = p1[T.arange(p1.shape[0]), T.flatten(znext), :]
-        c1 = T.cumsum(p1, axis=1)
+        p2 = p1[T.arange(p1.shape[0]), T.flatten(znext), :]
+        c1 = T.cumsum(p2, axis=1)
         y1 = T.clip(T.sum(T.gt(rng.dimshuffle((0, 'x')), c1), axis=1), 0, self.layer.y_k - 1) + 1
         y1 = T.cast(y1, 'int32')
         return h1, y1

@@ -29,10 +29,10 @@ def shift_tensor(_x):
     return T.concatenate((T.zeros((_x.shape[0], 1), dtype=_x.dtype), _x[:, :-1] + 1), axis=1)
 
 
-def softmax_nd(x):
-    e = T.exp(x)
-    s = T.sum(e, axis=-1, keepdims=True)
-    return e / s
+def softmax_nd(x, axis=-1):
+    e_x = T.exp(x - x.max(axis=axis, keepdims=True))
+    out = e_x / e_x.sum(axis=axis, keepdims=True)
+    return out
 
 
 def softmax_nd_layer():

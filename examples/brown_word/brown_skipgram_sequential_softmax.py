@@ -17,14 +17,16 @@ def main():
     outputpath = "output/brown/skipgram_sequential_softmax"
     min_count = 5
     batch_size = 128
-    epochs = 500
+    epochs = 5000
     # epochs = 5
-    steps_per_epoch = 256
+    steps_per_epoch = 512
+    frequency = 10
     # steps_per_epoch = 2
     window = 2
+    train_rate=5
     units = 128
     z_k = 4
-    z_depth = 7
+    z_depth = 6
     # 4^6 = 4096
     decay = 0.9
     schedule = np.power(decay, np.arange(z_depth))
@@ -53,7 +55,8 @@ def main():
                                            # reg=reg, act_reg=act_reg,
                                            # balance_reg=balance_reg,
                                            # certainty_reg=certainty_reg,
-                                           units=units, lr=lr)
+                                           units=units, lr=lr, train_rate=train_rate,
+                                          frequency=frequency)
     validation_n = 4096
     vd = ds.cbow_batch(n=validation_n, window=window, test=True)
 

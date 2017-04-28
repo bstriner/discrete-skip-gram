@@ -9,25 +9,28 @@ from discrete_skip_gram.datasets.corpus import brown_docs
 from discrete_skip_gram.datasets.utils import clean_docs, simple_clean
 from discrete_skip_gram.datasets.word_dataset import WordDataset
 from discrete_skip_gram.models.util import makepath
-from discrete_skip_gram.models.word_skipgram_unrolled2 import WordSkipgramUnrolled2
+from discrete_skip_gram.models.word_skipgram_unrolled_batch import WordSkipgramUnrolledBatch
 from discrete_skip_gram.regularizers.tanh_regularizer import TanhRegularizer
 
 
 # maybe try movie_reviews or reuters
 def main():
-    outputpath = "output/brown/skipgram_unrolled2"
+    outputpath = "output/brown/skipgram_unrolled_batch"
     min_count = 5
     batch_size = 128
     epochs = 1000
+    #epochs = 10
     steps_per_epoch = 256
+    #steps_per_epoch = 2
     window = 2
     units = 128
     z_k = 4
-    z_depth = 7
+    z_depth = 1
     # 4^6 = 4096
     decay = 0.9
     # reg = L1L2(1e-6, 1e-6)
     reg = None
+    #act_reg = TanhRegularizer(1e-3)
     act_reg = None
     #balance_reg = 1e-2
     #certainty_reg = 1e-2
@@ -39,7 +42,8 @@ def main():
     docs, tdocs = docs[:-5], docs[-5:]
     ds = WordDataset(docs, min_count, tdocs=tdocs)
     ds.summary()
-    model = WordSkipgramUnrolled2(dataset=ds, z_k=z_k, z_depth=z_depth,
+    x_k = ds.k
+    model = WordSkipgramUnrolledBatch(dataset=ds, z_k=z_k, z_depth=z_depth,
                                        window=window,
                                        reg=reg, act_reg=act_reg,
                                        balance_reg=balance_reg,
@@ -57,7 +61,6 @@ def main():
                 steps_per_epoch=steps_per_epoch,
                 validation_data=([vd[1], vd[0]], np.ones((validation_n, 1), dtype=np.float32)),
                 output_path=outputpath)
-
 
 if __name__ == "__main__":
     main()

@@ -22,8 +22,10 @@ class WordSkipgramSequentialSoftmax(object):
     def __init__(self, dataset, units, z_depth, z_k, schedule, window, adversary_weight,
                  frequency=5,
                  kernel_regularizer=None,
-                 lr=1e-4, lr_a=3e-4):
+                 lr=1e-4, lr_a=3e-4,
+                 train_rate=5):
         self.frequency = frequency
+        self.train_rate=train_rate
         self.dataset = dataset
         self.units = units
         self.z_depth = z_depth
@@ -139,7 +141,7 @@ class WordSkipgramSequentialSoftmax(object):
         self.counter = 0
         def train_function(inputs):
             self.counter += 1
-            if self.counter > 10:
+            if self.counter > self.train_rate+1:
                 self.counter=0
             if self.counter > 0:
                 return adversary_function(inputs)
@@ -159,7 +161,7 @@ class WordSkipgramSequentialSoftmax(object):
     def write_encodings(self, output_path):
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
-        with open(output_path, 'wb') as f:
+        with open(output_path+".csv", 'wb') as f:
             w = csv.writer(f)
             w.writerow(["Id", "Word", "Encoding"] + ["P{}".format(j) for j in range(self.z_depth)])
             x = np.arange(self.dataset.k).reshape((-1, 1))
@@ -172,6 +174,8 @@ class WordSkipgramSequentialSoftmax(object):
                 psf = [ps[j] for j in range(self.z_depth)]
                 word = self.dataset.get_word(i)
                 w.writerow([i, word, encf] + psf)
+            encodings = np.argmax(z, axis=2)
+            np.save(output_path+".npy", encodings)
 
     def decode_sample(self, x, y):
         word = self.dataset.get_word(x)
@@ -200,8 +204,8 @@ class WordSkipgramSequentialSoftmax(object):
             os.makedirs(output_path)
 
         def on_epoch_end(epoch, logs):
-            if (epoch + 0) % self.frequency == 0:
-                self.write_encodings(output_path="{}/encoded-{:08d}.csv".format(output_path, epoch))
+            if (epoch +1) % self.frequency == 0:
+                self.write_encodings(output_path="{}/encoded-{:08d}".format(output_path, epoch))
                 self.write_predictions(output_path="{}/predicted-{:08d}.csv".format(output_path, epoch))
                 self.model.save_weights("{}/model-{:08d}.h5".format(output_path, epoch))
 

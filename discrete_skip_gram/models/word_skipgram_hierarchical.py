@@ -10,14 +10,20 @@ from keras.callbacks import LambdaCallback, CSVLogger
 from theano.tensor.shared_randomstreams import RandomStreams
 
 from ..layers.unrolled.bias_layer import BiasLayer
-#from ..layers.unrolled.decoder_layer import DecoderLayer
-#from ..layers.unrolled.encoder_layer import EncoderLayer
+from ..layers.unrolled.decoder_layer import DecoderLayer
+from ..layers.unrolled.encoder_layer import EncoderLayer
 from ..layers.unrolled.sampler_layer import SamplerLayer
 from ..layers.unrolled.skipgram_batch_layer import SkipgramBatchLayer, SkipgramBatchPolicyLayer
 from ..layers.unrolled.sampler_deterministic_layer import SamplerDeterministicLayer
-from ..layers.unrolled.encoder_layer_simple import EncoderLayerSimple
-from ..layers.unrolled.decoder_layer_simple import DecoderLayerSimple
 from ..layers.utils import drop_dim_2, zeros_layer, ones_layer, add_layer
+
+"""
+Each word is embedded as a series of independent steps. p(xz0|x)...p(xzn|x).
+Decoder outputs p(yz|xz).
+Adversary learns p(zt|z0...zt-1).
+Objective is maximize -log(p(y|yz)p(yz|xz)p(xz|x))
+p(y|yz) = p(yz|y)*p(y)/p(yz)
+"""
 
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
@@ -56,7 +62,7 @@ class WordSkipgramUnrolledBatch(object):
         zs = []
         ht = encoder_h0(input_x)
         zt = zeros_layer(1, dtype='int32')(input_x)
-        encoder_layer = EncoderLayerSimple(units=units, z_k=z_k, kernel_regularizer=reg)
+        encoder_layer = EncoderLayer(units=units, z_k=z_k, kernel_regularizer=reg)
         sampler = SamplerLayer(srng, offset=1)
         for i in range(z_depth):
             # print "Depth: {}".format(i)
@@ -82,7 +88,7 @@ class WordSkipgramUnrolledBatch(object):
         decoder_h0 = BiasLayer(units)
         ht = decoder_h0(input_x)
         zt = zeros_layer(1, dtype='int32')(input_x)
-        decoder_layer = DecoderLayerSimple(units, z_k=z_k+1, kernel_regularizer=reg)
+        decoder_layer = DecoderLayer(units, z_k=z_k+1, kernel_regularizer=reg)
         skipgram_layer = SkipgramBatchLayer(units=units, y_k=x_k, z_k=z_k, kernel_regularizer=reg)
         for zidx, z in enumerate(zs):
             ht, zh = decoder_layer([ht, zt])
@@ -176,7 +182,7 @@ class WordSkipgramUnrolledBatch(object):
             w.writerow(["Id", "Word", "Encoding"] + ["P{}".format(j) for j in range(self.z_depth)])
             x = np.arange(self.dataset.k).reshape((-1, 1))
             ret = self.encode_model.predict(x, verbose=0)
-            print "Shapes: {}".format([r.shape for r in ret])
+            print "Shapes: {}".format(r.shape for r in ret)
 
             pzs, zs = ret[:self.z_depth], ret[self.z_depth:]
             for i in range(self.dataset.k):
@@ -210,16 +216,16 @@ class WordSkipgramUnrolledBatch(object):
                 w.writerow([i, word] + samples)
 
     def on_epoch_end(self, epoch, logs, output_path):
-        if (epoch+0)%5 == 0:
-            self.write_encodings("{}/encodings-{:08d}.csv".format(output_path, epoch))
+        if (epoch+1)%10 == 0:
             self.write_predictions("{}/predictions-{:08d}.csv".format(output_path, epoch))
+            self.write_encodings("{}/predictions-{:08d}.csv".format(output_path, epoch))
             self.model.save_weights("{}/model-{:08d}.h5".format(output_path, epoch))
 
     def train(self, batch_size, epochs, steps_per_epoch, output_path, **kwargs):
         gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
         def on_epoch_end(epoch, logs):
             self.on_epoch_end(epoch, logs, output_path)
-        cb = LambdaCallback(on_epoch_begin=on_epoch_end)
+        cb = LambdaCallback(on_epoch_end=on_epoch_end)
         csvcb = CSVLogger("{}/history.csv".format(output_path))
 
         self.model.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_per_epoch,

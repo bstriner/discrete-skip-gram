@@ -19,16 +19,16 @@ from discrete_skip_gram.datasets.word_dataset import docs_to_arrays, skip_gram_g
 from discrete_skip_gram.datasets.corpus import brown_docs
 from discrete_skip_gram.callbacks.write_encodings import WriteEncodings
 from discrete_skip_gram.models.word_dqn import WordDQN
-
+from discrete_skip_gram.layers.unrolled.skipgram_batch_layer import SkipgramBatchLayer
 
 def main():
     outputpath = "output/brown_skip_gram_simple"
     min_count = 5
-    z_k = 8
+    z_k = 4
     batch_size = 128
     window = 3
     epochs = 500
-    steps_per_epoch = 32
+    steps_per_epoch = 256
     docs = clean_docs(brown_docs(), simple_clean)
     ds = WordDataset(docs, min_count)
     ds.summary()
@@ -66,17 +66,17 @@ def main():
                            output_shape=lambda _x: (_x[0], 1))([loss, z])  # n, 1
 
     eps = K.epsilon()
-    initial_reg_weight = 1e-3
-    if initial_reg_weight > 0:
-        reg_weight = K.variable(initial_reg_weight, dtype='float32', name='reg_weight')
-        reg = reg_weight * T.mean(T.sum(T.log(z + eps) + T.log(1 - z + eps), axis=1), axis=0)
+    confidence_reg = 0
+    if confidence_reg > 0:
+        confidence_reg = K.variable(confidence_reg, dtype='float32', name='reg_weight')
+        reg = confidence_reg * T.mean(T.sum(T.log(z + eps) + T.log(1 - z + eps), axis=1), axis=0)
         # reg = -reg_weight * T.mean(T.sum(T.square(z-0.5), axis=1), axis=0)
         sm.add_loss(reg)
 
-    balance_reg = 1e-2
+    balance_reg = 0
     if balance_reg > 0:
         balance_reg = K.variable(np.float32(balance_reg), dtype='float32', name='balance_reg')
-        reg = T.mean(-T.log(T.mean(z, axis=0)+eps), axis=0) * balance_reg
+        reg = balance_reg * T.mean(-T.log(T.mean(z, axis=0)+eps), axis=0)
         sm.add_loss(reg)
 
     def certainty(y_true, y_pred):
@@ -86,7 +86,7 @@ def main():
         return T.mean(weighted_loss, axis=None)
 
     def kl(y_true, y_pred):
-        return T.mean(-T.log(T.mean(z, axis=0)), axis=0)
+        return T.mean(-T.log(T.mean(z, axis=0)+eps), axis=0)
 
     model_nll = Model(inputs=[x, yreal], output=[weighted_loss])
     model_nll.compile(Adam(1e-3), lambda ytrue, ypred: ypred, metrics=[certainty, nll, kl])
