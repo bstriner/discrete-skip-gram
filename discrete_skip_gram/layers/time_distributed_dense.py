@@ -19,13 +19,13 @@ class TimeDistributedDense(Layer):
         self.bias_initializer = initializers.get(bias_initializer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
-        self.input_spec = InputSpec(min_ndim=2)
+        self.input_spec = InputSpec(ndim=3)
         self.supports_masking = False
         Layer.__init__(self)
 
     def build(self, input_shape):
-        assert len(input_shape) == 2
-        input_dim = input_shape[1]
+        assert len(input_shape) == 3
+        input_dim = input_shape[2]
 
         h_W, h_b = pair(self, (input_dim, self.units), "h")
         self.non_sequences = [
@@ -38,8 +38,8 @@ class TimeDistributedDense(Layer):
         return mask
 
     def compute_output_shape(self, input_shape):
-        assert len(input_shape) == 2
-        return (input_shape[0], self.units)
+        assert len(input_shape) == 3
+        return (input_shape[0], input_shape[1], self.units)
 
     def step(self, x, *params):
         (h_W, h_b) = params
