@@ -93,6 +93,10 @@ class WordSkipgramSequentialSoftmax(object):
         #aloss = mse3d(z, dz)
         #aloss = kl3d(z, dz)
         aloss = em(z, dz)
+        #for layer in adversary.layers:
+        #    for l in layer.losses:
+        #        print "Layer loss: {}".format(layer)
+        #        aloss += l
         aopt = Adam(lr=lr_a)
         # print "A weights: {}".format(adversary.trainable_weights)
         aupdates = aopt.get_updates(adversary.trainable_weights, {}, aloss)
@@ -126,13 +130,14 @@ class WordSkipgramSequentialSoftmax(object):
         #for l in adversary.layers:
         #    l.trainable = False
         ngram.add_loss(regloss)
-#        ngram.add_update(updates=aupdates)
+        ngram.add_update(updates=aupdates)
 
         self.model = Model(inputs=[input_x, input_y], outputs=[nll_weighted_loss])
         self.model.compile(opt, loss_f, metrics=[nll_initial, nll_final, adversary_loss])
         self.model.summary()
         self.model._make_train_function()
 
+        """
         inputs = self.model._feed_inputs + self.model._feed_targets + self.model._feed_sample_weights
         outputs=[self.model.total_loss] + self.model.metrics_tensors
         trainf = self.model.train_function
@@ -149,6 +154,7 @@ class WordSkipgramSequentialSoftmax(object):
                 return trainf(inputs)
 
         self.model.train_function = train_function
+        """
         # Encoder
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 

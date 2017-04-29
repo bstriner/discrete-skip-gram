@@ -24,7 +24,7 @@ def main():
     # steps_per_epoch = 2
     window = 2
     train_rate=5
-    units = 256
+    units = 128
     z_k = 4
     z_depth = 6
     # 4^6 = 4096
