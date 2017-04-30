@@ -1,58 +1,72 @@
+"""
+Train on given discrete sequential embeddings.
+"""
+
 import csv
 import os
 
 import numpy as np
 from keras.callbacks import LambdaCallback, CSVLogger
-from keras.layers import Input, Embedding
+from keras.layers import Input, Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 from theano import tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from ..layers.unrolled.skipgram_layer import SkipgramLayer, SkipgramPolicyLayer
-from ..layers.utils import drop_dim_2
 from .util import latest_model
+from ..layers.discrete_lstm import DiscreteLSTM
+from ..layers.ngram_layer import NgramLayerGenerator
+from ..layers.ngram_layer_distributed import NgramLayerDistributed
+from ..layers.sequential_embedding import SequentialEmbedding
 
-class WordSkipgramBaseline(object):
-    def __init__(self, dataset, units, window,
+
+class WordSkipgramTest(object):
+    def __init__(self, dataset, units, window, embedding, z_k, kernel_regularizer=None,
                  lr=1e-4):
         self.dataset = dataset
         self.units = units
         self.window = window
+        self.embedding = embedding
+        self.z_depth = embedding.shape[1]
+        self.z_k = z_k
+        print "Embedding type: {}".format(embedding.dtype)
+        assert np.max(embedding, axis=None) < z_k
+        assert np.min(embedding, axis=None) >= 0
         self.y_depth = window * 2
         k = self.dataset.k
 
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        embedding = Embedding(k, units)
-        z = drop_dim_2()(embedding(input_x))
-        skipgram = SkipgramLayer(k=k, units=units)
-        nll = skipgram([z, input_y])
+        elayer = SequentialEmbedding(embedding)
+        z = elayer(input_x)
+        print "Z type: {}".format(z.dtype)
+        hlstm = DiscreteLSTM(k=z_k, units=units, kernel_regularizer=kernel_regularizer)
+        zh = hlstm(z)
+        skipgram = NgramLayerDistributed(k=k, units=units, kernel_regularizer=kernel_regularizer)
+        nll = skipgram([zh, input_y])
+        loss = Lambda(lambda _x: T.sum(_x, axis=1, keepdims=True), output_shape=lambda _x: (_x[0], 1))(nll)
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
 
-        def avg_nll(ytrue, ypred):
-            return T.mean(nll, axis=None)
+        def nll_initial(ytrue, ypred):
+            return T.mean(nll[:, 0], axis=None)
+
+        def nll_final(ytrue, ypred):
+            return T.mean(nll[:, -1], axis=None)
 
         opt = Adam(lr)
-        self.model = Model(inputs=[input_x, input_y], outputs=[nll])
-        self.model.compile(opt, loss_f, metrics=[avg_nll])
+        self.model = Model(inputs=[input_x, input_y], outputs=[loss])
+        self.model.compile(opt, loss_f, metrics=[nll_initial, nll_final])
 
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
         srng = RandomStreams(123)
-        policy = SkipgramPolicyLayer(skipgram, srng=srng, depth=self.y_depth)
-        ypred = policy(z)
+        policy = NgramLayerGenerator(skipgram, srng=srng, depth=self.y_depth)
+        zhfinal = Lambda(lambda _x: _x[:, -1, :], output_shape=lambda _x: (_x[0], _x[2]))(zh)
+        ypred = policy(zhfinal)
         self.model_predict = Model(inputs=[input_x], outputs=[ypred])
-
-    def write_encodings(self, output_path):
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
-        x = np.arange(self.dataset.k).reshape((-1, 1))
-        z = self.model_encode.predict(x, verbose=0)
-        np.save(output_path + ".npy", z)
 
     def decode_sample(self, x, y):
         word = self.dataset.get_word(x)
@@ -79,17 +93,16 @@ class WordSkipgramBaseline(object):
 
     def on_epoch_end(self, output_path, frequency, epoch, logs):
         if (epoch + 1) % frequency == 0:
-            self.write_encodings("{}/encodings-{:08d}".format(output_path, epoch))
             self.write_predictions("{}/predictions-{:08d}.csv".format(output_path, epoch))
             self.model.save_weights("{}/model-{:08d}.h5".format(output_path, epoch))
 
     def continue_training(self, output_path):
-        initial_epoch=0
+        initial_epoch = 0
         ret = latest_model(output_path, "model-(\\d+).h5")
         if ret:
             self.model.load_weights(ret[0])
             initial_epoch = ret[1] + 1
-        print "Resuming training at {}".format(initial_epoch)
+            print "Resuming training at {}".format(initial_epoch)
         return initial_epoch
 
     def train(self, batch_size, epochs, steps_per_epoch, output_path, frequency=10, continue_training=True, **kwargs):

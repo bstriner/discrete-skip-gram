@@ -137,7 +137,6 @@ class WordSkipgramSequentialSoftmax(object):
         self.model.summary()
         self.model._make_train_function()
 
-        """
         inputs = self.model._feed_inputs + self.model._feed_targets + self.model._feed_sample_weights
         outputs=[self.model.total_loss] + self.model.metrics_tensors
         trainf = self.model.train_function
@@ -154,7 +153,7 @@ class WordSkipgramSequentialSoftmax(object):
                 return trainf(inputs)
 
         self.model.train_function = train_function
-        """
+
         # Encoder
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
