@@ -90,3 +90,4 @@ ENV/
 /examples/output
 /examples/brown_word/output
 /.idea
+/experiments/brown/output

@@ -16,7 +16,7 @@ def main():
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
-    frequency = 25
+    frequency = 10
     window = 2
     units = 128
     lr = 1e-3
