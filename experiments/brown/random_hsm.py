@@ -34,7 +34,7 @@ def save_hsm(codes, words):
         pickle.dump((codes, words), f)
 
 
-def load_hsm(hsm):
+def load_hsm():
     with open(hsm_path, 'rb') as f:
         return pickle.load(f)
 

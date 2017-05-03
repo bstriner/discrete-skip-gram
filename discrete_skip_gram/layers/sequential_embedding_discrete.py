@@ -4,7 +4,7 @@ from keras.layers import Layer
 from keras.engine import InputSpec
 from theano.tensor.shared_randomstreams import RandomStreams
 import keras.backend as K
-class SequentialEmbedding(Layer):
+class SequentialEmbeddingDiscrete(Layer):
     """
     Given a flattened representation of x, encode as a discrete series of symbols.
     Does not learn.
@@ -19,7 +19,6 @@ class SequentialEmbedding(Layer):
 
     def build(self, input_shape):
         assert len(input_shape) == 2
-        assert input_shape[1] == 1
         self.built = True
 
     def compute_mask(self, inputs, mask=None):
@@ -28,9 +27,8 @@ class SequentialEmbedding(Layer):
 
     def compute_output_shape(self, input_shape):
         assert len(input_shape) == 2
-        assert input_shape[1] == 1
         n = input_shape[0]
-        return list(input_shape)+[self.depth]
+        return tuple(list(input_shape)+[self.depth])
 
     def call(self, x):
         return self.embedding[x,:]

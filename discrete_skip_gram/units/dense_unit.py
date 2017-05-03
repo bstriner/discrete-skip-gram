@@ -1,4 +1,4 @@
-from .utils import pair
+from ..layers.utils import pair
 import theano.tensor as T
 
 class DenseUnit(object):

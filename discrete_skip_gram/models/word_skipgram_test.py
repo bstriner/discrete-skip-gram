@@ -17,7 +17,7 @@ from .util import latest_model
 from ..layers.discrete_lstm import DiscreteLSTM
 from ..layers.ngram_layer import NgramLayerGenerator
 from ..layers.ngram_layer_distributed import NgramLayerDistributed
-from ..layers.sequential_embedding import SequentialEmbedding
+from ..layers.sequential_embedding_discrete import SequentialEmbedding
 
 
 class WordSkipgramTest(object):

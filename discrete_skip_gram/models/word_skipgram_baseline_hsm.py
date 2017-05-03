@@ -7,11 +7,12 @@ from keras.layers import Input, Embedding
 from keras.models import Model
 from keras.optimizers import Adam
 from theano import tensor as T
-from theano.tensor.shared_randomstreams import RandomStreams
 
-from ..layers.unrolled.skipgram_layer import SkipgramLayer, SkipgramPolicyLayer
-from ..layers.utils import drop_dim_2
 from .util import latest_model
+from ..layers.sequential_embedding_discrete import SequentialEmbeddingDiscrete
+from ..layers.skipgram_hsm_layer import SkipgramHSMLayer
+from ..layers.utils import drop_dim_2
+
 
 class WordSkipgramBaselineHSM(object):
     def __init__(self, dataset, units, window,
@@ -21,15 +22,21 @@ class WordSkipgramBaselineHSM(object):
         self.units = units
         self.window = window
         self.y_depth = window * 2
+        self.codes, self.wordcodes = hsm
+
         k = self.dataset.k
 
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        embedding = Embedding(k, units)
-        z = drop_dim_2()(embedding(input_x))
-        skipgram = SkipgramLayer(k=k, units=units)
-        nll = skipgram([z, input_y])
+        x_embedding = Embedding(k, units)
+        z = drop_dim_2()(x_embedding(input_x))
+        skipgram = SkipgramHSMLayer(units=units)
+
+        y_embedding = SequentialEmbeddingDiscrete(self.codes)
+        y_embedded = y_embedding(input_y)
+
+        nll = skipgram([z, y_embedded])
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
@@ -43,10 +50,15 @@ class WordSkipgramBaselineHSM(object):
 
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
+        """
         srng = RandomStreams(123)
         policy = SkipgramPolicyLayer(skipgram, srng=srng, depth=self.y_depth)
         ypred = policy(z)
         self.model_predict = Model(inputs=[input_x], outputs=[ypred])
+        """
+
+    def summary(self):
+        self.model.summary()
 
     def write_encodings(self, output_path):
         if not os.path.exists(os.path.dirname(output_path)):
@@ -85,7 +97,7 @@ class WordSkipgramBaselineHSM(object):
             self.model.save_weights("{}/model-{:08d}.h5".format(output_path, epoch))
 
     def continue_training(self, output_path):
-        initial_epoch=0
+        initial_epoch = 0
         ret = latest_model(output_path, "model-(\\d+).h5")
         if ret:
             self.model.load_weights(ret[0])
@@ -101,7 +113,8 @@ class WordSkipgramBaselineHSM(object):
             initial_epoch = self.continue_training(output_path)
 
         def on_epoch_end(epoch, logs):
-            self.on_epoch_end(output_path, frequency, epoch, logs)
+            # self.on_epoch_end(output_path, frequency, epoch, logs)
+            pass
 
         gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
         csvcb = CSVLogger("{}/history.csv".format(output_path), append=continue_training)
