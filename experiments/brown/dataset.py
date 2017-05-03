@@ -13,6 +13,8 @@ def load_dataset():
 
 
 def save_dataset(ds):
+    if os.path.exists(_brown_path):
+        raise ValueError("Already exists: {}".format(_brown_path))
     if not os.path.exists(os.path.dirname(_brown_path)):
         os.makedirs(os.path.dirname(_brown_path))
     with open(_brown_path, 'wb') as f:

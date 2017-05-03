@@ -101,6 +101,7 @@ class WordSkipgramDiscrete(object):
         else:
             loss = Add()(losses)
         skipgram_layer.add_loss(areg)
+        skipgram_layer.add_update(aupdates)
         self.model = Model([input_x, input_y], loss)
 
         def nll_initial(_yt, _yp):
@@ -113,6 +114,7 @@ class WordSkipgramDiscrete(object):
             return T.mean(aloss, axis=None)
 
         self.model.compile(opt, loss_f, metrics=[nll_initial, nll_final, adversary_loss])
+        """
         self.model._make_train_function()
 
         inputs = self.model._feed_inputs + self.model._feed_targets + self.model._feed_sample_weights
@@ -132,7 +134,7 @@ class WordSkipgramDiscrete(object):
                 return trainf(inputs)
 
         self.model.train_function = train_function
-
+        """
         # Prediction model
         policy_layer = SkipgramBatchPolicyLayer(skipgram_layer, srng=srng, depth=self.y_depth)
         ygen = policy_layer([zh, z])

@@ -59,7 +59,7 @@ def main():
             r = nodes[r - n]
         nodes[i] = (l, r)
     root = nodes[n - 2]
-    depth = 12
+    depth = 10
     encodings = []
     for p in itertools.product([0, 1], repeat=depth):
         enc = np.array(p)

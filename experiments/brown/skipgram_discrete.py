@@ -22,15 +22,17 @@ def main():
     epochs = 5000
     steps_per_epoch = 512
     window = 2
-    frequency = 25
+    frequency = 10
     units = 128
     z_k = 2
     z_depth = 10
     kernel_regularizer = L1L2(1e-7, 1e-7)
     lr = 1e-3
+    train_rate = 3
     adversary_weight = 1.0
     model = WordSkipgramDiscrete(dataset=ds, z_k=z_k, z_depth=z_depth,
                                        window=window,
+                                 train_rate=train_rate,
                                  kernel_regularizer=kernel_regularizer,
                                  adversary_weight=adversary_weight,
                                        units=units, lr=lr)
