@@ -17,10 +17,12 @@ from ..layers.utils import drop_dim_2
 class WordSkipgramBaselineHSM(SGModel):
     def __init__(self, dataset, units, window,
                  hsm,
+                 embedding_units,
                  kernel_regularizer=None,
                  lr=1e-4):
         self.dataset = dataset
         self.units = units
+        self.embedding_units=embedding_units
         self.window = window
         self.y_depth = window * 2
         self.hsm = hsm
@@ -30,7 +32,7 @@ class WordSkipgramBaselineHSM(SGModel):
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        x_embedding = Embedding(k, units, embeddings_regularizer=kernel_regularizer)
+        x_embedding = Embedding(k, embedding_units, embeddings_regularizer=kernel_regularizer)
         z = drop_dim_2()(x_embedding(input_x))
         skipgram = SkipgramHSMLayer(units=units,
                                     kernel_regularizer=kernel_regularizer,

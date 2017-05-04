@@ -22,9 +22,11 @@ def main():
     kernel_regularizer = L1L2(1e-7, 1e-7)
     window = 2
     units = 512
+    embedding_units = 256
     lr = 3e-4
 
     model = WordSkipgramBaselineHSM(dataset=dataset,
+                                    embedding_units=embedding_units,
                                     hsm=hsm,
                                     window=window,
                                     kernel_regularizer=kernel_regularizer,
