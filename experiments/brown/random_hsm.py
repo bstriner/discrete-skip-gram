@@ -39,14 +39,6 @@ def load_hsm():
         return pickle.load(f)
 
 
-def decode(code, words):
-    d = code.shape[0]
-    i = np.sum(np.power(2, np.arange(d)[::-1]) * code)
-    if i < words.shape[0]:
-        return words[i]
-    else:
-        return 0
-
 
 def main():
     print "loading"

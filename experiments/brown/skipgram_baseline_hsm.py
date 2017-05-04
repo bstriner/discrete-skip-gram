@@ -7,7 +7,7 @@ from dataset import load_dataset
 from sample_validation import validation_load
 from random_hsm import load_hsm
 from discrete_skip_gram.models.word_skipgram_baseline_hsm import WordSkipgramBaselineHSM
-
+from keras.regularizers import L1L2
 
 def main():
     outputpath = "output/brown/skipgram_baseline_hsm"
@@ -16,8 +16,9 @@ def main():
     vd = validation_load()
     batch_size = 128
     epochs = 5000
-    steps_per_epoch = 512
-    frequency = 50
+    steps_per_epoch = 64
+    frequency = 5
+    kernel_regularizer = L1L2(1e-6, 1e-6)
     window = 2
     units = 128
     lr = 1e-3
@@ -25,13 +26,15 @@ def main():
     model = WordSkipgramBaselineHSM(dataset=dataset,
                                     hsm=hsm,
                                  window=window,
+                                    kernel_regularizer=kernel_regularizer,
                                  units=units, lr=lr)
     model.summary()
+    vn = 2048
     model.train(batch_size=batch_size,
                 epochs=epochs,
                 frequency=frequency,
                 steps_per_epoch=steps_per_epoch,
-                validation_data=(vd, np.ones((vd[0].shape[0], 1), dtype=np.float32)),
+                validation_data=([vd[0][:vn], vd[1][:vn]], np.ones((vn, 1), dtype=np.float32)),
                 output_path=outputpath)
 
 

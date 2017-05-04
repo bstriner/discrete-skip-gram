@@ -17,6 +17,14 @@ def b(model, shape, name):
                             regularizer=model.bias_regularizer)
 
 
+def embedding(model, shape, name, dtype='float32'):
+    return model.add_weight(shape,
+                            initializer=model.embeddings_initializer,
+                            name=name,
+                            regularizer=model.embeddings_regularizer,
+                            dtype=dtype)
+
+
 def pair(model, shape, name):
     return W(model, shape, "{}_W".format(name)), b(model, (shape[1],), "{}_b".format(name))
 
