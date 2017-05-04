@@ -85,9 +85,6 @@ class WordDataset(object):
         print "Unique words: {}, Filtered: {}".format(len(self.wordcounts), len(self.wordset))
 
     def get_word(self, id):
-        if not isinstance(id, int):
-            print "Id: {}, {}".format(id, type(id))
-        assert isinstance(id, int)
         return "_UNK_" if id == 0 else self.wordset[id - 1]
 
     def skip_gram_batch(self, n, window, test=False):
