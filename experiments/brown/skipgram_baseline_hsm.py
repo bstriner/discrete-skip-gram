@@ -19,7 +19,7 @@ def main():
     epochs = 5000
     steps_per_epoch = 512
     frequency = 25
-    kernel_regularizer = L1L2(1e-6, 1e-6)
+    kernel_regularizer = L1L2(1e-7, 1e-7)
     window = 2
     units = 512
     lr = 3e-4
