@@ -1,10 +1,9 @@
 import itertools
-import os
-import pickle
 
 import numpy as np
 
 from dataset import load_dataset
+from discrete_skip_gram.hsm import HSM
 
 
 def build_hsm(k):
@@ -19,39 +18,28 @@ def build_hsm(k):
         if i < words.shape[0]:
             word = words[i]
             codes[word, :] = code
-    return codes, words
+    return HSM(codes, words)
 
 
 hsm_path = "output/brown/random_hsm.pkl"
 
 
-def save_hsm(codes, words):
-    if os.path.exists(hsm_path):
-        raise ValueError("Path already exists: {}".format(hsm_path))
-    if not os.path.exists(os.path.dirname(hsm_path)):
-        os.makedirs(os.path.dirname(hsm_path))
-    with open(hsm_path, 'wb') as f:
-        pickle.dump((codes, words), f)
-
-
 def load_hsm():
-    with open(hsm_path, 'rb') as f:
-        return pickle.load(f)
-
+    return HSM.load(hsm_path)
 
 
 def main():
     print "loading"
     dataset = load_dataset()
     print "building"
-    codes, words = build_hsm(dataset.k)
+    hsm = build_hsm(dataset.k)
     print "saving"
-    save_hsm(codes, words)
+    hsm.save(hsm_path)
     for i in range(10):
         w = np.random.randint(0, dataset.k)
         word = dataset.get_word(w)
-        code = codes[w]
-        w2 = decode(code, words)
+        code = hsm.encode(w)
+        w2 = hsm.decode(code)
         print "Word {}: {}".format(w, word)
         print "Code: {}, Decoded: {}, {}".format(code, w2, dataset.get_word(w2))
 
