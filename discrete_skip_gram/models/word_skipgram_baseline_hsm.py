@@ -74,30 +74,6 @@ class WordSkipgramBaselineHSM(SGModel):
         z = self.model_encode.predict(x, verbose=0)
         np.save(output_path + ".npy", z)
 
-    def decode_sample(self, x, y):
-        word = self.dataset.get_word(x)
-        ctx = [self.dataset.get_word(self.hsm.decode(y[i, :])) for i in range(y.shape[0])]
-        lctx = ctx[:self.window]
-        rctx = ctx[self.window:]
-        return "{} [{}] {}".format(" ".join(lctx), word, " ".join(rctx))
-
-    def write_predictions(self, output_path):
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
-        samples = 8
-        n = 128
-        with open(output_path, 'wb') as f:
-            w = csv.writer(f)
-            w.writerow(["Id", "Word"] + ["Sample {}".format(i) for i in range(samples)])
-            x = np.random.randint(0, self.dataset.k, size=(n, 1))
-            ys = [self.model_predict.predict(x, verbose=0) for _ in range(samples)]
-            print "yp shapes: {}".format([y.shape for y in ys])
-            for i in range(n):
-                ix = x[i, 0]
-                word = self.dataset.get_word(ix)
-                samples = [self.decode_sample(ix, y[i, :, :]) for y in ys]
-                w.writerow([ix, word] + samples)
-
     def on_epoch_end(self, output_path, epoch):
         self.write_encodings("{}/encodings-{:08d}".format(output_path, epoch))
         self.write_predictions("{}/predictions-{:08d}.csv".format(output_path, epoch))

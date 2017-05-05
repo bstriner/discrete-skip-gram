@@ -9,9 +9,10 @@ from ..units.dense_unit import DenseUnit
 from ..units.lstm_unit import LSTMUnit
 
 
-class SkipgramHSMLayer(Layer):
+class SkipgramHSMLayerFast(Layer):
     """
     Given a flattened representation of x, encode as a series of symbols
+    Time distributed.
     """
 
     def __init__(self,
@@ -28,7 +29,7 @@ class SkipgramHSMLayer(Layer):
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.bias_initializer = initializers.get(bias_initializer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
-        self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
+        self.input_spec = [InputSpec(ndim=3), InputSpec(ndim=2)]
         self.supports_masking = False
         Layer.__init__(self)
 
@@ -91,12 +92,12 @@ class SkipgramHSMLayer(Layer):
         assert len(input_shape) == 2
         z = input_shape[0]
         y = input_shape[1]
-        assert (len(z) == 2)
+        assert (len(z) == 3) # (n, z depth, input dim)
         assert (len(y) == 3)  # (n, y depth, code depth)
         if self.mean:
-            return y[0], 1
+            return y[0], z[1]
         else:
-            return y[0], y[1]
+            return y[0], z[1], y[1]
 
     def step_embedding(self, y, h0, *params):
         idx = 0
@@ -173,10 +174,10 @@ class SkipgramHSMLayer(Layer):
         print "y embedded: {}".format(yembedded.ndim)
 
         # Embedding of Z
-        zembedded = T.dot(z, z_W)  # (n, units)
+        #zembedded = T.dot(z, z_W)  # (n, units)
 
         # Run main lstm
-        h1, o1 = self.outer_lstm.call(h0, yembedded + zembedded, outer_lstm_params)
+        h1, o1 = self.outer_lstm.call(h0, yembedded, outer_lstm_params)
         tmp = self.outer_d1.call(o1, d1params)
         ctx = self.outer_d2.call(tmp, d2params)
 
@@ -195,22 +196,20 @@ class SkipgramHSMLayer(Layer):
         return h1, nll
 
     def call(self, (z, y)):
-        return self.call_on_params(z, y, self.outer_lstm.h0, self.non_sequences)
-
-    def call_on_params(self, z, y, h0, non_sequences):
-        # z: input context: n, input_dim
+        # z: input context: n, z depth, input_dim
         # y: ngram encoded: n, y depth, hsm depth int32
         yr = T.transpose(y, (1, 2, 0))  # (y depth, hsm depth, n)
         ys = shift_tensor(y)
         ysr = T.transpose(ys, (1, 2, 0))  # (y depth, hsm depth, n)
         n = z.shape[0]
-        outputs_info = [T.extra_ops.repeat(h0, n, axis=0),
+        outputs_info = [T.extra_ops.repeat(self.outer_lstm.h0, n, axis=0),
                         None]
         (hr, nllr), _ = theano.scan(self.step, sequences=[ysr, yr], outputs_info=outputs_info,
-                                    non_sequences=[z] + list(non_sequences))
-        nll = T.transpose(nllr, (1, 0))
+                                    non_sequences=[z] + list(self.non_sequences))
+        # nllr: (y depth, n, z depth)
+        nll = T.transpose(nllr, (1, 2, 0))
         if self.mean:
-            nll = T.mean(nll, axis=1, keepdims=True)
+            nll = T.mean(nll, axis=2, keepdims=False)
         return nll
 
 
