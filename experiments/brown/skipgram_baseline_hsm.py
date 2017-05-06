@@ -21,8 +21,8 @@ def main():
     frequency = 25
     kernel_regularizer = L1L2(1e-7, 1e-7)
     window = 2
-    units = 256
-    embedding_units = 128
+    units = 512
+    embedding_units = 256
     lr = 1e-3
 
     model = WordSkipgramBaselineHSM(dataset=dataset,

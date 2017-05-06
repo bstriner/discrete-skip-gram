@@ -1,3 +1,4 @@
+import csv
 import os
 
 import keras.backend as K
@@ -11,7 +12,7 @@ from theano.tensor.shared_randomstreams import RandomStreams
 
 from .sg_model import SGModel
 from ..layers.sequential_embedding_discrete import SequentialEmbeddingDiscrete
-from ..layers.skipgram_hsm_layer import SkipgramHSMDistributedLayer, SkipgramHSMPolicyLayer
+from ..layers.skipgram_hsm_layer_fast import SkipgramHSMLayerFast, SkipgramHSMPolicyLayerFast
 from ..layers.time_distributed_dense import TimeDistributedDense
 from ..layers.utils import softmax_nd_layer
 
@@ -50,9 +51,9 @@ class WordSkipgramSequentialSoftmaxHSMFast(SGModel):
         zd2 = TimeDistributedDense(units)
         zh = zd2(zd1(zlstm(z)))
 
-        skipgram = SkipgramHSMDistributedLayer(units=units,
-                                               kernel_regularizer=kernel_regularizer,
-                                               embeddings_regularizer=kernel_regularizer)
+        skipgram = SkipgramHSMLayerFast(units=units,
+                                        kernel_regularizer=kernel_regularizer,
+                                        embeddings_regularizer=kernel_regularizer)
 
         y_embedding = SequentialEmbeddingDiscrete(self.hsm.codes)
         y_embedded = y_embedding(input_y)
@@ -126,7 +127,10 @@ class WordSkipgramSequentialSoftmaxHSMFast(SGModel):
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
         srng = RandomStreams(123)
-        policy = SkipgramHSMPolicyLayer(skipgram, srng=srng, y_depth=self.y_depth, code_depth=self.hsm.codes.shape[1])
+        policy = SkipgramHSMPolicyLayerFast(skipgram,
+                                            srng=srng,
+                                            y_depth=self.y_depth,
+                                            code_depth=self.hsm.codes.shape[1])
         zlast = Lambda(lambda _x: _x[:, -1, :], output_shape=lambda _x: (_x[0], _x[2]))(zh)
         ypred = policy(zlast)
         self.model_predict = Model(inputs=[input_x], outputs=[ypred])
@@ -145,14 +149,15 @@ class WordSkipgramSequentialSoftmaxHSMFast(SGModel):
         np.save(output_path + "-raw.npy", z)
         zd = np.argmax(z, axis=2).astype(np.int32)
         np.save(output_path + ".npy", zd)
-        with open(output_path + ".csv", 'wb') as csv:
-            csv.write_row(["Id", "Word", "Encoding"] + ["Cat {}".format(i) for i in range(self.z_depth)])
+        with open(output_path + ".csv", 'wb') as f:
+            w = csv.writer(f)
+            w.writerow(["Id", "Word", "Encoding"] + ["Cat {}".format(i) for i in range(self.z_depth)])
             for idx in range(self.dataset.k):
                 word = self.dataset.get_word(idx)
                 enc = zd[i, :]
                 encs = [enc[j] for j in range(enc.shape[0])]
                 encf = "".join(chr(ord('a') + e) for e in encs)
-                csv.write_row([idx, word, encf] + encs)
+                w.writerow([idx, word, encf] + encs)
 
     def on_epoch_end(self, output_path, epoch):
         self.write_encodings("{}/encodings-{:08d}".format(output_path, epoch))

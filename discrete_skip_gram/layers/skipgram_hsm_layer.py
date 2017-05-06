@@ -127,7 +127,8 @@ class SkipgramHSMLayer(Layer):
         t1 = self.prediction_d1.call(o1, d1params)
         p1 = self.prediction_d2.call(t1, d2params)
         sign = (yp1 * 2) - 1
-        nll = -T.log((1 - yp1) + (sign * T.flatten(p1)))
+        eps = 1e-6
+        nll = -T.log(eps + (1 - yp1) + (sign * T.flatten(p1)))
         return h1, nll
 
     def step(self, y0, y1, h0, z, *params):
