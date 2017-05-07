@@ -3,6 +3,7 @@
 # os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
 #hsm_relu running in 160 s on server w 256 units
+# w 512 units, 128 embedding units, takes 280 secs
 
 
 import numpy as np
