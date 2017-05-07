@@ -5,6 +5,8 @@ from discrete_skip_gram.datasets.corpus import brown_docs
 from discrete_skip_gram.datasets.utils import clean_docs, simple_clean
 from discrete_skip_gram.datasets.word_dataset import WordDataset
 
+# todo: remove numbers
+
 _brown_path = "output/brown/corpus.pkl"
 
 def load_dataset():

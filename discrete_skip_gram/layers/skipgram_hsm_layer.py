@@ -48,11 +48,13 @@ class SkipgramHSMLayer(Layer):
         yp_embedding = embedding(self, (3, self.units), "yp_embedding")
         self.prediction_lstm = LSTMUnit(self, self.units, "prediction_lstm")
         self.prediction_d1 = DenseUnit(self, self.units, self.units, "prediction_d1", activation=T.tanh)
-        self.prediction_d2 = DenseUnit(self, self.units, 1, "prediction_d2", activation=T.nnet.sigmoid)
+        self.prediction_d2 = DenseUnit(self, self.units, self.units, "prediction_d2", activation=T.tanh)
+        self.prediction_d3 = DenseUnit(self, self.units, 1, "prediction_d3", activation=T.nnet.sigmoid)
         prediction_params = ([yp_embedding] +
                              self.prediction_lstm.non_sequences +
                              self.prediction_d1.non_sequences +
-                             self.prediction_d2.non_sequences)
+                             self.prediction_d2.non_sequences +
+                             self.prediction_d3.non_sequences)
         self.prediction_count = len(prediction_params)
 
         # Main lstm
@@ -120,12 +122,15 @@ class SkipgramHSMLayer(Layer):
         idx += 2
         d2params = params[idx:(idx + 2)]
         idx += 2
+        d3params = params[idx:(idx + 2)]
+        idx += 2
         assert idx == len(params)
 
         yh = yp_embedding[yp0, :]
         h1, o1 = self.prediction_lstm.call(h0, yh + ctx, lstmparams)
-        t1 = self.prediction_d1.call(o1, d1params)
-        p1 = self.prediction_d2.call(t1, d2params)
+        t = self.prediction_d1.call(o1, d1params)
+        t = self.prediction_d2.call(t, d2params)
+        p1 = self.prediction_d3.call(t, d3params)
         sign = (yp1 * 2) - 1
         eps = 1e-6
         nll = -T.log(eps + (1 - yp1) + (sign * T.flatten(p1)))
@@ -168,6 +173,7 @@ class SkipgramHSMLayer(Layer):
         ]
         (_, ytmp), _ = theano.scan(self.step_embedding, sequences=[y0], outputs_info=outputs_info,
                                    non_sequences=embedding_params)
+        # ytmp: (code depth, n, units)
         ytmp = ytmp[-1, :, :]  # (n, units)
         ytmp = self.embedding_d1.call(ytmp, embedding_d1_params)
         yembedded = self.embedding_d2.call(ytmp, embedding_d2_params)
@@ -192,6 +198,7 @@ class SkipgramHSMLayer(Layer):
                                        non_sequences=(ctx,) + prediction_params)
         # nll (coding depth, n)
         nll = T.sum(nllparts, axis=0)  # (n,)
+        assert nll.ndim == 1
         print "Ending dims: h1 {}, nll {}".format(h1.ndim, nll.ndim)
         return h1, nll
 
@@ -252,12 +259,15 @@ class SkipgramHSMPolicyLayer(Layer):
         idx += 2
         d2params = params[idx:(idx + 2)]
         idx += 2
+        d3params = params[idx:(idx + 2)]
+        idx += 2
         assert idx == len(params)
 
         yh = yp_embedding[yp0, :]
         h1, o1 = self.layer.prediction_lstm.call(h0, yh + ctx, lstmparams)
-        t1 = self.layer.prediction_d1.call(o1, d1params)
-        p1 = self.layer.prediction_d2.call(t1, d2params)
+        t = self.layer.prediction_d1.call(o1, d1params)
+        t = self.layer.prediction_d2.call(t, d2params)
+        p1 = self.layer.prediction_d3.call(t, d3params)
         y1 = T.cast(T.flatten(p1) > rng, "int32") + 1
         return h1, y1
 

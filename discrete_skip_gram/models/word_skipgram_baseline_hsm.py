@@ -4,7 +4,7 @@ import os
 import numpy as np
 from keras.layers import Input, Embedding
 from keras.models import Model
-from keras.optimizers import Adam
+from keras.optimizers import RMSprop, Adam
 from theano import tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
@@ -15,14 +15,17 @@ from ..layers.utils import drop_dim_2
 
 
 class WordSkipgramBaselineHSM(SGModel):
-    def __init__(self, dataset, units, window,
+    def __init__(self,
+                 dataset,
+                 units,
+                 window,
                  hsm,
                  embedding_units,
                  kernel_regularizer=None,
                  lr=1e-4):
         self.dataset = dataset
         self.units = units
-        self.embedding_units=embedding_units
+        self.embedding_units = embedding_units
         self.window = window
         self.y_depth = window * 2
         self.hsm = hsm
@@ -49,7 +52,7 @@ class WordSkipgramBaselineHSM(SGModel):
         def avg_nll(ytrue, ypred):
             return T.mean(nll, axis=None)
 
-        opt = Adam(lr)
+        opt = RMSprop(lr)
         self.model = Model(inputs=[input_x, input_y], outputs=[nll])
         self.model.compile(opt, loss_f, metrics=[avg_nll])
         self.weights = self.model.weights + opt.weights

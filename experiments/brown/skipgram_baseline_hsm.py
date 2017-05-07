@@ -19,10 +19,10 @@ def main():
     epochs = 5000
     steps_per_epoch = 512
     frequency = 25
-    kernel_regularizer = L1L2(1e-7, 1e-7)
+    kernel_regularizer = None #L1L2(1e-4, 1e-4)
     window = 2
-    units = 512
-    embedding_units = 256
+    units = 256
+    embedding_units = 128
     lr = 1e-3
 
     model = WordSkipgramBaselineHSM(dataset=dataset,
