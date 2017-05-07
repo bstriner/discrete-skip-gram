@@ -20,6 +20,7 @@ class WordSkipgramBaselineHSMReluFlat(SGModel):
                  window,
                  hsm,
                  embedding_units,
+                 layernorm=True,
                  kernel_regularizer=None,
                  inner_activation=T.nnet.relu,
                  embeddings_regularizer=None,
@@ -30,7 +31,7 @@ class WordSkipgramBaselineHSMReluFlat(SGModel):
         self.window = window
         self.y_depth = window * 2
         self.hsm = hsm
-
+        self.layernorm=layernorm
         k = self.dataset.k
 
         input_x = Input((1,), dtype='int32', name='input_x')
@@ -41,6 +42,7 @@ class WordSkipgramBaselineHSMReluFlat(SGModel):
         z = drop_dim_2()(x_embedding(input_x))
         skipgram = SkipgramHSMLayerReluFlat(units=units,
                                             k=k,
+                                            layernorm=layernorm,
                                             embedding_units=embedding_units,
                                             inner_activation=inner_activation,
                                             kernel_regularizer=kernel_regularizer,
@@ -87,5 +89,5 @@ class WordSkipgramBaselineHSMReluFlat(SGModel):
 
     def on_epoch_end(self, output_path, epoch):
         self.write_encodings("{}/encodings-{:08d}".format(output_path, epoch))
-        self.write_predictions("{}/predictions-{:08d}.csv".format(output_path, epoch))
+        self.write_predictions_flat("{}/predictions-{:08d}.csv".format(output_path, epoch))
         self.save("{}/model-{:08d}.h5".format(output_path, epoch))

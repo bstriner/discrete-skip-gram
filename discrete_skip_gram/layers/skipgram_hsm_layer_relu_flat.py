@@ -9,6 +9,7 @@ from ..units.dense_unit import DenseUnit
 from ..units.mlp_unit import MLPUnit
 import keras.backend as K
 
+
 class SkipgramHSMLayerReluFlat(Layer):
     """
     Given a flattened representation of x, encode as a series of symbols
@@ -20,12 +21,14 @@ class SkipgramHSMLayerReluFlat(Layer):
                  k,
                  mean=True,
                  inner_activation=T.nnet.relu,
+                 layernorm=False,
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None):
         self.k = k
+        self.layernorm = layernorm
         self.units = units
-        self.embedding_units=embedding_units
+        self.embedding_units = embedding_units
         self.mean = mean
         self.inner_activation = inner_activation
         self.embeddings_initializer = initializers.get(embeddings_initializer)
@@ -43,7 +46,7 @@ class SkipgramHSMLayerReluFlat(Layer):
         # Embedding step
         self.outer_h0 = b(self, (1, self.units), "outer_h0")
         prediction_h0 = b(self, (1, self.units), "prediction_h0")
-        y_embedding = embedding(self, (self.k+1, self.embedding_units), "y_embedding")
+        y_embedding = embedding(self, (self.k + 1, self.embedding_units), "y_embedding")
 
         # Main lstm
         self.outer_rnn = MLPUnit(self,
@@ -51,12 +54,14 @@ class SkipgramHSMLayerReluFlat(Layer):
                                  units=self.units,
                                  output_units=self.units,
                                  inner_activation=self.inner_activation,
+                                 layernorm=self.layernorm,
                                  name="outer_rnn")
         self.outer_mlp = MLPUnit(self,
                                  input_units=[self.units],
                                  units=self.units,
                                  output_units=self.units,
                                  inner_activation=self.inner_activation,
+                                 layernorm=self.layernorm,
                                  name="outer_mlp")
 
         # Prediction step
@@ -66,12 +71,14 @@ class SkipgramHSMLayerReluFlat(Layer):
                                       units=self.units,
                                       output_units=self.units,
                                       inner_activation=self.inner_activation,
+                                      layernorm=self.layernorm,
                                       name="prediction_rnn")
         self.prediction_mlp = MLPUnit(self,
                                       input_units=[self.units],
                                       units=self.units,
                                       output_units=1,
                                       inner_activation=self.inner_activation,
+                                      layernorm=self.layernorm,
                                       output_activation=T.nnet.sigmoid,
                                       name="prediction_mlp")
         prediction_params = ([yp_embedding] +
@@ -268,12 +275,12 @@ class SkipgramHSMPolicyLayerReluFlat(Layer):
                                     non_sequences=(ctx,) + prediction_params)
         # ypred (coding depth, n)
         ypred = ypred - 1
-        vals = T.power(2, T.arange(self.code_depth-1, -1, -1)).dimshuffle((0,'x'))
-        ynum = T.sum(vals * ypred, axis=0) # (n,)
-        switch = ynum > self.layer.k
-        ynum = (1-switch)*ynum
+        vals = T.power(2, T.arange(self.code_depth - 1, -1, -1)).dimshuffle((0, 'x'))
+        ynum = T.sum(vals * ypred, axis=0)  # (n,)
+        switch = ynum < self.layer.k
+        ynum = switch * ynum
         y1 = wordcodes[ynum] + 1
-        y1 = (switch * 1) + ((1-switch)*y1)
+        y1 = (1 - switch) + (switch * y1)
 
         print "policy Ending dims: h1 {}, ypred {}".format(h1.ndim, ypred.ndim)
         return h1, y1

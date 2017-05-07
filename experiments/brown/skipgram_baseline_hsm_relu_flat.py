@@ -24,12 +24,12 @@ def main():
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
-    frequency = 10
-    kernel_regularizer = L1L2(1e-6, 1e-6)
+    frequency = 20
+    kernel_regularizer = L1L2(1e-7, 1e-7)
     window = 2
-    units = 256
+    units = 512
     embedding_units = 128
-    lr = 3e-4
+    lr = 1e-3
 
     model = WordSkipgramBaselineHSMReluFlat(dataset=dataset,
                                             embedding_units=embedding_units,

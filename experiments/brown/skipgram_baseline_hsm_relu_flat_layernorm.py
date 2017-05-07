@@ -2,13 +2,11 @@
 
 # os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
-#hsm_relu running in 160 s on server w 128 units
-
 import numpy as np
 from keras.regularizers import L1L2
 
 from dataset import load_dataset
-from discrete_skip_gram.models.word_skipgram_baseline_hsm_relu import WordSkipgramBaselineHSMRelu
+from discrete_skip_gram.models.word_skipgram_baseline_hsm_relu_flat import WordSkipgramBaselineHSMReluFlat
 from random_hsm import load_hsm
 from sample_validation import validation_load
 import theano.tensor as T
@@ -19,7 +17,7 @@ def leaky_relu(x):
 
 
 def main():
-    outputpath = "output/brown/skipgram_baseline_hsm_relu"
+    outputpath = "output/brown/skipgram_baseline_hsm_relu_flat_layernorm"
     dataset = load_dataset()
     hsm = load_hsm()
     vd = validation_load()
@@ -33,13 +31,14 @@ def main():
     embedding_units = 128
     lr = 1e-3
 
-    model = WordSkipgramBaselineHSMRelu(dataset=dataset,
-                                        embedding_units=embedding_units,
-                                        inner_activation=leaky_relu,
-                                        hsm=hsm,
-                                        window=window,
-                                        kernel_regularizer=kernel_regularizer,
-                                        units=units, lr=lr)
+    model = WordSkipgramBaselineHSMReluFlat(dataset=dataset,
+                                            embedding_units=embedding_units,
+                                            inner_activation=leaky_relu,
+                                            hsm=hsm,
+                                            window=window,
+                                            layernorm=True,
+                                            kernel_regularizer=kernel_regularizer,
+                                            units=units, lr=lr)
     model.summary()
     vn = 2048
     model.train(batch_size=batch_size,

@@ -58,6 +58,13 @@ class SGModel(object):
         rctx = ctx[self.window:]
         return "{} [{}] {}".format(" ".join(lctx), word, " ".join(rctx))
 
+    def decode_sample_flat(self, x, y):
+        word = self.dataset.get_word(x)
+        ctx = [self.dataset.get_word(y[i]) for i in range(y.shape[0])]
+        lctx = ctx[:self.window]
+        rctx = ctx[self.window:]
+        return "{} [{}] {}".format(" ".join(lctx), word, " ".join(rctx))
+
     def write_predictions(self, output_path):
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
@@ -73,4 +80,21 @@ class SGModel(object):
                 ix = x[i, 0]
                 word = self.dataset.get_word(ix)
                 samples = [self.decode_sample(ix, y[i, :, :]) for y in ys]
+                w.writerow([ix, word] + samples)
+
+    def write_predictions_flat(self, output_path):
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+        samples = 8
+        n = 128
+        with open(output_path, 'wb') as f:
+            w = csv.writer(f)
+            w.writerow(["Id", "Word"] + ["Sample {}".format(i) for i in range(samples)])
+            x = np.random.randint(0, self.dataset.k, size=(n, 1))
+            ys = [self.model_predict.predict(x, verbose=0) for _ in range(samples)]
+            print "yp shapes: {}".format([y.shape for y in ys])
+            for i in range(n):
+                ix = x[i, 0]
+                word = self.dataset.get_word(ix)
+                samples = [self.decode_sample_flat(ix, y[i, :]) for y in ys]
                 w.writerow([ix, word] + samples)

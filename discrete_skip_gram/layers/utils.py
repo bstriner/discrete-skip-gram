@@ -75,3 +75,9 @@ def ones_layer(units, scale=1, dtype='float32'):
 
 def add_layer(value):
     return Lambda(lambda _x: _x + value, output_shape=lambda _x: _x)
+
+def layer_norm(x):
+    mean = T.mean(x, axis=-1, keepdims=True)
+    std = T.std(x, axis=-1, keepdims=True)
+    eps = 1e-6
+    return (x-mean)/(std+eps)
