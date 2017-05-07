@@ -15,7 +15,7 @@ def leaky_relu(x):
 
 # maybe try movie_reviews or reuters
 def main():
-    outputpath = "output/brown/skipgram_baseline_relu"
+    outputpath = "output/brown/skipgram_baseline_relu_layernorm"
     dataset = load_dataset()
     batch_size = 128
     epochs = 5000
@@ -31,6 +31,7 @@ def main():
                                      inner_activation=leaky_relu,
                                      units=units,
                                      embedding_units=embedding_units,
+                                     layernorm=True,
                                      lr=lr)
     validation_n = 4096
     vd = dataset.cbow_batch(n=validation_n, window=window, test=True)

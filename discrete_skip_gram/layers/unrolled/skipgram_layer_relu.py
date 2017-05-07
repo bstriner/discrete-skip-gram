@@ -16,7 +16,7 @@ class SkipgramLayerRelu(Layer):
                  layernorm=False,
                  inner_activation = T.nnet.relu,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
-                 bias_initializer='zero', bias_regularizer=None):
+                 bias_initializer='random_uniform', bias_regularizer=None):
         self.k = k
         self.units = units
         self.layernorm = layernorm
@@ -33,20 +33,22 @@ class SkipgramLayerRelu(Layer):
 
     def build_params(self, input_dim):
 
-        y_embedding = W(self, (self.k+1, self.embedding_units))
+        y_embedding = W(self, (self.k+1, self.embedding_units), "y_embedding")
         self.rnn = MLPUnit(self,
                            input_units=[self.units, self.embedding_units, input_dim],
                            units=self.units,
                            output_units=self.units,
                            inner_activation=self.inner_activation,
+                           layernorm=self.layernorm,
                            name="rnn")
         self.mlp = MLPUnit(self,
-                           input_units=[self.units, self.embedding_units],
+                           input_units=[self.units],
                            units=self.units,
+                           output_units=self.k,
                            inner_activation=self.inner_activation,
-                           output_units=self.units,
+                           layernorm=self.layernorm,
                            output_activation=T.nnet.softmax,
-                           name="rnn")
+                           name="mlp")
 
         self.non_sequences = ([y_embedding]+
             self.rnn.non_sequences +
@@ -91,7 +93,7 @@ class SkipgramLayerRelu(Layer):
         h1 = hd+h0
         p1 = self.mlp.call([h1], mlpparams)
         eps = 1e-7
-        nll1 = -T.log(eps+p1[T.arange(p1.shape[0]), y1])
+        nll1 = -T.log(p1[T.arange(p1.shape[0]), y1] + eps)
         # nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
 
@@ -113,8 +115,9 @@ class SkipgramLayerRelu(Layer):
         return nll
 
 
-class SkipgramPolicyLayer(Layer):
+class SkipgramPolicyLayerRelu(Layer):
     def __init__(self, layer, srng, depth):
+        assert isinstance(layer, SkipgramLayerRelu)
         self.layer = layer
         self.srng = srng
         self.depth = depth
@@ -138,16 +141,16 @@ class SkipgramPolicyLayer(Layer):
         idx = 0
         y_embedding = params[idx]
         idx += 1
-        rnnparams = params[idx:(idx + self.rnn.count)]
-        idx += self.rnn.count
-        mlpparams = params[idx:(idx + self.mlp.count)]
-        idx += self.mlp.count
+        rnnparams = params[idx:(idx + self.layer.rnn.count)]
+        idx += self.layer.rnn.count
+        mlpparams = params[idx:(idx + self.layer.mlp.count)]
+        idx += self.layer.mlp.count
         assert idx == len(params)
 
         yembedded = y_embedding[y0, :]
-        hd = self.rnn.call([h0, yembedded, z], rnnparams)
+        hd = self.layer.rnn.call([h0, yembedded, z], rnnparams)
         h1 = hd + h0
-        p1 = self.mlp.call([h1], mlpparams)
+        p1 = self.layer.mlp.call([h1], mlpparams)
         c1 = T.cumsum(p1, axis=1)
         y1 = T.sum(T.gt(rng.dimshuffle((0, 'x')), c1), axis=1) + 1
         y1 = T.cast(y1, 'int32')

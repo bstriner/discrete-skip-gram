@@ -9,18 +9,22 @@ from keras.optimizers import Adam
 from theano import tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from ..layers.unrolled.skipgram_layer_re import SkipgramLayer, SkipgramPolicyLayer
+from ..layers.unrolled.skipgram_layer_relu import SkipgramLayerRelu, SkipgramPolicyLayerRelu
 from ..layers.utils import drop_dim_2
 from .util import latest_model
 
 
 class WordSkipgramBaselineRelu(object):
     def __init__(self, dataset, units, window, embedding_units,
+                 inner_activation=T.nnet.relu,
+                 layernorm=False,
                  lr=1e-4):
         self.dataset = dataset
         self.units = units
         self.window = window
         self.y_depth = window * 2
+        self.layernorm = layernorm
+        self.inner_activation = inner_activation
         k = self.dataset.k
 
         input_x = Input((1,), dtype='int32', name='input_x')
@@ -28,7 +32,9 @@ class WordSkipgramBaselineRelu(object):
 
         embedding = Embedding(k, embedding_units)
         z = drop_dim_2()(embedding(input_x))  # (n, embedding_units)
-        skipgram = SkipgramLayer(k=k, units=units, embedding_units=embedding_units)
+        skipgram = SkipgramLayerRelu(k=k, units=units, embedding_units=embedding_units,
+                                     layernorm=layernorm,
+                                     inner_activation=inner_activation)
         nll = skipgram([z, input_y])
 
         def loss_f(ytrue, ypred):
@@ -44,7 +50,7 @@ class WordSkipgramBaselineRelu(object):
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
         srng = RandomStreams(123)
-        policy = SkipgramPolicyLayer(skipgram, srng=srng, depth=self.y_depth)
+        policy = SkipgramPolicyLayerRelu(skipgram, srng=srng, depth=self.y_depth)
         ypred = policy(z)
         self.model_predict = Model(inputs=[input_x], outputs=[ypred])
 
@@ -90,7 +96,7 @@ class WordSkipgramBaselineRelu(object):
         if ret:
             self.model.load_weights(ret[0])
             initial_epoch = ret[1] + 1
-        print "Resuming training at {}".format(initial_epoch)
+            print "Resuming training at {}".format(initial_epoch)
         return initial_epoch
 
     def train(self, batch_size, epochs, steps_per_epoch, output_path, frequency=10, continue_training=True, **kwargs):
