@@ -13,8 +13,9 @@ from ..layers.unrolled.skipgram_layer import SkipgramLayer, SkipgramPolicyLayer
 from ..layers.utils import drop_dim_2
 from .util import latest_model
 
+
 class WordSkipgramBaseline(object):
-    def __init__(self, dataset, units, window,
+    def __init__(self, dataset, units, window, embedding_units,
                  lr=1e-4):
         self.dataset = dataset
         self.units = units
@@ -25,9 +26,9 @@ class WordSkipgramBaseline(object):
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        embedding = Embedding(k, units)
-        z = drop_dim_2()(embedding(input_x))
-        skipgram = SkipgramLayer(k=k, units=units)
+        embedding = Embedding(k, embedding_units)
+        z = drop_dim_2()(embedding(input_x))  # (n, embedding_units)
+        skipgram = SkipgramLayer(k=k, units=units, embedding_units=embedding_units)
         nll = skipgram([z, input_y])
 
         def loss_f(ytrue, ypred):
@@ -84,7 +85,7 @@ class WordSkipgramBaseline(object):
             self.model.save_weights("{}/model-{:08d}.h5".format(output_path, epoch))
 
     def continue_training(self, output_path):
-        initial_epoch=0
+        initial_epoch = 0
         ret = latest_model(output_path, "model-(\\d+).h5")
         if ret:
             self.model.load_weights(ret[0])

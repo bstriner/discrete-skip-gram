@@ -15,12 +15,15 @@ def main():
     steps_per_epoch = 512
     frequency = 50
     window = 2
-    units = 128
+    units = 512
+    embedding_units = 128
     lr = 1e-3
 
     model = WordSkipgramBaseline(dataset=dataset,
                                  window=window,
-                                 units=units, lr=lr)
+                                 units=units,
+                                 embedding_units=embedding_units,
+                                 lr=lr)
     validation_n = 4096
     vd = dataset.cbow_batch(n=validation_n, window=window, test=True)
 

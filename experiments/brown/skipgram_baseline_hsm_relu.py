@@ -2,7 +2,8 @@
 
 # os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
-#hsm_relu running in 160 s on server w 128 units
+#hsm_relu running in 160 s on server w 256 units
+
 
 import numpy as np
 from keras.regularizers import L1L2

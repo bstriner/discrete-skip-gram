@@ -11,11 +11,12 @@ class SkipgramLayer(Layer):
     Given a flattened context, calculate NLL of a series
     """
 
-    def __init__(self, k, units, mean=True,
+    def __init__(self, k, units, embedding_units, mean=True,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None):
         self.k = k
         self.units = units
+        self.embedding_units = embedding_units
         self.mean = mean
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
@@ -26,8 +27,9 @@ class SkipgramLayer(Layer):
         Layer.__init__(self)
 
     def build_params(self, input_dim):
-        h_W, h_b = pair(self, (self.k + 1, self.units), "h")
-        h_U = W(self, (self.units, self.units), "h_U")
+        h_W, h_b = pair(self, (self.units, self.units), "h")
+        h_U1 = W(self, (self.k + 1, self.embedding_units), "h_U1")
+        h_U2 = W(self, (self.embedding_units, self.units), "h_U2")
         h_V = W(self, (input_dim, self.units), "h_V")
         f_W, f_b = pair(self, (self.units, self.units), "f")
         i_W, i_b = pair(self, (self.units, self.units), "i")
@@ -36,7 +38,7 @@ class SkipgramLayer(Layer):
         t_W, t_b = pair(self, (self.units, self.units), "t")
         y_W, y_b = pair(self, (self.units, self.k), "y")
         self.non_sequences = [
-            h_W, h_U, h_V, h_b,
+            h_W, h_U1, h_U2, h_V, h_b,
             f_W, f_b,
             i_W, i_b,
             c_W, c_b,
@@ -54,10 +56,9 @@ class SkipgramLayer(Layer):
         input_dim = z[1]
         self.build_params(input_dim)
 
-
-#    def compute_mask(self, inputs, mask=None):
-#        print ("Compute mask {}".format(mask))
-#        return mask
+    #    def compute_mask(self, inputs, mask=None):
+    #        print ("Compute mask {}".format(mask))
+    #        return mask
 
     def compute_output_shape(self, input_shape):
         assert len(input_shape) == 2
@@ -66,42 +67,42 @@ class SkipgramLayer(Layer):
         assert (len(z) == 2)
         assert (len(x) == 2)
         if self.mean:
-            return (x[0],1)
+            return (x[0], 1)
         else:
             return x
 
     def step(self, y0, y1, h0, z, *params):
-        (h_W, h_U, h_V, h_b,
+        (h_W, h_U1, h_U2, h_V, h_b,
          f_W, f_b,
          i_W, i_b,
          c_W, c_b,
          o_W, o_b,
          t_W, t_b,
          y_W, y_b) = params
-        h = T.tanh(h_W[y0, :] + T.dot(h0, h_U) + T.dot(z, h_V) + h_b)
+        h = T.tanh(T.dot(h0,h_W) + T.dot(h_U1[y0,:], h_U2) + T.dot(z, h_V) + h_b)
         f = T.nnet.sigmoid(T.dot(h, f_W) + f_b)
         i = T.nnet.sigmoid(T.dot(h, i_W) + i_b)
         c = T.tanh(T.dot(h, c_W) + c_b)
         o = T.nnet.sigmoid(T.dot(h, o_W) + o_b)
         h1 = (h0 * f) + (c * i)
         t = T.tanh(T.dot(o * h1, t_W) + t_b)
-        #print "NDim sg"
-        #print y0.ndim
-        #print y1.ndim
-        #print h0.ndim
-        #print z.ndim
-        #print h.ndim
-        #print h1.ndim
-        #print t.ndim
+        # print "NDim sg"
+        # print y0.ndim
+        # print y1.ndim
+        # print h0.ndim
+        # print z.ndim
+        # print h.ndim
+        # print h1.ndim
+        # print t.ndim
         p1 = T.nnet.softmax(T.dot(t, y_W) + y_b)
         nll1 = -T.log(p1[T.arange(p1.shape[0]), y1])
-        #nll1 = T.reshape(nll1,(-1,1))
+        # nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
 
     def call(self, (z, y)):
         # z: input context: n, input_dim
         # y: ngram: n, depth int32
-        #print "Z NDIM: {}".format(z.ndim)
+        # print "Z NDIM: {}".format(z.ndim)
         yr = T.transpose(y, (1, 0))
         yshifted = shift_tensor(y)
         yshiftedr = T.transpose(yshifted, (1, 0))
@@ -119,7 +120,7 @@ class SkipgramLayer(Layer):
 class SkipgramPolicyLayer(Layer):
     def __init__(self, layer, srng, depth):
         self.layer = layer
-        self.srng=srng
+        self.srng = srng
         self.depth = depth
         self.input_spec = InputSpec(ndim=2)
         self.supports_masking = False
@@ -130,22 +131,22 @@ class SkipgramPolicyLayer(Layer):
         self.built = True
 
     def compute_mask(self, inputs, mask=None):
-        #print ("Compute mask {}".format(mask))
+        # print ("Compute mask {}".format(mask))
         return mask
 
     def compute_output_shape(self, input_shape):
         assert len(input_shape) == 2
         return (input_shape[0], self.depth)
 
-    def step(self, rng, h0, x0, z, *params):
-        (h_W, h_U, h_V, h_b,
+    def step(self, rng, h0, y0, z, *params):
+        (h_W, h_U1, h_U2, h_V, h_b,
          f_W, f_b,
          i_W, i_b,
          c_W, c_b,
          o_W, o_b,
          t_W, t_b,
          y_W, y_b) = params
-        h = T.tanh(h_W[x0, :] + T.dot(h0, h_U) + T.dot(z, h_V) + h_b)
+        h = T.tanh(T.dot(h0,h_W) + T.dot(h_U1[y0,:], h_U2) + T.dot(z, h_V) + h_b)
         f = T.nnet.sigmoid(T.dot(h, f_W) + f_b)
         i = T.nnet.sigmoid(T.dot(h, i_W) + i_b)
         c = T.tanh(T.dot(h, c_W) + c_b)

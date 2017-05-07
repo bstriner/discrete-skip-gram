@@ -1,6 +1,8 @@
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
+# runs in 135s on server with 512 units
+
 import numpy as np
 from keras.regularizers import L1L2
 
