@@ -34,7 +34,7 @@ def shift_tensor_layer():
 
 
 def shift_tensor(_x):
-    return T.concatenate((T.zeros_like(_x[:,0:1,...]), _x[:, :-1,...] + 1), axis=1)
+    return T.concatenate((T.zeros_like(_x[:, 0:1, ...]), _x[:, :-1, ...] + 1), axis=1)
 
 
 def softmax_nd(x, axis=-1):

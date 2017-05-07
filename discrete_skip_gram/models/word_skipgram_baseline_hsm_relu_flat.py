@@ -1,6 +1,5 @@
 import csv
 import os
-
 import numpy as np
 from keras.layers import Input, Embedding
 from keras.models import Model
@@ -10,11 +9,11 @@ from theano.tensor.shared_randomstreams import RandomStreams
 
 from .sg_model import SGModel
 from ..layers.sequential_embedding_discrete import SequentialEmbeddingDiscrete
-from ..layers.skipgram_hsm_layer import SkipgramHSMLayer, SkipgramHSMPolicyLayer
-from ..layers.utils import drop_dim_2
+from ..layers.skipgram_hsm_layer_relu_flat import SkipgramHSMLayerReluFlat, SkipgramHSMPolicyLayerReluFlat
+from ..layers.utils import drop_dim_2, shift_tensor_layer
 
 
-class WordSkipgramBaselineHSM(SGModel):
+class WordSkipgramBaselineHSMReluFlat(SGModel):
     def __init__(self,
                  dataset,
                  units,
@@ -22,6 +21,7 @@ class WordSkipgramBaselineHSM(SGModel):
                  hsm,
                  embedding_units,
                  kernel_regularizer=None,
+                 inner_activation=T.nnet.relu,
                  embeddings_regularizer=None,
                  lr=1e-4):
         self.dataset = dataset
@@ -36,16 +36,20 @@ class WordSkipgramBaselineHSM(SGModel):
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        x_embedding = Embedding(k, embedding_units, embeddings_regularizer=embeddings_regularizer)
+        x_embedding = Embedding(k, embedding_units,
+                                embeddings_regularizer=embeddings_regularizer)
         z = drop_dim_2()(x_embedding(input_x))
-        skipgram = SkipgramHSMLayer(units=units,
-                                    kernel_regularizer=kernel_regularizer,
-                                    embeddings_regularizer=kernel_regularizer)
+        skipgram = SkipgramHSMLayerReluFlat(units=units,
+                                            k=k,
+                                            embedding_units=embedding_units,
+                                            inner_activation=inner_activation,
+                                            kernel_regularizer=kernel_regularizer,
+                                            embeddings_regularizer=embeddings_regularizer)
 
+        y0 = shift_tensor_layer()(input_y)
         y_embedding = SequentialEmbeddingDiscrete(self.hsm.codes)
-        y_embedded = y_embedding(input_y)
-
-        nll = skipgram([z, y_embedded])
+        y1 = y_embedding(input_y)
+        nll = skipgram([z, y0, y1])
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
@@ -53,7 +57,7 @@ class WordSkipgramBaselineHSM(SGModel):
         def avg_nll(ytrue, ypred):
             return T.mean(nll, axis=None)
 
-        opt = RMSprop(lr)
+        opt = Adam(lr)
         self.model = Model(inputs=[input_x, input_y], outputs=[nll])
         self.model.compile(opt, loss_f, metrics=[avg_nll])
         self.weights = self.model.weights + opt.weights
@@ -61,7 +65,10 @@ class WordSkipgramBaselineHSM(SGModel):
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
         srng = RandomStreams(123)
-        policy = SkipgramHSMPolicyLayer(skipgram, srng=srng, y_depth=self.y_depth, code_depth=self.hsm.codes.shape[1])
+        policy = SkipgramHSMPolicyLayerReluFlat(skipgram, srng=srng,
+                                                y_depth=self.y_depth,
+                                                wordcodes=hsm.words,
+                                                code_depth=self.hsm.codes.shape[1])
         ypred = policy(z)
         self.model_predict = Model(inputs=[input_x], outputs=[ypred])
 

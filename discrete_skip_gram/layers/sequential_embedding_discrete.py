@@ -5,7 +5,6 @@ from keras.engine import InputSpec
 from theano.tensor.shared_randomstreams import RandomStreams
 import keras.backend as K
 
-
 class SequentialEmbeddingDiscrete(Layer):
     """
     Given a flattened representation of x, encode as a discrete series of symbols.

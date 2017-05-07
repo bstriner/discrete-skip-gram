@@ -18,8 +18,8 @@ def main():
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
-    frequency = 25
-    kernel_regularizer = None #L1L2(1e-4, 1e-4)
+    frequency = 10
+    kernel_regularizer = L1L2(1e-5, 1e-5)
     window = 2
     units = 256
     embedding_units = 128
