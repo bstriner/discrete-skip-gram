@@ -26,7 +26,7 @@ def embedding(model, shape, name, dtype='float32'):
 
 
 def pair(model, shape, name):
-    return W(model, shape, "{}_W".format(name)), b(model, (shape[1],), "{}_b".format(name))
+    return [W(model, shape, "{}_W".format(name)), b(model, (shape[1],), "{}_b".format(name))]
 
 
 def shift_tensor_layer():
