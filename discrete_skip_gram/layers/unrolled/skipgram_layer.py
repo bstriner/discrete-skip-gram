@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair, shift_tensor
+from ..utils import W, b, pair, shift_tensor, embedding
 
 
 class SkipgramLayer(Layer):
@@ -12,14 +12,17 @@ class SkipgramLayer(Layer):
     """
 
     def __init__(self, k, units, embedding_units, mean=True,
+                 embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None):
         self.k = k
         self.units = units
         self.embedding_units = embedding_units
         self.mean = mean
+        self.embeddings_initializer = initializers.get(embeddings_initializer)
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
+        self.embeddings_regularizer = regularizers.get(embeddings_regularizer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
@@ -28,7 +31,7 @@ class SkipgramLayer(Layer):
 
     def build_params(self, input_dim):
         h_W, h_b = pair(self, (self.units, self.units), "h")
-        h_U1 = W(self, (self.k + 1, self.embedding_units), "h_U1")
+        h_U1 = embedding(self, (self.k + 1, self.embedding_units), "h_U1")
         h_U2 = W(self, (self.embedding_units, self.units), "h_U2")
         h_V = W(self, (input_dim, self.units), "h_V")
         f_W, f_b = pair(self, (self.units, self.units), "f")

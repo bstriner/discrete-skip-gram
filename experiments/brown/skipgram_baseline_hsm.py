@@ -34,7 +34,7 @@ def main():
                                     kernel_regularizer=kernel_regularizer,
                                     units=units, lr=lr)
     model.summary()
-    vn = 2048
+    vn = 4096
     model.train(batch_size=batch_size,
                 epochs=epochs,
                 frequency=frequency,

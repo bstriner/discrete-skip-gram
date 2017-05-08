@@ -6,7 +6,7 @@ from dataset import load_dataset
 from discrete_skip_gram.models.word_skipgram_baseline_relu import WordSkipgramBaselineRelu
 import theano.tensor as T
 
-
+# 69 s on server
 # 44sec on laptop w 512 units
 
 def leaky_relu(x):

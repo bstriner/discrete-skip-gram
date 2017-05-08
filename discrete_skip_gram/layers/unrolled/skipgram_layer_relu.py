@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair, shift_tensor
+from ..utils import W, b, pair, shift_tensor, embedding
 from ...units.mlp_unit import MLPUnit
 
 
@@ -15,6 +15,7 @@ class SkipgramLayerRelu(Layer):
     def __init__(self, k, units, embedding_units, mean=True,
                  layernorm=False,
                  inner_activation = T.nnet.relu,
+                 embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None):
         self.k = k
@@ -23,8 +24,10 @@ class SkipgramLayerRelu(Layer):
         self.inner_activation = inner_activation
         self.embedding_units = embedding_units
         self.mean = mean
+        self.embeddings_initializer = initializers.get(embeddings_initializer)
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
+        self.embeddings_regularizer = regularizers.get(embeddings_regularizer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
@@ -33,7 +36,7 @@ class SkipgramLayerRelu(Layer):
 
     def build_params(self, input_dim):
 
-        y_embedding = W(self, (self.k+1, self.embedding_units), "y_embedding")
+        y_embedding = embedding(self, (self.k+1, self.embedding_units), "y_embedding")
         self.rnn = MLPUnit(self,
                            input_units=[self.units, self.embedding_units, input_dim],
                            units=self.units,

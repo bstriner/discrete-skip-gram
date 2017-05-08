@@ -2,6 +2,7 @@
 
 # os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
+#running at 240s on server
 import numpy as np
 from keras.regularizers import L1L2
 
