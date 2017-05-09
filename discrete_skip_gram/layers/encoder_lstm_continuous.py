@@ -4,7 +4,7 @@ from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
 from .utils import W, b, pair
-
+from keras import activations
 
 class EncoderLSTMContinuous(Layer):
     """
@@ -19,7 +19,7 @@ class EncoderLSTMContinuous(Layer):
         self.z_depth = z_depth
         self.z_k = z_k
         self.units = units
-        self.activation = activation
+        self.activation = activations.get(activation)
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)

@@ -32,6 +32,7 @@ def main():
                                  kernel_regularizer=kernel_regularizer,
                                  embedding_units=embedding_units,
                                  lr=lr)
+    model.summary()
     vn = 4096
     model.train(batch_size=batch_size,
                 epochs=epochs,

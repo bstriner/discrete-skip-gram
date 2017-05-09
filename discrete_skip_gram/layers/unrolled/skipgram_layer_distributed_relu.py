@@ -7,6 +7,7 @@ from ..utils import W, b, pair, shift_tensor, embedding
 from ...units.mlp_unit import MLPUnit
 from ..utils import leaky_relu, softmax_nd
 
+
 class SkipgramLayerDistributedRelu(Layer):
     """
     Given a time-distributed context, calculate NLL of a series
@@ -97,9 +98,9 @@ class SkipgramLayerDistributedRelu(Layer):
         yembedded = y_embedding[y0, :]
         hd = self.rnn.call([h0, yembedded], rnnparams)
         h1 = hd + h0
-        p1 = self.mlp.call([h1.dimshuffle((0,'x',1)), z], mlpparams) # (n, z_depth, y_k)
+        p1 = self.mlp.call([h1.dimshuffle((0, 'x', 1)), z], mlpparams)  # (n, z_depth, y_k)
         eps = 1e-9
-        nll1 = -T.log(p1[T.arange(p1.shape[0]), :, y1] + eps) # (n, z_depth)
+        nll1 = -T.log(p1[T.arange(p1.shape[0]), :, y1] + eps)  # (n, z_depth)
         # nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
 
@@ -116,7 +117,7 @@ class SkipgramLayerDistributedRelu(Layer):
         (hr, nllr), _ = theano.scan(self.step, sequences=[yshiftedr, yr], outputs_info=outputs_info,
                                     non_sequences=[z] + self.non_sequences)
         # nllr: (y depth, n, z depth)
-        nll = T.transpose(nllr, (1, 2, 0)) # (n, z depth, y depth)
+        nll = T.transpose(nllr, (1, 2, 0))  # (n, z depth, y depth)
         if self.mean:
             nll = T.mean(nll, axis=2)
         return nll
@@ -155,9 +156,9 @@ class SkipgramPolicyDistributedLayerRelu(Layer):
         assert idx == len(params)
 
         yembedded = y_embedding[y0, :]
-        hd = self.layer.rnn.call([h0, yembedded, z], rnnparams)
+        hd = self.layer.rnn.call([h0, yembedded], rnnparams)
         h1 = hd + h0
-        p1 = self.layer.mlp.call([h1], mlpparams)
+        p1 = self.layer.mlp.call([h1, z], mlpparams)  # (n, y_k)
         c1 = T.cumsum(p1, axis=1)
         y1 = T.sum(T.gt(rng.dimshuffle((0, 'x')), c1), axis=1) + 1
         y1 = T.cast(y1, 'int32')

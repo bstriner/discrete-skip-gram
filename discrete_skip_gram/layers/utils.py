@@ -84,3 +84,13 @@ def layer_norm(x):
 
 def leaky_relu(x):
     return T.nnet.relu(x, 0.2)
+
+
+def nll_metric(avg_nll, idx):
+    def metric(ytrue, ypred):
+        return avg_nll[idx]
+    metric.__name__ = "nll{:02d}".format(idx)
+    return metric
+
+def nll_metrics(avg_nll, z_depth):
+    return [nll_metric(avg_nll, i) for i in range(z_depth)]

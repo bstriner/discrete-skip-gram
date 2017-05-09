@@ -22,6 +22,9 @@ class SGModel(object):
             for i, w in enumerate(self.weights):
                 K.set_value(w, f["param_{}".format(i)])
 
+    def summary(self):
+        self.model.summary()
+
     def continue_training(self, output_path):
         initial_epoch = 0
         ret = latest_model(output_path, "model-(\\d+).h5")
