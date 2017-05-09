@@ -7,6 +7,8 @@ from discrete_skip_gram.models.word_skipgram_baseline_relu import WordSkipgramBa
 import theano.tensor as T
 from keras.regularizers import L1L2
 from discrete_skip_gram.layers.utils import leaky_relu
+
+
 # 69 s on server
 # 44sec on laptop w 512 units
 
@@ -30,7 +32,7 @@ def main():
                                      window=window,
                                      inner_activation=leaky_relu,
                                      units=units,
-                                     hidden_layers = hidden_layers,
+                                     hidden_layers=hidden_layers,
                                      embedding_units=embedding_units,
                                      layernorm=True,
                                      kernel_regularizer=kernel_regularizer,
