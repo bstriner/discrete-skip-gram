@@ -1,9 +1,13 @@
+import numpy as np
 import theano
 import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair, shift_tensor, embedding
+from ..utils import W, b, pair, shift_tensor, embedding, leaky_relu
+from ...units.mlp_unit import MLPUnit
+from ...units.lstm_muli_unit import LSTMMultiUnit
+from ..utils import leaky_relu
 
 
 class SkipgramLayer(Layer):
@@ -12,9 +16,13 @@ class SkipgramLayer(Layer):
     """
 
     def __init__(self, k, units, embedding_units, mean=True,
+                 srng=None,
+                 negative_sampling=None,
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None):
+        self.srng = srng
+        self.negative_sampling = negative_sampling
         self.k = k
         self.units = units
         self.embedding_units = embedding_units
@@ -30,32 +38,21 @@ class SkipgramLayer(Layer):
         Layer.__init__(self)
 
     def build_params(self, input_dim):
-        h_W, h_b = pair(self, (self.units, self.units), "h")
-        h_U1 = embedding(self, (self.k + 1, self.embedding_units), "h_U1")
-        h_U2 = W(self, (self.embedding_units, self.units), "h_U2")
-        h_V = W(self, (input_dim, self.units), "h_V")
-        f_W, f_b = pair(self, (self.units, self.units), "f")
-        i_W, i_b = pair(self, (self.units, self.units), "i")
-        c_W, c_b = pair(self, (self.units, self.units), "c")
-        o_W, o_b = pair(self, (self.units, self.units), "o")
-        t_W, t_b = pair(self, (self.units, self.units), "t")
-        y_W, y_b = pair(self, (self.units, self.k), "y")
-        self.non_sequences = [
-            h_W, h_U1, h_U2, h_V, h_b,
-            f_W, f_b,
-            i_W, i_b,
-            c_W, c_b,
-            o_W, o_b,
-            t_W, t_b,
-            y_W, y_b
-        ]
-        h0 = b(self, (1, self.units), "h0")
-        self.h0 = h0
+        y_embedding = embedding(self, (self.k + 1, self.embedding_units), "h_U1")
+        self.lstm = LSTMMultiUnit(self,
+                                  input_units=[input_dim, self.embedding_units],
+                                  units=self.units,
+                                  name="lstm")
+        self.mlp = MLPUnit(self, input_units=[self.units], units=self.units,
+                           inner_activation=leaky_relu,
+                           output_units=self.k,
+                           name="mlp")
+        self.non_sequences = [y_embedding] + self.lstm.non_sequences + self.mlp.non_sequences
         self.built = True
 
-    def build(self, (z, x)):
+    def build(self, (z, y)):
         assert (len(z) == 2)
-        assert (len(x) == 2)
+        assert (len(y) == 2)
         input_dim = z[1]
         self.build_params(input_dim)
 
@@ -63,43 +60,51 @@ class SkipgramLayer(Layer):
     #        print ("Compute mask {}".format(mask))
     #        return mask
 
-    def compute_output_shape(self, input_shape):
-        assert len(input_shape) == 2
-        z = input_shape[0]
-        x = input_shape[1]
+    def compute_output_shape(self, (z, y)):
         assert (len(z) == 2)
-        assert (len(x) == 2)
+        assert (len(y) == 2)
         if self.mean:
-            return (x[0], 1)
+            return y[0], 1
         else:
-            return x
+            return y
 
     def step(self, y0, y1, h0, z, *params):
-        (h_W, h_U1, h_U2, h_V, h_b,
-         f_W, f_b,
-         i_W, i_b,
-         c_W, c_b,
-         o_W, o_b,
-         t_W, t_b,
-         y_W, y_b) = params
-        h = T.tanh(T.dot(h0,h_W) + T.dot(h_U1[y0,:], h_U2) + T.dot(z, h_V) + h_b)
-        f = T.nnet.sigmoid(T.dot(h, f_W) + f_b)
-        i = T.nnet.sigmoid(T.dot(h, i_W) + i_b)
-        c = T.tanh(T.dot(h, c_W) + c_b)
-        o = T.nnet.sigmoid(T.dot(h, o_W) + o_b)
-        h1 = (h0 * f) + (c * i)
-        t = T.tanh(T.dot(o * h1, t_W) + t_b)
-        # print "NDim sg"
-        # print y0.ndim
-        # print y1.ndim
-        # print h0.ndim
-        # print z.ndim
-        # print h.ndim
-        # print h1.ndim
-        # print t.ndim
-        p1 = T.nnet.softmax(T.dot(t, y_W) + y_b)
+        print "Dtypes: {}, {}, {}, {}".format(y0.dtype, y1.dtype, h0.dtype, z.dtype)
+        idx = 0
+        y_embedding = params[idx]
+        idx += 1
+        lstmparams = params[idx:(idx + self.lstm.count)]
+        idx += self.lstm.count
+        mlpparams = params[idx:(idx + self.mlp.count)]
+        idx += self.mlp.count
+        assert idx == len(params)
+
+        embedded = y_embedding[y0, :]
+        h1, o1 = self.lstm.call(h0, [z, embedded], lstmparams)
+        raw1 = self.mlp.call([o1], mlpparams)
+        p1 = T.nnet.softmax(raw1)  # (n, k)
         nll1 = -T.log(p1[T.arange(p1.shape[0]), y1])
-        # nll1 = T.reshape(nll1,(-1,1))
+        return h1, nll1
+
+    def step_ns(self, y0, y1, rng, h0, z, *params):
+        print "NS Dtypes: {}, {}, {}, {}, {}".format(y0.dtype, y1.dtype, rng.dtype, h0.dtype, z.dtype)
+        idx = 0
+        y_embedding = params[idx]
+        idx += 1
+        lstmparams = params[idx:idx + self.lstm.count]
+        idx += self.lstm.count
+        mlpparams = params[idx:idx + self.mlp.count]
+        idx += self.mlp.count
+        assert idx == len(params)
+
+        embedded = y_embedding[y0, :]
+        h1, o1 = self.lstm.call(h0, [z, embedded], lstmparams)
+        raw1 = self.mlp.call([o1], mlpparams)
+        neg = raw1[:, rng]  # (n, negative_sampling)
+        scale = np.float32(self.k) / np.float32(self.negative_sampling)
+        eps = 1e10
+        norm = T.log((scale * T.sum(T.exp(neg), axis=1)) + eps)
+        nll1 = norm - (raw1[T.arange(raw1.shape[0]), y1])
         return h1, nll1
 
     def call(self, (z, y)):
@@ -110,10 +115,16 @@ class SkipgramLayer(Layer):
         yshifted = shift_tensor(y)
         yshiftedr = T.transpose(yshifted, (1, 0))
         n = z.shape[0]
-        outputs_info = [T.extra_ops.repeat(self.h0, n, axis=0),
+        outputs_info = [T.extra_ops.repeat(self.lstm.h0, n, axis=0),
                         None]
-        (hr, nllr), _ = theano.scan(self.step, sequences=[yshiftedr, yr], outputs_info=outputs_info,
-                                    non_sequences=[z] + self.non_sequences)
+        if self.negative_sampling:
+            depth = y.shape[1]
+            rng = self.srng.random_integers(low=0, high=self.k - 1, size=(depth, self.negative_sampling))
+            (hr, nllr), _ = theano.scan(self.step_ns, sequences=[yshiftedr, yr, rng], outputs_info=outputs_info,
+                                        non_sequences=[z] + self.non_sequences)
+        else:
+            (hr, nllr), _ = theano.scan(self.step, sequences=[yshiftedr, yr], outputs_info=outputs_info,
+                                        non_sequences=[z] + self.non_sequences)
         nll = T.transpose(nllr, (1, 0))
         if self.mean:
             nll = T.mean(nll, axis=1, keepdims=True)
@@ -142,21 +153,19 @@ class SkipgramPolicyLayer(Layer):
         return (input_shape[0], self.depth)
 
     def step(self, rng, h0, y0, z, *params):
-        (h_W, h_U1, h_U2, h_V, h_b,
-         f_W, f_b,
-         i_W, i_b,
-         c_W, c_b,
-         o_W, o_b,
-         t_W, t_b,
-         y_W, y_b) = params
-        h = T.tanh(T.dot(h0,h_W) + T.dot(h_U1[y0,:], h_U2) + T.dot(z, h_V) + h_b)
-        f = T.nnet.sigmoid(T.dot(h, f_W) + f_b)
-        i = T.nnet.sigmoid(T.dot(h, i_W) + i_b)
-        c = T.tanh(T.dot(h, c_W) + c_b)
-        o = T.nnet.sigmoid(T.dot(h, o_W) + o_b)
-        h1 = (h0 * f) + (c * i)
-        t = T.tanh(T.dot(o * h1, t_W) + t_b)
-        p1 = T.nnet.softmax(T.dot(t, y_W) + y_b)
+        idx = 0
+        y_embedding = params[idx]
+        idx += 1
+        lstmparams = params[idx:idx + self.layer.lstm.count]
+        idx += self.layer.lstm.count
+        mlpparams = params[idx:idx + self.layer.mlp.count]
+        idx += self.layer.mlp.count
+        assert idx == len(params)
+
+        embedded = y_embedding[y0, :]
+        h1, o1 = self.layer.lstm.call(h0, [z, embedded], lstmparams)
+        p1 = self.layer.mlp.call([o1], mlpparams)
+
         c1 = T.cumsum(p1, axis=1)
         y1 = T.sum(T.gt(rng.dimshuffle((0, 'x')), c1), axis=1) + 1
         y1 = T.cast(y1, 'int32')
@@ -166,7 +175,7 @@ class SkipgramPolicyLayer(Layer):
         # z: input context: n, input_dim
         n = z.shape[0]
         rngr = self.srng.uniform(low=0, high=1, dtype='float32', size=(self.depth, n))
-        outputs_info = [T.extra_ops.repeat(self.layer.h0, n, axis=0),
+        outputs_info = [T.extra_ops.repeat(self.layer.lstm.h0, n, axis=0),
                         T.zeros((n,), dtype='int32')]
         (hr, yr), _ = theano.scan(self.step, sequences=[rngr], outputs_info=outputs_info,
                                   non_sequences=[z] + self.layer.non_sequences)

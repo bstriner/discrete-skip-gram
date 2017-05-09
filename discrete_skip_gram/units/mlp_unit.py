@@ -34,7 +34,7 @@ class MLPUnit(object):
         idx = 0
         h = params[idx]
         idx += 1
-        for i, x in enumerate(xs):
+        for x in xs:
             weight = params[idx]
             idx += 1
             h += T.dot(x, weight)

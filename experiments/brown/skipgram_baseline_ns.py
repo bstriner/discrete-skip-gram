@@ -8,12 +8,10 @@ from sample_validation import validation_load
 from keras.regularizers import L1L2
 
 # 44sec on laptop w 512 units
-# w refactor into units takes 54 secs
-
 
 # maybe try movie_reviews or reuters
 def main():
-    outputpath = "output/brown/skipgram_baseline"
+    outputpath = "output/brown/skipgram_baseline_ns"
     dataset = load_dataset()
     vd = validation_load()
     batch_size = 128
@@ -25,12 +23,14 @@ def main():
     kernel_regularizer = L1L2(1e-7, 1e-7)
     embedding_units = 128
     lr = 1e-3
+    negative_sampling = 100
 
     model = WordSkipgramBaseline(dataset=dataset,
                                  window=window,
                                  units=units,
                                  kernel_regularizer=kernel_regularizer,
                                  embedding_units=embedding_units,
+                                 negative_sampling=negative_sampling,
                                  lr=lr)
     vn = 4096
     model.train(batch_size=batch_size,

@@ -81,3 +81,6 @@ def layer_norm(x):
     std = T.std(x, axis=-1, keepdims=True)
     eps = 1e-6
     return (x-mean)/(std+eps)
+
+def leaky_relu(x):
+    return T.nnet.relu(x, 0.2)

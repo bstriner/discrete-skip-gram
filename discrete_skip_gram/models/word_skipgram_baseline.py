@@ -17,12 +17,14 @@ from .sg_model import SGModel
 class WordSkipgramBaseline(SGModel):
     def __init__(self, dataset, units, window, embedding_units,
                  kernel_regularizer=None,
+                 negative_sampling = None,
                  lr=1e-4):
         self.dataset = dataset
         self.units = units
         self.window = window
         self.y_depth = window * 2
         k = self.dataset.k
+        srng = RandomStreams(123)
 
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
@@ -30,7 +32,8 @@ class WordSkipgramBaseline(SGModel):
         embedding = Embedding(k, embedding_units)
         z = drop_dim_2()(embedding(input_x))  # (n, embedding_units)
         skipgram = SkipgramLayer(k=k, units=units, embedding_units=embedding_units,
-                                 kernel_regularizer=kernel_regularizer)
+                                 kernel_regularizer=kernel_regularizer,
+                                 srng=srng, negative_sampling=negative_sampling)
         nll = skipgram([z, input_y])
 
         def loss_f(ytrue, ypred):
@@ -45,7 +48,6 @@ class WordSkipgramBaseline(SGModel):
         self.weights = self.model.weights + opt.weights
         self.model_encode = Model(inputs=[input_x], outputs=[z])
 
-        srng = RandomStreams(123)
         policy = SkipgramPolicyLayer(skipgram, srng=srng, depth=self.y_depth)
         ypred = policy(z)
         self.model_predict = Model(inputs=[input_x], outputs=[ypred])
