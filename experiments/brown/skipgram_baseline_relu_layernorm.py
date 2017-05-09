@@ -24,11 +24,13 @@ def main():
     embedding_units = 128
     kernel_regularizer = L1L2(1e-9, 1e-9)
     lr = 1e-3
+    hidden_layers = 2
 
     model = WordSkipgramBaselineRelu(dataset=dataset,
                                      window=window,
                                      inner_activation=leaky_relu,
                                      units=units,
+                                     hidden_layers = hidden_layers,
                                      embedding_units=embedding_units,
                                      layernorm=True,
                                      kernel_regularizer=kernel_regularizer,

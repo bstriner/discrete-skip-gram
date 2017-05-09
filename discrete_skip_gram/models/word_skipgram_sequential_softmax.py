@@ -16,16 +16,14 @@ from ..layers.ngram_layer import NgramLayerGenerator
 from ..layers.ngram_layer_distributed import NgramLayerDistributed
 from ..layers.time_distributed_dense import TimeDistributedDense
 from ..layers.utils import drop_dim_2, softmax_nd_layer
+from .sg_model import SGModel
 
-
-class WordSkipgramSequentialSoftmax(object):
+class WordSkipgramSequentialSoftmax(SGModel):
     def __init__(self, dataset, units, z_depth, z_k, schedule, window, adversary_weight,
-                 frequency=5,
+                 embedding_units,
+                 inner_activation = T.nnet.relu,
                  kernel_regularizer=None,
-                 lr=1e-4, lr_a=3e-4,
-                 train_rate=5):
-        self.frequency = frequency
-        self.train_rate=train_rate
+                 lr=1e-4, lr_a=3e-4):
         self.dataset = dataset
         self.units = units
         self.z_depth = z_depth
@@ -41,7 +39,7 @@ class WordSkipgramSequentialSoftmax(object):
         input_y = Input((window * 2,), dtype='int32', name='input_y')
 
         # encoder
-        embedding = Embedding(x_k, units, embeddings_regularizer=kernel_regularizer)
+        embedding = Embedding(x_k, embedding_units)
         embedded_x = drop_dim_2()(embedding(input_x))
         encoder = EncoderLSTMContinuous(z_depth, z_k, units, activation=T.nnet.softmax,
                                         kernel_regularizer=kernel_regularizer)

@@ -19,6 +19,7 @@ class WordSkipgramBaselineRelu(SGModel):
     def __init__(self, dataset, units, window, embedding_units,
                  inner_activation=T.nnet.relu,
                  kernel_regularizer=None,
+                 hidden_layers = 3,
                  layernorm=False,
                  lr=1e-4):
         self.dataset = dataset
@@ -37,6 +38,7 @@ class WordSkipgramBaselineRelu(SGModel):
         z = drop_dim_2()(embedding(input_x))  # (n, embedding_units)
         skipgram = SkipgramLayerRelu(k=k, units=units, embedding_units=embedding_units,
                                      layernorm=layernorm,
+                                     hidden_layers=hidden_layers,
                                      kernel_regularizer=kernel_regularizer,
                                      inner_activation=inner_activation)
         nll = skipgram([z, input_y])
