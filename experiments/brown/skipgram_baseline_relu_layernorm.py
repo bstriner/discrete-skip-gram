@@ -5,12 +5,10 @@ import numpy as np
 from dataset import load_dataset
 from discrete_skip_gram.models.word_skipgram_baseline_relu import WordSkipgramBaselineRelu
 import theano.tensor as T
-
+from keras.regularizers import L1L2
+from discrete_skip_gram.layers.utils import leaky_relu
 # 69 s on server
 # 44sec on laptop w 512 units
-
-def leaky_relu(x):
-    return T.nnet.relu(x, 0.2)
 
 
 # maybe try movie_reviews or reuters
@@ -20,10 +18,11 @@ def main():
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
-    frequency = 50
+    frequency = 20
     window = 2
     units = 512
     embedding_units = 128
+    kernel_regularizer = L1L2(1e-9, 1e-9)
     lr = 1e-3
 
     model = WordSkipgramBaselineRelu(dataset=dataset,
@@ -32,6 +31,7 @@ def main():
                                      units=units,
                                      embedding_units=embedding_units,
                                      layernorm=True,
+                                     kernel_regularizer=kernel_regularizer,
                                      lr=lr)
     validation_n = 4096
     vd = dataset.cbow_batch(n=validation_n, window=window, test=True)

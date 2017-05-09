@@ -7,12 +7,10 @@ from discrete_skip_gram.models.word_skipgram_baseline_relu import WordSkipgramBa
 import theano.tensor as T
 from keras.regularizers import L1L2
 from sample_validation import validation_load
+from discrete_skip_gram.layers.utils import leaky_relu
+
 
 # 44sec on laptop w 512 units
-
-def leaky_relu(x):
-    return T.nnet.relu(x, 0.2)
-
 
 def main():
     outputpath = "output/brown/skipgram_baseline_relu"

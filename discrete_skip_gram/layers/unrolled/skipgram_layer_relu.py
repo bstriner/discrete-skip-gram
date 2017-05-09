@@ -14,7 +14,8 @@ class SkipgramLayerRelu(Layer):
 
     def __init__(self, k, units, embedding_units, mean=True,
                  layernorm=False,
-                 inner_activation = T.nnet.relu,
+                 inner_activation=T.nnet.relu,
+                 hidden_layers=3,
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None):
@@ -32,17 +33,19 @@ class SkipgramLayerRelu(Layer):
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
         self.supports_masking = False
+        self.hidden_layers = hidden_layers
         Layer.__init__(self)
 
     def build_params(self, input_dim):
 
-        y_embedding = embedding(self, (self.k+1, self.embedding_units), "y_embedding")
+        y_embedding = embedding(self, (self.k + 1, self.embedding_units), "y_embedding")
         self.rnn = MLPUnit(self,
                            input_units=[self.units, self.embedding_units, input_dim],
                            units=self.units,
                            output_units=self.units,
                            inner_activation=self.inner_activation,
                            layernorm=self.layernorm,
+                           hidden_layers=self.hidden_layers,
                            name="rnn")
         self.mlp = MLPUnit(self,
                            input_units=[self.units],
@@ -51,11 +54,12 @@ class SkipgramLayerRelu(Layer):
                            inner_activation=self.inner_activation,
                            layernorm=self.layernorm,
                            output_activation=T.nnet.softmax,
+                           hidden_layers=self.hidden_layers,
                            name="mlp")
 
-        self.non_sequences = ([y_embedding]+
-            self.rnn.non_sequences +
-            self.mlp.non_sequences)
+        self.non_sequences = ([y_embedding] +
+                              self.rnn.non_sequences +
+                              self.mlp.non_sequences)
         h0 = b(self, (1, self.units), "h0")
         self.h0 = h0
         self.built = True
@@ -85,17 +89,17 @@ class SkipgramLayerRelu(Layer):
         idx = 0
         y_embedding = params[idx]
         idx += 1
-        rnnparams = params[idx:(idx+self.rnn.count)]
+        rnnparams = params[idx:(idx + self.rnn.count)]
         idx += self.rnn.count
-        mlpparams = params[idx:(idx+self.mlp.count)]
+        mlpparams = params[idx:(idx + self.mlp.count)]
         idx += self.mlp.count
         assert idx == len(params)
 
-        yembedded = y_embedding[y0,:]
+        yembedded = y_embedding[y0, :]
         hd = self.rnn.call([h0, yembedded, z], rnnparams)
-        h1 = hd+h0
+        h1 = hd + h0
         p1 = self.mlp.call([h1], mlpparams)
-        eps = 1e-7
+        eps = 1e-9
         nll1 = -T.log(p1[T.arange(p1.shape[0]), y1] + eps)
         # nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
