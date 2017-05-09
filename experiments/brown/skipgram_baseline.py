@@ -22,7 +22,7 @@ def main():
     frequency = 20
     window = 2
     units = 512
-    kernel_regularizer = L1L2(1e-7, 1e-7)
+    kernel_regularizer = L1L2(1e-9, 1e-9)
     embedding_units = 128
     lr = 1e-3
 

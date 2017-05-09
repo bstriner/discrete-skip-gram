@@ -45,7 +45,10 @@ class SkipgramLayer(Layer):
                                   name="lstm")
         self.mlp = MLPUnit(self, input_units=[self.units], units=self.units,
                            inner_activation=leaky_relu,
+                           layernorm=True,
+                           hidden_layers=3,
                            output_units=self.k,
+                           output_activation=T.nnet.softmax,
                            name="mlp")
         self.non_sequences = [y_embedding] + self.lstm.non_sequences + self.mlp.non_sequences
         self.built = True
@@ -81,8 +84,7 @@ class SkipgramLayer(Layer):
 
         embedded = y_embedding[y0, :]
         h1, o1 = self.lstm.call(h0, [z, embedded], lstmparams)
-        raw1 = self.mlp.call([o1], mlpparams)
-        p1 = T.nnet.softmax(raw1)  # (n, k)
+        p1 = self.mlp.call([o1], mlpparams)
         nll1 = -T.log(p1[T.arange(p1.shape[0]), y1])
         return h1, nll1
 
@@ -117,13 +119,14 @@ class SkipgramLayer(Layer):
         n = z.shape[0]
         outputs_info = [T.extra_ops.repeat(self.lstm.h0, n, axis=0),
                         None]
+        """
         if self.negative_sampling:
             depth = y.shape[1]
             rng = self.srng.random_integers(low=0, high=self.k - 1, size=(depth, self.negative_sampling))
             (hr, nllr), _ = theano.scan(self.step_ns, sequences=[yshiftedr, yr, rng], outputs_info=outputs_info,
                                         non_sequences=[z] + self.non_sequences)
-        else:
-            (hr, nllr), _ = theano.scan(self.step, sequences=[yshiftedr, yr], outputs_info=outputs_info,
+        """
+        (hr, nllr), _ = theano.scan(self.step, sequences=[yshiftedr, yr], outputs_info=outputs_info,
                                         non_sequences=[z] + self.non_sequences)
         nll = T.transpose(nllr, (1, 0))
         if self.mean:
