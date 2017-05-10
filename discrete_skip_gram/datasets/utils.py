@@ -14,7 +14,7 @@ def stem_word():
 
 
 def simple_clean(w):
-    return "".join(c for c in w.lower() if ord(c) < 128)
+    return "".join(c for c in w.lower() if ord('a') <= ord(c) <= ord('z'))
 
 
 def clean_words(ws, clean_word):
@@ -57,6 +57,6 @@ def format_encoding_sequential_continuous(enc):
     for i in range(depth):
         e = enc[i, :]
         s = np.greater(e, 0).astype(np.int32)
-        t = np.sum(np.power(2, np.arange(k))*s)
+        t = np.sum(np.power(2, np.arange(k)) * s)
         fmt.append(chr(ord('a') + t))
     return "".join(fmt)

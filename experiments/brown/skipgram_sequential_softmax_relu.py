@@ -5,13 +5,13 @@ import numpy as np
 from keras.regularizers import L1L2
 
 from dataset import load_dataset
-from discrete_skip_gram.models.word_skipgram_sequential_softmax import WordSkipgramSequentialSoftmax
+from discrete_skip_gram.models.word_skipgram_sequential_softmax_relu import WordSkipgramSequentialSoftmaxRelu
 from sample_validation import validation_load
 from discrete_skip_gram.layers.utils import leaky_relu
 
 
 def main():
-    outputpath = "output/brown/skipgram_sequential_softmax"
+    outputpath = "output/brown/skipgram_sequential_softmax_relu"
     dataset = load_dataset()
     vd = validation_load()
     batch_size = 128
@@ -28,21 +28,19 @@ def main():
     lr_a = 1e-3
     decay = 0.9
     hidden_layers = 2
-    adversary_weight = 1.0
-    layernorm = False
+    adversary_weight = 1e-2
     schedule = np.power(decay, np.arange(z_depth))
-    model = WordSkipgramSequentialSoftmax(dataset=dataset,
-                                          adversary_weight=adversary_weight,
-                                          schedule=schedule,
-                                          hidden_layers=hidden_layers,
-                                          embedding_units=embedding_units,
-                                          layernorm=layernorm,
-                                          z_k=z_k,
-                                          z_depth=z_depth,
-                                          window=window,
-                                          inner_activation=leaky_relu,
-                                          kernel_regularizer=kernel_regularizer,
-                                          units=units, lr=lr, lr_a=lr_a)
+    model = WordSkipgramSequentialSoftmaxRelu(dataset=dataset,
+                                              adversary_weight=adversary_weight,
+                                              schedule=schedule,
+                                              hidden_layers=hidden_layers,
+                                              embedding_units=embedding_units,
+                                              z_k=z_k,
+                                              z_depth=z_depth,
+                                              window=window,
+                                              inner_activation=leaky_relu,
+                                              kernel_regularizer=kernel_regularizer,
+                                              units=units, lr=lr, lr_a=lr_a)
     model.summary()
     vn = 4096
     model.train(batch_size=batch_size,

@@ -16,7 +16,8 @@ class TimeDistributedDense(Layer):
     def __init__(self, units,
                  activation=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
-                 bias_initializer='zero', bias_regularizer=None):
+                 bias_initializer='zero', bias_regularizer=None,
+                 **kwargs):
         self.units = units
         self.activation = activations.get(activation)
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -25,7 +26,7 @@ class TimeDistributedDense(Layer):
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = InputSpec(ndim=3)
         self.supports_masking = False
-        Layer.__init__(self)
+        Layer.__init__(self, **kwargs)
 
     def build(self, input_shape):
         assert len(input_shape) == 3

@@ -13,15 +13,18 @@ class SkipgramLayerDistributedRelu(Layer):
     Given a time-distributed context, calculate NLL of a series
     """
 
-    def __init__(self, k, units,
+    def __init__(self,
+                 k,
+                 units,
                  embedding_units,
                  mean=True,
-                 layernorm=True,
+                 layernorm=False,
                  inner_activation=leaky_relu,
                  hidden_layers=2,
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
-                 bias_initializer='random_uniform', bias_regularizer=None):
+                 bias_initializer='random_uniform', bias_regularizer=None,
+                 **kwargs):
         self.k = k
         self.units = units
         self.layernorm = layernorm
@@ -37,7 +40,7 @@ class SkipgramLayerDistributedRelu(Layer):
         self.input_spec = [InputSpec(ndim=2), InputSpec(ndim=2)]
         self.supports_masking = False
         self.hidden_layers = hidden_layers
-        Layer.__init__(self)
+        Layer.__init__(self, **kwargs)
 
     def build_params(self, input_dim):
 

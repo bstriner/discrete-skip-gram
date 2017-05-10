@@ -43,8 +43,8 @@ def softmax_nd(x, axis=-1):
     return out
 
 
-def softmax_nd_layer():
-    return Lambda(softmax_nd, output_shape=lambda _x: _x)
+def softmax_nd_layer(**kwargs):
+    return Lambda(softmax_nd, output_shape=lambda _x: _x, **kwargs)
 
 
 def custom_loss(_, y_pred):
