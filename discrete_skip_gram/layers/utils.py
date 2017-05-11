@@ -76,11 +76,13 @@ def ones_layer(units, scale=1, dtype='float32'):
 def add_layer(value):
     return Lambda(lambda _x: _x + value, output_shape=lambda _x: _x)
 
+
 def layer_norm(x):
     mean = T.mean(x, axis=-1, keepdims=True)
     std = T.std(x, axis=-1, keepdims=True)
     eps = 1e-6
-    return (x-mean)/(std+eps)
+    return (x - mean) / (std + eps)
+
 
 def leaky_relu(x):
     return T.nnet.relu(x, 0.2)
@@ -89,8 +91,18 @@ def leaky_relu(x):
 def nll_metric(avg_nll, idx):
     def metric(ytrue, ypred):
         return avg_nll[idx]
+
     metric.__name__ = "nll{:02d}".format(idx)
     return metric
 
+
 def nll_metrics(avg_nll, z_depth):
     return [nll_metric(avg_nll, i) for i in range(z_depth)]
+
+
+def sample_3d(x):
+    return T.argmax(x, axis=2)
+
+
+def sample_3d_layer(**kwargs):
+    return Lambda(lambda _x: sample_3d(_x), output_shape=lambda _x: (_x[0], _x[1]), **kwargs)

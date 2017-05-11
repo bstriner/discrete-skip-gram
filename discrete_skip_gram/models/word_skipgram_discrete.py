@@ -16,32 +16,41 @@ from theano.tensor.shared_randomstreams import RandomStreams
 from ..layers.unrolled.bias_layer import BiasLayer
 from ..layers.unrolled.decoder_layer import DecoderLayer
 from ..layers.unrolled.sampler_deterministic_layer import SamplerDeterministicLayer
-from ..layers.unrolled.skipgram_batch_layer import SkipgramBatchLayer, SkipgramBatchPolicyLayer
-from ..layers.utils import drop_dim_2, zeros_layer, add_layer
+from ..layers.highway_layer import HighwayLayer
+from ..layers.time_distributed_dense import TimeDistributedDense
+from ..layers.utils import drop_dim_2, zeros_layer, add_layer, nll_metrics
 from ..layers.adversary_layer import AdversaryLayer
 from .util import latest_model
 
 from discrete_skip_gram.layers.utils import leaky_relu
+from ..layers.utils import softmax_nd_layer, shift_tensor_layer, softmax_nd
+from ..layers.shift_padding_layer import ShiftPaddingLayer
+from ..layers.highway_layer_discrete import HighwayLayerDiscrete
+from ..layers.skipgram_layer_discrete import SkipgramLayerDiscrete, SkipgramPolicyLayerDiscrete
+from .sg_model import SGModel
+
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
 
 
-class WordSkipgramDiscrete(object):
+class WordSkipgramDiscrete(SGModel):
     def __init__(self, dataset, units, embedding_units, window, z_depth, z_k,
                  lr=1e-4,
                  lr_a=1e-3,
-                 internal_activation=leaky_relu,
+                 inner_activation=leaky_relu,
                  kernel_regularizer=None,
+                 hidden_layers=2,
                  adversary_weight=1.0
                  ):
         self.dataset = dataset
         self.units = units
         self.embedding_units = embedding_units
         self.window = window
+        self.hidden_layers = hidden_layers
         self.z_depth = z_depth
         self.z_k = z_k
         self.y_depth = window * 2
-        self.internal_activation=internal_activation
+        self.inner_activation = inner_activation
         assert z_depth > 0
         srng = RandomStreams(123)
         x_k = self.dataset.k
@@ -49,174 +58,133 @@ class WordSkipgramDiscrete(object):
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        pzs = []
-        zhs = []
-        zs = []
-        losses = []
-        decoder_h0 = BiasLayer(units)
-        ht = decoder_h0(input_x)
-        zt = zeros_layer(1, dtype='int32')(input_x)
-        eps = 1e-7
-        sampler = SamplerDeterministicLayer(offset=0)
-        losses = []
+        x_embedding = Embedding(input_dim=self.dataset.k, output_dim=z_depth * z_k)
+        rs = Reshape((z_depth, z_k))
+        sm = softmax_nd_layer()
+        z = sm(rs(x_embedding(input_x)))  # n, z_depth, z_k
+
+        sampler = Lambda(lambda _x: T.argmax(_x, axis=2), output_shape=lambda _x: (_x[0], _x[1]), name='z_sampler')
+        z_sampled = sampler(z)
+        z_shifted = shift_tensor_layer()(z_sampled)
+
+        zrnn = HighwayLayerDiscrete(units=self.units,
+                                    embedding_units=self.embedding_units,
+                                    k=self.z_k + 1,
+                                    inner_activation=self.inner_activation,
+                                    hidden_layers=self.hidden_layers,
+                                    kernel_regularizer=kernel_regularizer)
+
+        zh = zrnn(z_shifted)  # n, z_depth, units
+
+        skipgram = SkipgramLayerDiscrete(units=self.units,
+                                         embedding_units=self.embedding_units,
+                                         z_k=z_k,
+                                         y_k=x_k,
+                                         inner_activation=self.inner_activation,
+                                         hidden_layers=self.hidden_layers,
+                                         kernel_regularizer=kernel_regularizer)
+
+        nll = skipgram([zh, input_y])  # n, z_depth, z_k
+
+        loss_layer = Lambda(lambda (_a, _b): T.sum(T.sum(_a * _b, axis=2), axis=1, keepdims=True),
+                            output_shape=lambda (_a, _b): (_a[0], 1),
+                            name="loss_layer")
+        loss = loss_layer([nll, z])
+
+        # adversary: try to minimize kl with z
+        input_z = Input((self.z_depth, self.z_k), dtype='float32', name='input_z')
+        z_shift = ShiftPaddingLayer()
+        arnn = HighwayLayer(units=units,
+                            inner_activation=inner_activation,
+                            hidden_layers=hidden_layers,
+                            kernel_regularizer=kernel_regularizer,
+                            )
+        ah = z_shift(input_z)
+        ah = arnn(ah)
+        ah = TimeDistributedDense(units,
+                                  activation=inner_activation,
+                                  kernel_regularizer=kernel_regularizer,
+                                  name="adversary_d1")(ah)
+        ah = TimeDistributedDense(units,
+                                  activation=inner_activation,
+                                  kernel_regularizer=kernel_regularizer,
+                                  name="adversary_d2")(ah)
+        d = TimeDistributedDense(z_k,
+                                 activation=softmax_nd,
+                                 kernel_regularizer=kernel_regularizer,
+                                 name="adversary_d3")(ah)
+        adversary = Model(inputs=[input_z], outputs=[d])
+
+        # train adversary
+        dz = adversary(z)
+
+        def em(yt, yp):
+            return T.mean(T.sum(T.sum(T.abs_(yt - yp), axis=2), axis=1), axis=0)
+
+        aem = em(z, dz)
+        adversary_reg = 0
+        for layer in adversary.layers:
+            for l in layer.losses:
+                adversary_reg += l
+        aopt = Adam(lr=lr_a)
+        atotal = aem + adversary_reg
+        aweights = adversary.trainable_weights
+        print "A weights: {}".format(aweights)
+        aupdates = aopt.get_updates(aweights, {}, atotal)
+        self.adversary_weight = K.variable(np.float32(adversary_weight), dtype='float32', name='adversary_weight')
+        regloss = -self.adversary_weight * aem
+
+        self.adversary = adversary
+        skipgram.add_loss(regloss)
+        skipgram.add_update(aupdates)
+
+        self.model = Model([input_x, input_y], loss)
+
+        def adversary_em(ytrue, ypred):
+            return aem
+
+        def adversary_loss(ytrue, ypred):
+            return atotal
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
 
-        decoder_layer = DecoderLayer(units, z_k=z_k + 1, kernel_regularizer=kernel_regularizer,
-                                     name="decoder")
-        skipgram_layer = SkipgramBatchLayer(units=units, y_k=x_k, z_k=z_k, kernel_regularizer=kernel_regularizer,
-                                            name="skipgram")
-
-        for idx in range(z_depth):
-            # predictions
-            ht, zh = decoder_layer([ht, zt])
-            zhs.append(zh)
-            nll = skipgram_layer([zh, input_y])
-
-            # embed x
-            embedding = Embedding(x_k, z_k, name="embedding_x_{}".format(idx))
-            pz = Activation("softmax")(drop_dim_2()(embedding(input_x)))
-            pzs.append(pz)
-            z = sampler(pz)
-            zs.append(z)
-            zt = add_layer(1)(z)
-
-            # loss calc
-            loss = Lambda(lambda (_a, _b): T.sum(_a * _b, axis=1, keepdims=True),
-                          output_shape=lambda (_a, _b): (_a[0], 1))([nll, pz])
-            losses.append(loss)
-        zvec = Concatenate()(zs)
-        pzvec = Concatenate(axis=1)([Reshape((1,z_k))(pz) for pz in pzs])
-        adversary = AdversaryLayer(z_k=z_k, units=units, kernel_regularizer=kernel_regularizer)
-        ay = adversary(zvec)
-        aloss = T.mean(T.abs_(ay-pzvec), axis=None)
-        areg = -adversary_weight*aloss
-        alossreg = 0
-        for l in adversary.losses:
-            alossreg += l
-        aopt = Adam(lr)
-        aupdates = aopt.get_updates(adversary.weights, {}, aloss+alossreg)
-
+        avg_nll = T.mean(nll, axis=0)
+        metrics = nll_metrics(avg_nll, z_depth)
         opt = Adam(lr)
-        if self.z_depth == 1:
-            loss = losses[0]
-        else:
-            loss = Add()(losses)
-        skipgram_layer.add_loss(areg)
-        skipgram_layer.add_update(aupdates)
-        self.model = Model([input_x, input_y], loss)
 
-        def nll_initial(_yt, _yp):
-            return T.mean(losses[0], axis=None)
+        self.model = Model(inputs=[input_x, input_y], outputs=[loss])
+        self.model.compile(opt, loss_f, metrics=[adversary_loss, adversary_em] + metrics)
+        self.weights = self.model.weights + self.adversary.weights + opt.weights + aopt.weights
 
-        def nll_final(_yt, _yp):
-            return T.mean(losses[-1], axis=None)
-
-        def adversary_loss(_yt, _yp):
-            return T.mean(aloss, axis=None)
-
-        self.model.compile(opt, loss_f, metrics=[nll_initial, nll_final, adversary_loss])
-        """
-        self.model._make_train_function()
-
-        inputs = self.model._feed_inputs + self.model._feed_targets + self.model._feed_sample_weights
-        outputs = [self.model.total_loss] + self.model.metrics_tensors
-        trainf = self.model.train_function
-        adversary_function = K.function(inputs, outputs, updates=aupdates)
-
-        self.counter = 0
-
-        def train_function(inputs):
-            self.counter += 1
-            if self.counter > self.train_rate + 1:
-                self.counter = 0
-            if self.counter > 0:
-                return adversary_function(inputs)
-            else:
-                return trainf(inputs)
-
-        self.model.train_function = train_function
-        """
         # Prediction model
-        policy_layer = SkipgramBatchPolicyLayer(skipgram_layer, srng=srng, depth=self.y_depth)
-        ygen = policy_layer([zh, z])
-        self.predict_model = Model([input_x], ygen)
+        policy_layer = SkipgramPolicyLayerDiscrete(skipgram, srng=srng, depth=self.y_depth)
+        zhfinal = Lambda(lambda _z: _z[:, -1, :], output_shape=lambda _z: (_z[0], _z[2]), name="zhfinal")(zh)
+        zfinal = Lambda(lambda _z: _z[:, -1:], output_shape=lambda _z: (_z[0], 1), name="zfinal")(z_sampled)
+        ygen = policy_layer([zhfinal, zfinal])
+        self.model_predict = Model([input_x], ygen)
 
         # Encoder model
-        self.encode_model = Model([input_x], pzs + zs)
+        self.model_encode = Model([input_x], z_sampled)
 
-        # Decoder model
-        input_zs = [Input((1,), dtype='int32', name="input_z_{}".format(i)) for i in range(z_depth)]
-        ht = decoder_h0(input_zs[0])
-        zt = zeros_layer(1, dtype='int32')(input_zs[0])
-        for z in input_zs:
-            ht, zhdec = decoder_layer([ht, zt])
-            zt = add_layer(1)(z)
-        ygen = policy_layer([zhdec, z])
-        self.decoder_model = Model(input_zs, ygen)
-        self.model_combined = Model([input_x, input_y]+ input_zs,[loss, ay])
-
-    def write_generated(self, output_path):
-        n = 128
-        samples = 8
-        _, x = self.dataset.cbow_batch(n=n, window=self.window, test=True)
-        ys = [self.predict_model.predict(x, verbose=0) for _ in range(samples)]
-        with open(output_path, 'w') as f:
-            for i in range(n):
-                strs = []
-                w = self.dataset.get_word(x[i, 0])
-                for y in ys:
-                    ctx = [self.dataset.get_word(y[i, j]) for j in range(self.window * 2)]
-                    lctx = " ".join(ctx[:self.window])
-                    rctx = " ".join(ctx[self.window:])
-                    strs.append("{} [{}] {}".format(lctx, w, rctx))
-                f.write("{}: {}\n".format(w, " | ".join(strs)))
-
-    def write_encoded(self, output_path):
+    def write_encodings(self, output_path):
         x = np.arange(self.dataset.k).reshape((-1, 1))
-        ret = self.encode_model.predict(x, verbose=0)
-        pzs, zs = ret[:self.z_depth], ret[self.z_depth:]
+        z = self.model_encode.predict(x, verbose=0)
 
-        # if z_depth == 1:
-        #    zs = [zs]
-        with open(output_path, 'wb') as f:
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+        with open(output_path + ".csv", 'wb') as f:
             w = csv.writer(f)
-            w.writerow(["Idx", "Word", "Encoding"] +
-                       ["Cat {}".format(i) for i in range(len(zs))] +
-                       ["Pz {}".format(i) for i in range(len(zs))])
+            w.writerow(["Id", "Word", "Encoding"] + ["Cat {}".format(j) for j in range(self.z_depth)])
             for i in range(self.dataset.k):
+                enc = z[i, :]
+                enca = [enc[j] for j in range(enc.shape[0])]
+                encf = "".join(chr(ord('a') + e) for e in enca)
                 word = self.dataset.get_word(i)
-                enc = [z[i, 0] for z in zs]
-                pzfs = [", ".join("{:03f}".format(p) for p in pz[i, :]) for pz in pzs]
-                encf = "".join(chr(ord('a') + e) for e in enc)
-                w.writerow([i, word, encf] + enc + pzfs)
+                w.writerow([i, word, encf] + enca)
+        np.save(output_path + ".npy", z)
 
-    def continue_training(self, output_path):
-        initial_epoch = 0
-        ret = latest_model(output_path, "model-(\\d+).h5")
-        if ret:
-            self.model_combined.load_weights(ret[0])
-            initial_epoch = ret[1] + 1
-        print "Resuming training at {}".format(initial_epoch)
-        return initial_epoch
-
-    def train(self, batch_size, epochs, steps_per_epoch, output_path, continue_training=True,
-              frequency=10, **kwargs):
-        gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
-        initial_epoch = 0
-        if continue_training:
-            initial_epoch = self.continue_training(output_path)
-        def on_epoch_end(epoch, logs):
-            if (epoch + 1) % frequency == 0:
-                self.write_generated("{}/generated-{:08d}.txt".format(output_path, epoch))
-                self.write_encoded("{}/encoded-{:08d}.csv".format(output_path, epoch))
-                self.model_combined.save_weights("{}/model-{:08d}.h5".format(output_path, epoch))
-
-        csvpath = "{}/history.csv".format(output_path)
-        cbs = [LambdaCallback(on_epoch_begin=on_epoch_end), CSVLogger(csvpath, append=continue_training)]
-        self.model.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_per_epoch, callbacks=cbs,
-                                 initial_epoch=initial_epoch,
-                                 verbose=1, **kwargs)
+    def on_epoch_end(self, output_path, epoch):
+        self.write_encodings("{}/encodings-{:08d}".format(output_path, epoch))
+        self.write_predictions_flat("{}/predictions-{:08d}.csv".format(output_path, epoch))
+        self.save("{}/model-{:08d}.h5".format(output_path, epoch))

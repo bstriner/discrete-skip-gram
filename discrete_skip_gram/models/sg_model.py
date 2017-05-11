@@ -47,7 +47,7 @@ class SGModel(object):
 
         gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
         csvcb = CSVLogger("{}/history.csv".format(output_path), append=continue_training)
-        cb = LambdaCallback(on_epoch_begin=on_epoch_end)
+        cb = LambdaCallback(on_epoch_end=on_epoch_end)
         self.model.fit_generator(gen, epochs=epochs,
                                  steps_per_epoch=steps_per_epoch,
                                  callbacks=[cb, csvcb],

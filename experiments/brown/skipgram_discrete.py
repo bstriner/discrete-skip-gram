@@ -1,6 +1,6 @@
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+#import os
+#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import csv
-import os
 
 import numpy as np
 from keras.callbacks import CSVLogger
@@ -15,7 +15,8 @@ from sample_validation import validation_load
 from discrete_skip_gram.layers.utils import leaky_relu
 from dataset import load_dataset
 from keras.regularizers import L1L2
-# maybe try movie_reviews or reuters
+
+
 def main():
     outputpath = "output/brown/skipgram_discrete"
     ds = load_dataset()
@@ -34,21 +35,20 @@ def main():
     lr_a = 1e-3
     adversary_weight = 1e-2
     model = WordSkipgramDiscrete(dataset=ds, z_k=z_k, z_depth=z_depth,
-                                       window=window,
+                                 window=window,
                                  embedding_units=embedding_units,
                                  kernel_regularizer=kernel_regularizer,
                                  adversary_weight=adversary_weight,
                                  lr_a=lr_a,
-                                 internal_activation=leaky_relu,
-                                       units=units, lr=lr)
+                                 inner_activation=leaky_relu,
+                                 units=units, lr=lr)
     model.summary()
-    validation_n = 4096
-    vd = ds.cbow_batch(n=validation_n, window=window, test=True)
+    vn = 4096
 
     model.train(batch_size=batch_size,
                 epochs=epochs,
                 steps_per_epoch=steps_per_epoch,
-                validation_data=([vd[1], vd[0]], np.ones((validation_n, 1), dtype=np.float32)),
+                validation_data=([vd[0][:vn], vd[1][:vn]], np.ones((vn, 1), dtype=np.float32)),
                 output_path=outputpath,
                 frequency=frequency)
 
