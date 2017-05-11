@@ -94,7 +94,7 @@ class SkipgramLayerDiscrete(Layer):
         raw1 = self.mlp.call([h1.dimshuffle((0, 'x', 1)), z], mlpparams)  # n, z_depth, z_k*y_k
         raw2 = T.reshape(raw1, (n, z_depth, self.z_k, self.y_k))
         p1 = softmax_nd(raw2)  # n, z_depth, z_k, y_k
-        eps = 1e-9
+        eps = 1e-6
         nll1 = -T.log(eps+p1[T.arange(p1.shape[0]), :, :, y1])  # n, z_depth, z_k
         return h1, nll1
 

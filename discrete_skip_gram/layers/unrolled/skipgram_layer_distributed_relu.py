@@ -102,7 +102,7 @@ class SkipgramLayerDistributedRelu(Layer):
         hd = self.rnn.call([h0, yembedded], rnnparams)
         h1 = hd + h0
         p1 = self.mlp.call([h1.dimshuffle((0, 'x', 1)), z], mlpparams)  # (n, z_depth, y_k)
-        eps = 1e-9
+        eps = 1e-6
         nll1 = -T.log(p1[T.arange(p1.shape[0]), :, y1] + eps)  # (n, z_depth)
         # nll1 = T.reshape(nll1,(-1,1))
         return h1, nll1
