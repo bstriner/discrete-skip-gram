@@ -21,24 +21,27 @@ from ..layers.utils import drop_dim_2, zeros_layer, add_layer
 from ..layers.adversary_layer import AdversaryLayer
 from .util import latest_model
 
+from discrete_skip_gram.layers.utils import leaky_relu
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
 
 
 class WordSkipgramDiscrete(object):
-    def __init__(self, dataset, units, window, z_depth, z_k,
+    def __init__(self, dataset, units, embedding_units, window, z_depth, z_k,
                  lr=1e-4,
-                 train_rate=5,
+                 lr_a=1e-3,
+                 internal_activation=leaky_relu,
                  kernel_regularizer=None,
                  adversary_weight=1.0
                  ):
-        self.train_rate=train_rate
         self.dataset = dataset
         self.units = units
+        self.embedding_units = embedding_units
         self.window = window
         self.z_depth = z_depth
         self.z_k = z_k
         self.y_depth = window * 2
+        self.internal_activation=internal_activation
         assert z_depth > 0
         srng = RandomStreams(123)
         x_k = self.dataset.k
@@ -53,7 +56,7 @@ class WordSkipgramDiscrete(object):
         decoder_h0 = BiasLayer(units)
         ht = decoder_h0(input_x)
         zt = zeros_layer(1, dtype='int32')(input_x)
-        eps = 1e-6
+        eps = 1e-7
         sampler = SamplerDeterministicLayer(offset=0)
         losses = []
 

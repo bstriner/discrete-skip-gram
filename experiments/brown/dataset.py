@@ -1,11 +1,12 @@
 import pickle
 import os
+import csv
 
 from discrete_skip_gram.datasets.corpus import brown_docs
 from discrete_skip_gram.datasets.utils import clean_docs, simple_clean
 from discrete_skip_gram.datasets.word_dataset import WordDataset
 
-# todo: remove numbers
+# todo: map numerals to a symbol
 # min = 5
 # Total wordcount: 1149063
 # Unique words: 49364, Filtered: 14121
@@ -15,7 +16,6 @@ from discrete_skip_gram.datasets.word_dataset import WordDataset
 # Removing punctuation
 # Total wordcount: 995033
 # Unique words: 45837, Filtered: 4908
-
 _brown_path = "output/brown/corpus.pkl"
 
 
@@ -38,13 +38,18 @@ def create_dataset():
     docs = clean_docs(brown_docs(), simple_clean)
     docs, tdocs = docs[:-5], docs[-5:]
     ds = WordDataset(docs, min_count, tdocs=tdocs)
-    ds.summary()
     save_dataset(ds)
 
 
 def tst_dataset():
     ds = load_dataset()
     ds.summary()
+    with open('output/brown/vocab.csv','wb') as f:
+        w = csv.writer(f)
+        w.writerow(['Id','Word'])
+        for i in range(ds.k):
+            w.writerow([i, ds.get_word(i)])
+
 
 
 def main():
