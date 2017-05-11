@@ -18,7 +18,7 @@ def main():
     epochs = 5000
     steps_per_epoch = 512
     frequency = 10
-    kernel_regularizer = L1L2(1e-9, 1e-9)
+    kernel_regularizer = L1L2(1e-6, 1e-6)
     window = 2
     units = 512
     embedding_units = 128
@@ -40,7 +40,9 @@ def main():
                                               window=window,
                                               inner_activation=leaky_relu,
                                               kernel_regularizer=kernel_regularizer,
-                                              units=units, lr=lr, lr_a=lr_a)
+                                              units=units,
+                                              lr=lr,
+                                              lr_a=lr_a)
     model.summary()
     vn = 4096
     model.train(batch_size=batch_size,
