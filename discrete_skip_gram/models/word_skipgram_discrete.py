@@ -28,7 +28,7 @@ from ..layers.shift_padding_layer import ShiftPaddingLayer
 from ..layers.highway_layer_discrete import HighwayLayerDiscrete
 from ..layers.skipgram_layer_discrete import SkipgramLayerDiscrete, SkipgramPolicyLayerDiscrete
 from .sg_model import SGModel
-
+from ..layers.sampler_3d_layer import Sampler3DLayer
 
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
@@ -68,7 +68,10 @@ class WordSkipgramDiscrete(SGModel):
         sm = softmax_nd_layer()
         z = sm(rs(x_embedding(input_x)))  # n, z_depth, z_k
 
-        sampler = Lambda(lambda _x: T.argmax(_x, axis=2), output_shape=lambda _x: (_x[0], _x[1]), name='z_sampler')
+        sampler = Sampler3DLayer(srng=srng)
+        sampler_det = Lambda(lambda _x: T.argmax(_x, axis=2),
+                             output_shape=lambda _x: (_x[0], _x[1]),
+                             name='z_sampler')
         z_sampled = sampler(z)
         z_shifted = shift_tensor_layer()(z_sampled)
 
@@ -166,14 +169,17 @@ class WordSkipgramDiscrete(SGModel):
         self.weights = self.model.weights + self.adversary.weights + opt.weights + aopt.weights
 
         # Prediction model
+        z_sampled_det = sampler_det(z)
+        z_shifted_det = shift_tensor_layer()(z_sampled_det)
+        zh_det = zrnn(z_shifted_det)  # n, z_depth, units
         policy_layer = SkipgramPolicyLayerDiscrete(skipgram, srng=srng, depth=self.y_depth)
-        zhfinal = Lambda(lambda _z: _z[:, -1, :], output_shape=lambda _z: (_z[0], _z[2]), name="zhfinal")(zh)
-        zfinal = Lambda(lambda _z: _z[:, -1:], output_shape=lambda _z: (_z[0], 1), name="zfinal")(z_sampled)
+        zhfinal = Lambda(lambda _z: _z[:, -1, :], output_shape=lambda _z: (_z[0], _z[2]), name="zhfinal")(zh_det)
+        zfinal = Lambda(lambda _z: _z[:, -1:], output_shape=lambda _z: (_z[0], 1), name="zfinal")(z_sampled_det)
         ygen = policy_layer([zhfinal, zfinal])
         self.model_predict = Model([input_x], ygen)
 
         # Encoder model
-        self.model_encode = Model([input_x], z_sampled)
+        self.model_encode = Model([input_x], z_sampled_det)
 
     def write_encodings(self, output_path):
         x = np.arange(self.dataset.k).reshape((-1, 1))
