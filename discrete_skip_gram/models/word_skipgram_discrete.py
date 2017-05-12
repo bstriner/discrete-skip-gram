@@ -105,8 +105,7 @@ class WordSkipgramDiscrete(SGModel):
         arnn = HighwayLayer(units=units,
                             inner_activation=inner_activation,
                             hidden_layers=hidden_layers,
-                            kernel_regularizer=kernel_regularizer,
-                            )
+                            kernel_regularizer=kernel_regularizer)
         ah = z_shift(input_z)
         ah = arnn(ah)
         ah = TimeDistributedDense(units,
