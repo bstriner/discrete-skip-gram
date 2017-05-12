@@ -136,8 +136,6 @@ class SkipgramDiscreteModel(SkipgramModel):
         zrnn.add_loss(regloss)
         zrnn.add_update(aupdates)
 
-        self.model = Model([input_x, input_y], loss)
-
         def adversary_em(ytrue, ypred):
             return aem
 

@@ -2,7 +2,7 @@
 #os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 
-from discrete_skip_gram.skipgram_models.skipgram_discrete_model import SkipgramDiscreteModel
+from discrete_skip_gram.skipgram_models.skipgram_baseline_model import SkipgramBaselineModel
 from sample_validation import validation_load
 from discrete_skip_gram.layers.utils import leaky_relu
 from dataset_util import load_dataset
@@ -10,14 +10,14 @@ from keras.regularizers import L1L2
 
 
 def main():
-    outputpath = "output/skipgram_discrete"
+    outputpath = "output/skipgram_baseline"
     ds = load_dataset()
     vd = validation_load()
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
     window = 7
-    frequency = 20
+    frequency = 3
     units = 512
     embedding_units = 128
     z_k = 2
@@ -28,7 +28,7 @@ def main():
     lr_a = 1e-3
     adversary_weight = 1e-2
     layernorm = False
-    model = SkipgramDiscreteModel(dataset=ds,
+    model = SkipgramBaselineModel(dataset=ds,
                                   z_k=z_k,
                                   z_depth=z_depth,
                                   window=window,
