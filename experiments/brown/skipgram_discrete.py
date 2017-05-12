@@ -30,12 +30,12 @@ def main():
     embedding_units = 128
     z_k = 2
     z_depth = 10
-    kernel_regularizer = L1L2(1e-9, 1e-9)
-    embeddings_regularizer = L1L2(1e-9, 1e-9)
+    kernel_regularizer = L1L2(1e-7, 1e-7)
+    embeddings_regularizer = L1L2(1e-7, 1e-7)
     lr = 1e-3
     lr_a = 1e-3
     adversary_weight = 1e-2
-    layernorm=False
+    layernorm=True
     model = WordSkipgramDiscrete(dataset=ds, z_k=z_k, z_depth=z_depth,
                                  window=window,
                                  embedding_units=embedding_units,

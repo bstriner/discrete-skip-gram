@@ -31,6 +31,7 @@ class WordSkipgramSequentialSoftmaxRelu(SGModel):
                  hidden_layers=1,
                  inner_activation=T.nnet.relu,
                  kernel_regularizer=None,
+                 embeddings_regularizer=None,
                  lr=1e-4, lr_a=3e-4):
         self.dataset = dataset
         self.units = units
@@ -47,7 +48,7 @@ class WordSkipgramSequentialSoftmaxRelu(SGModel):
         input_y = Input((window * 2,), dtype='int32', name='input_y')
 
         # encoder
-        embedding = Embedding(x_k, z_depth * z_k, name="x_embedding")
+        embedding = Embedding(x_k, z_depth * z_k, name="x_embedding", embeddings_regularizer=embeddings_regularizer)
         rs = Reshape((z_depth, z_k), name="z_reshape")
         sm = softmax_nd_layer(name="z_softmax")
         z = sm(rs(embedding(input_x)))  # n, z_depth, z_k
@@ -67,6 +68,7 @@ class WordSkipgramSequentialSoftmaxRelu(SGModel):
                                              embedding_units=embedding_units,
                                              hidden_layers=hidden_layers,
                                              inner_activation=inner_activation,
+                                             embeddings_regularizer=embeddings_regularizer,
                                              name="skipgram")
         nll = ngram([zh, input_y])
 

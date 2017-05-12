@@ -18,7 +18,8 @@ def main():
     epochs = 5000
     steps_per_epoch = 512
     frequency = 10
-    kernel_regularizer = L1L2(1e-6, 1e-6)
+    kernel_regularizer = L1L2(1e-7, 1e-7)
+    embeddings_regularizer = L1L2(1e-7, 1e-7)
     window = 2
     units = 512
     embedding_units = 128
@@ -40,6 +41,7 @@ def main():
                                               window=window,
                                               inner_activation=leaky_relu,
                                               kernel_regularizer=kernel_regularizer,
+                                              embeddings_regularizer=embeddings_regularizer,
                                               units=units,
                                               lr=lr,
                                               lr_a=lr_a)
