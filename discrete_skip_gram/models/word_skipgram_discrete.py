@@ -100,14 +100,15 @@ class WordSkipgramDiscrete(SGModel):
         loss = loss_layer([nll, z])
 
         # adversary: try to minimize kl with z
-        input_z = Input((self.z_depth, self.z_k), dtype='float32', name='input_z')
-        z_shift = ShiftPaddingLayer()
-        arnn = HighwayLayer(units=units,
+        input_z0 = Input((self.z_depth,), dtype='int32', name='input_z0')
+        arnn = HighwayLayerDiscrete(units=units,
+                                    embedding_units=embedding_units,
+                                    k=self.z_k+1,
+                                    layernorm=layernorm,
                             inner_activation=inner_activation,
                             hidden_layers=hidden_layers,
                             kernel_regularizer=kernel_regularizer)
-        ah = z_shift(input_z)
-        ah = arnn(ah)
+        ah = arnn(input_z0)
         ah = TimeDistributedDense(units,
                                   activation=inner_activation,
                                   kernel_regularizer=kernel_regularizer,
@@ -120,10 +121,10 @@ class WordSkipgramDiscrete(SGModel):
                                  activation=softmax_nd,
                                  kernel_regularizer=kernel_regularizer,
                                  name="adversary_d3")(ah)
-        adversary = Model(inputs=[input_z], outputs=[d])
+        adversary = Model(inputs=[input_z0], outputs=[d])
 
         # train adversary
-        dz = adversary(z)
+        dz = adversary(z_shifted)
 
         def em(yt, yp):
             return T.mean(T.sum(T.sum(T.abs_(yt - yp), axis=2), axis=1), axis=0)
