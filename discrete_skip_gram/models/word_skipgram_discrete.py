@@ -29,6 +29,7 @@ from ..layers.highway_layer_discrete import HighwayLayerDiscrete
 from ..layers.skipgram_layer_discrete import SkipgramLayerDiscrete, SkipgramPolicyLayerDiscrete
 from .sg_model import SGModel
 
+
 def selection_layer(zind):
     return Lambda(lambda (_a, _b): _a * (_b[:, zind].dimshuffle((0, 'x'))), output_shape=lambda (_a, _b): _a)
 
@@ -39,7 +40,9 @@ class WordSkipgramDiscrete(SGModel):
                  lr_a=1e-3,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
+                 embeddings_regularizer=None,
                  hidden_layers=2,
+                 layernorm=False,
                  adversary_weight=1.0
                  ):
         self.dataset = dataset
@@ -58,7 +61,9 @@ class WordSkipgramDiscrete(SGModel):
         input_x = Input((1,), dtype='int32', name='input_x')
         input_y = Input((self.y_depth,), dtype='int32', name='input_y')
 
-        x_embedding = Embedding(input_dim=self.dataset.k, output_dim=z_depth * z_k)
+        x_embedding = Embedding(input_dim=self.dataset.k,
+                                output_dim=z_depth * z_k,
+                                embeddings_regularizer=embeddings_regularizer)
         rs = Reshape((z_depth, z_k))
         sm = softmax_nd_layer()
         z = sm(rs(x_embedding(input_x)))  # n, z_depth, z_k
@@ -70,6 +75,7 @@ class WordSkipgramDiscrete(SGModel):
         zrnn = HighwayLayerDiscrete(units=self.units,
                                     embedding_units=self.embedding_units,
                                     k=self.z_k + 1,
+                                    layernorm=layernorm,
                                     inner_activation=self.inner_activation,
                                     hidden_layers=self.hidden_layers,
                                     kernel_regularizer=kernel_regularizer)
@@ -80,8 +86,10 @@ class WordSkipgramDiscrete(SGModel):
                                          embedding_units=self.embedding_units,
                                          z_k=z_k,
                                          y_k=x_k,
+                                         layernorm=layernorm,
                                          inner_activation=self.inner_activation,
                                          hidden_layers=self.hidden_layers,
+                                         embeddings_regularizer=embeddings_regularizer,
                                          kernel_regularizer=kernel_regularizer)
 
         nll = skipgram([zh, input_y])  # n, z_depth, z_k

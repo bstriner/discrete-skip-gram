@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor, leaky_relu
+from .utils import W, b, pair, shift_tensor, leaky_relu, layer_norm
 from ..units.mlp_unit import MLPUnit
 
 
@@ -17,13 +17,15 @@ class HighwayLayerDiscrete(Layer):
                  embedding_units,
                  k,
                  hidden_layers=2,
+                 layernorm=False,
                  inner_activation=leaky_relu,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None,
                  **kwargs):
         self.units = units
-        self.embedding_units=embedding_units
-        self.k=k
+        self.embedding_units = embedding_units
+        self.k = k
+        self.layernorm = layernorm
         self.hidden_layers = hidden_layers
         self.inner_activation = inner_activation
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -43,8 +45,9 @@ class HighwayLayerDiscrete(Layer):
                            output_units=self.units,
                            hidden_layers=self.hidden_layers,
                            inner_activation=self.inner_activation,
+                           layernorm=self.layernorm,
                            name="mlp")
-        self.non_sequences=[self.x_embedding]+self.mlp.non_sequences
+        self.non_sequences = [self.x_embedding] + self.mlp.non_sequences
         self.h0 = b(self, (1, self.units), "h0")
         self.built = True
 
@@ -56,11 +59,11 @@ class HighwayLayerDiscrete(Layer):
         ind = 0
         x_embedding = params[ind]
         ind += 1
-        mlpparams = params[ind:(ind+self.mlp.count)]
+        mlpparams = params[ind:(ind + self.mlp.count)]
         ind += self.mlp.count
         assert ind == len(params)
 
-        xe = x_embedding[x,:]
+        xe = x_embedding[x, :]
         hd = self.mlp.call([y0, xe], mlpparams)
         y1 = hd + y0
         return y1

@@ -21,6 +21,7 @@ class SkipgramLayerDiscrete(Layer):
                  inner_activation=leaky_relu,
                  mean=True,
                  srng=None,
+                 layernorm=False,
                  negative_sampling=None,
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
@@ -28,6 +29,7 @@ class SkipgramLayerDiscrete(Layer):
         self.srng = srng
         self.negative_sampling = negative_sampling
         self.z_k = z_k
+        self.layernorm = layernorm
         self.y_k = y_k
         self.hidden_layers = hidden_layers
         self.inner_activation = inner_activation
@@ -55,6 +57,7 @@ class SkipgramLayerDiscrete(Layer):
                            output_units=self.units,
                            inner_activation=self.inner_activation,
                            hidden_layers=self.hidden_layers,
+                           layernorm=self.layernorm,
                            name="rnn")
         self.mlp = MLPUnit(self,
                            input_units=[self.units, input_dim],
@@ -62,6 +65,7 @@ class SkipgramLayerDiscrete(Layer):
                            output_units=self.y_k * self.z_k,
                            inner_activation=self.inner_activation,
                            hidden_layers=self.hidden_layers,
+                           layernorm=self.layernorm,
                            name="mlp")
         self.non_sequences = [y_embedding] + self.rnn.non_sequences + self.mlp.non_sequences
         self.h0 = b(self, (1, self.units), name="h0")
@@ -95,7 +99,7 @@ class SkipgramLayerDiscrete(Layer):
         raw2 = T.reshape(raw1, (n, z_depth, self.z_k, self.y_k))
         p1 = softmax_nd(raw2)  # n, z_depth, z_k, y_k
         eps = 1e-6
-        nll1 = -T.log(eps+p1[T.arange(p1.shape[0]), :, :, y1])  # n, z_depth, z_k
+        nll1 = -T.log(eps + p1[T.arange(p1.shape[0]), :, :, y1])  # n, z_depth, z_k
         return h1, nll1
 
     def call(self, (z, y)):
@@ -152,7 +156,7 @@ class SkipgramPolicyLayerDiscrete(Layer):
         raw1 = self.layer.mlp.call([h1, zh], mlpparams)  # n, z_k*y_k
         raw2 = T.reshape(raw1, (n, self.layer.z_k, self.layer.y_k))
         p1 = softmax_nd(raw2)  # n, z_k, y_k
-        p2 = p1[T.arange(p1.shape[0]), T.flatten(z), :] # n, y_k
+        p2 = p1[T.arange(p1.shape[0]), T.flatten(z), :]  # n, y_k
         c1 = T.cumsum(p2, axis=1)
         y1 = T.sum(T.gt(rng.dimshuffle((0, 'x')), c1), axis=1) + 1
         y1 = T.cast(y1, 'int32')

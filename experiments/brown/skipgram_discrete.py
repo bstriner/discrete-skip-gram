@@ -1,5 +1,5 @@
-#import os
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import csv
 
 import numpy as np
@@ -31,15 +31,19 @@ def main():
     z_k = 2
     z_depth = 10
     kernel_regularizer = L1L2(1e-6, 1e-6)
+    embeddings_regularizer = L1L2(1e-6, 1e-6)
     lr = 1e-3
     lr_a = 1e-3
     adversary_weight = 1e-2
+    layernorm=True
     model = WordSkipgramDiscrete(dataset=ds, z_k=z_k, z_depth=z_depth,
                                  window=window,
                                  embedding_units=embedding_units,
                                  kernel_regularizer=kernel_regularizer,
+                                 embeddings_regularizer=embeddings_regularizer,
                                  adversary_weight=adversary_weight,
                                  lr_a=lr_a,
+                                 layernorm=layernorm,
                                  inner_activation=leaky_relu,
                                  units=units, lr=lr)
     model.summary()
