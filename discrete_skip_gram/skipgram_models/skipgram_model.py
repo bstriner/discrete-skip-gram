@@ -9,7 +9,7 @@ from keras.callbacks import LambdaCallback, CSVLogger
 from .util import latest_model
 
 
-class SkipGramModel(object):
+class SkipgramModel(object):
     def save(self, output_path):
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
@@ -45,7 +45,7 @@ class SkipGramModel(object):
             if (epoch + 1) % frequency == 0:
                 self.on_epoch_end(output_path, epoch)
 
-        gen = self.dataset.skipgram_generator_with_context(n=batch_size, window=self.window)
+        gen = self.dataset.skipgram_generator(n=batch_size, window=self.window)
         csvcb = CSVLogger("{}/history.csv".format(output_path), append=continue_training)
         cb = LambdaCallback(on_epoch_end=on_epoch_end)
         self.model.fit_generator(gen, epochs=epochs,
@@ -71,33 +71,15 @@ class SkipGramModel(object):
     def write_predictions(self, output_path):
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
-        samples = 8
+        samples = 16
         n = 128
         with open(output_path, 'wb') as f:
             w = csv.writer(f)
             w.writerow(["Id", "Word"] + ["Sample {}".format(i) for i in range(samples)])
             x = np.random.randint(0, self.dataset.k, size=(n, 1))
             ys = [self.model_predict.predict(x, verbose=0) for _ in range(samples)]
-            print "yp shapes: {}".format([y.shape for y in ys])
             for i in range(n):
                 ix = x[i, 0]
                 word = self.dataset.get_word(ix)
-                samples = [self.decode_sample(ix, y[i, :, :]) for y in ys]
-                w.writerow([ix, word] + samples)
-
-    def write_predictions_flat(self, output_path):
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
-        samples = 8
-        n = 128
-        with open(output_path, 'wb') as f:
-            w = csv.writer(f)
-            w.writerow(["Id", "Word"] + ["Sample {}".format(i) for i in range(samples)])
-            x = np.random.randint(0, self.dataset.k, size=(n, 1))
-            ys = [self.model_predict.predict(x, verbose=0) for _ in range(samples)]
-            print "yp shapes: {}".format([y.shape for y in ys])
-            for i in range(n):
-                ix = x[i, 0]
-                word = self.dataset.get_word(ix)
-                samples = [self.decode_sample_flat(ix, y[i, :]) for y in ys]
+                samples = [self.dataset.get_word(y[i,0]) for y in ys]
                 w.writerow([ix, word] + samples)

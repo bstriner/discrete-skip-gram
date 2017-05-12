@@ -100,6 +100,11 @@ class WordDataset(object):
             sg = self.skip_gram_batch(window=window, n=n)
             yield sg, np.ones((n, 1), dtype=np.float32)
 
+    def skipgram_generator(self, n, window):
+        while True:
+            sg = self.skip_gram_batch(window=window, n=n)
+            yield sg, np.ones((n, 1), dtype=np.float32)
+
     def cbow_batch(self, n, window, test=False):
         return cbow_batch(self.tadocs if test else self.adocs, n, window)
 

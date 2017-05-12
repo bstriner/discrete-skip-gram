@@ -3,6 +3,7 @@ from keras.engine import InputSpec
 from keras.layers import Layer
 import theano
 
+
 class SamplerLayer(Layer):
     def __init__(self, srng, offset=None):
         self.srng = srng
@@ -14,13 +15,14 @@ class SamplerLayer(Layer):
         self.built = True
 
     def compute_output_shape(self, input_shape):
+        assert len(input_shape) == 2
         return (input_shape[0], 1)
 
     def call(self, p):
         csum = T.cumsum(p, axis=1)
         n = p.shape[0]
         rng = self.srng.uniform(low=0, high=1, size=(n,), dtype='float32')
-        #print "CSuM ndim: {}".format(csum.ndim)
+        # print "CSuM ndim: {}".format(csum.ndim)
         sample = T.sum(T.gt(rng.dimshuffle((0, 'x')), csum), axis=1, keepdims=True)
         if self.offset:
             sample += self.offset
