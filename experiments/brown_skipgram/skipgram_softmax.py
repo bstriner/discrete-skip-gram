@@ -18,7 +18,7 @@ def main():
     steps_per_epoch = 1024
     window = 2
     frequency = 20
-    units = 256
+    units = 512
     embedding_units = 128
     z_k = 2
     z_depth = 10
