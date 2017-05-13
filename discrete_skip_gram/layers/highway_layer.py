@@ -16,10 +16,12 @@ class HighwayLayer(Layer):
                  units,
                  hidden_layers=2,
                  inner_activation=leaky_relu,
+                 layernorm=False,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None,
                  **kwargs):
         self.units = units
+        self.layernorm=layernorm
         self.hidden_layers = hidden_layers
         self.inner_activation = inner_activation
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -40,6 +42,7 @@ class HighwayLayer(Layer):
                            output_units=self.units,
                            hidden_layers=self.hidden_layers,
                            inner_activation=self.inner_activation,
+                           layernorm=self.layernorm,
                            name="mlp")
         self.h0 = b(self, (1, self.units), "h0")
         self.built = True
