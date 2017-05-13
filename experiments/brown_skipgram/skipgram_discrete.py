@@ -17,13 +17,13 @@ def main():
     epochs = 5000
     steps_per_epoch = 512
     window = 7
-    frequency = 20
-    units = 512
+    frequency = 5
+    units = 256
     embedding_units = 128
     z_k = 2
     z_depth = 10
-    kernel_regularizer = L1L2(1e-7, 1e-7)
-    embeddings_regularizer = L1L2(1e-7, 1e-7)
+    kernel_regularizer = L1L2(1e-9, 1e-9)
+    embeddings_regularizer = L1L2(1e-9, 1e-9)
     lr = 1e-3
     lr_a = 1e-3
     adversary_weight = 1e-2

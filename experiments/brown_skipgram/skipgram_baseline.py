@@ -20,13 +20,9 @@ def main():
     frequency = 50
     units = 512
     embedding_units = 128
-    z_k = 2
-    z_depth = 10
-    kernel_regularizer = L1L2(1e-8, 1e-8)
-    embeddings_regularizer = L1L2(1e-8, 1e-8)
+    kernel_regularizer = L1L2(1e-9, 1e-9)
+    embeddings_regularizer = L1L2(1e-9, 1e-9)
     lr = 1e-3
-    lr_a = 1e-3
-    adversary_weight = 1e-2
     layernorm = False
     model = SkipgramBaselineModel(dataset=ds,
                                   window=window,

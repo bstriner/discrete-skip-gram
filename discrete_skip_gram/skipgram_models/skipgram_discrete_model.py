@@ -18,6 +18,7 @@ from discrete_skip_gram.layers.utils import leaky_relu
 from ..layers.utils import softmax_nd_layer, shift_tensor_layer, softmax_nd
 from ..layers.highway_layer_discrete import HighwayLayerDiscrete
 from .skipgram_model import SkipgramModel
+from ..layers.dense_batch import DenseBatch
 
 
 class SkipgramDiscreteModel(SkipgramModel):
@@ -85,7 +86,7 @@ class SkipgramDiscreteModel(SkipgramModel):
                                  kernel_regularizer=kernel_regularizer)(h)
         h = Reshape((z_depth, self.z_k, x_k))(h)  # (n, z_depth, z_k, x_k)
         p = softmax_nd_layer()(h)  # (n, z_depth, z_k, x_k)
-        eps = 1e-7
+        eps = 1e-9
         nll = Lambda(lambda (_p, _y): -T.log(eps+_p[T.arange(_p.shape[0]), :, :, T.flatten(_y)]),
                      output_shape=lambda (_p, _y): (_p[0], _p[1], _p[2]))([p, input_y])
 
