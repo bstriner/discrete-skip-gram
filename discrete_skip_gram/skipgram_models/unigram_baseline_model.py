@@ -14,7 +14,7 @@ from discrete_skip_gram.layers.utils import leaky_relu
 from .skipgram_model import SkipgramModel
 
 
-class SkipgramBaselineModel(SkipgramModel):
+class UnigramBaselineModel(SkipgramModel):
     def __init__(self,
                  dataset,
                  units,
