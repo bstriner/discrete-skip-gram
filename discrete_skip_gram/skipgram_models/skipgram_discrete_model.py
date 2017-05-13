@@ -38,6 +38,7 @@ class SkipgramDiscreteModel(SkipgramModel):
                  embeddings_regularizer=None,
                  hidden_layers=2,
                  layernorm=False,
+                 loss_weight=1e-2,
                  adversary_weight=1.0
                  ):
         self.dataset = dataset
@@ -133,6 +134,7 @@ class SkipgramDiscreteModel(SkipgramModel):
         print "A weights: {}".format(aweights)
         aupdates = aopt.get_updates(aweights, {}, atotal)
         self.adversary_weight = K.variable(np.float32(adversary_weight), dtype='float32', name='adversary_weight')
+        self.loss_weight = K.variable(np.float32(loss_weight), dtype='float32', name='loss_weight')
         regloss = -self.adversary_weight * aem
 
         self.adversary = adversary
@@ -146,7 +148,7 @@ class SkipgramDiscreteModel(SkipgramModel):
             return atotal
 
         def loss_f(ytrue, ypred):
-            return T.mean(ypred, axis=None)
+            return T.mean(ypred, axis=None) * self.loss_weight
 
         avg_nll = T.mean(nll, axis=0)
         metrics = nll_metrics(avg_nll, z_depth)

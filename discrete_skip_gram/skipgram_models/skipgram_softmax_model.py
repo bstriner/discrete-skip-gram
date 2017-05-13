@@ -79,7 +79,8 @@ class SkipgramSoftmaxModel(SkipgramModel):
                                  activation=softmax_nd)(h)  # (n, z_depth, x_k)
 
         eps = 1e-7
-        nll = Lambda(lambda (_p, _y): -T.log(eps + _p[T.arange(_p.shape[0]), :, T.flatten(_y)]),
+        scale = 1-(eps*x_k)
+        nll = Lambda(lambda (_p, _y): -T.log(eps + (scale*_p[T.arange(_p.shape[0]), :, T.flatten(_y)])),
                      output_shape=lambda (_p, _y): (_p[0], _p[1]))([p, input_y])  # (n, z_depth)
 
         loss = Lambda(lambda _nll: T.sum(_nll, axis=1, keepdims=True),

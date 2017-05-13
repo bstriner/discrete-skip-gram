@@ -24,7 +24,7 @@ def main():
     z_depth = 10
     kernel_regularizer = L1L2(1e-8, 1e-8)
     embeddings_regularizer = L1L2(1e-8, 1e-8)
-    lr = 1e-3
+    lr = 3e-4
     lr_a = 1e-3
     loss_weight = 1e-2
     adversary_weight = 1e-4
