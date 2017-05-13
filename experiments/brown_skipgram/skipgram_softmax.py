@@ -22,11 +22,12 @@ def main():
     embedding_units = 128
     z_k = 2
     z_depth = 10
-    kernel_regularizer = L1L2(1e-9, 1e-9)
-    embeddings_regularizer = L1L2(1e-9, 1e-9)
+    kernel_regularizer = L1L2(1e-8, 1e-8)
+    embeddings_regularizer = L1L2(1e-8, 1e-8)
     lr = 1e-3
     lr_a = 1e-3
-    adversary_weight = 1e-2
+    loss_weight = 1e-2
+    adversary_weight = 1e-4
     layernorm = False
     model = SkipgramSoftmaxModel(dataset=ds,
                                  z_k=z_k,
@@ -35,6 +36,7 @@ def main():
                                  embedding_units=embedding_units,
                                  kernel_regularizer=kernel_regularizer,
                                  embeddings_regularizer=embeddings_regularizer,
+                                 loss_weight=loss_weight,
                                  adversary_weight=adversary_weight,
                                  lr_a=lr_a,
                                  layernorm=layernorm,

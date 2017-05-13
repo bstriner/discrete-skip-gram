@@ -31,6 +31,7 @@ class SkipgramSoftmaxModel(SkipgramModel):
                  z_k,
                  lr=1e-4,
                  lr_a=1e-3,
+                 loss_weight=1e-2,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
                  embeddings_regularizer=None,
@@ -122,6 +123,7 @@ class SkipgramSoftmaxModel(SkipgramModel):
         print "A weights: {}".format(aweights)
         aupdates = aopt.get_updates(aweights, {}, atotal)
         self.adversary_weight = K.variable(np.float32(adversary_weight), dtype='float32', name='adversary_weight')
+        self.loss_weight = K.variable(np.float32(loss_weight), dtype='float32', name='loss_weight')
         regloss = -self.adversary_weight * aem
 
         self.adversary = adversary
@@ -137,7 +139,7 @@ class SkipgramSoftmaxModel(SkipgramModel):
             return atotal
 
         def loss_f(ytrue, ypred):
-            return T.mean(ypred, axis=None)
+            return T.mean(ypred, axis=None) * self.loss_weight
 
         avg_nll = T.mean(nll, axis=0)
         metrics = nll_metrics(avg_nll, z_depth)
