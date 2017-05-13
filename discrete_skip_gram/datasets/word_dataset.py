@@ -85,6 +85,8 @@ class WordDataset(object):
         print "Unique words: {}, Filtered: {}".format(len(self.wordcounts), len(self.wordset))
 
     def get_word(self, id):
+        if id >= self.k:
+            raise ValueError("Invalid word: {}>={}".format(id, self.k))
         return "_UNK_" if id == 0 else self.wordset[id - 1]
 
     def skip_gram_batch(self, n, window, test=False):
