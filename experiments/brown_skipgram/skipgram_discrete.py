@@ -16,9 +16,9 @@ def main():
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
-    window = 7
-    frequency = 5
-    units = 256
+    window = 2
+    frequency = 20
+    units = 512
     embedding_units = 128
     z_k = 2
     z_depth = 10
