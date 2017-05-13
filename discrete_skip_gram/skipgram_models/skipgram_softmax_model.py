@@ -15,9 +15,10 @@ from ..layers.time_distributed_dense import TimeDistributedDense
 from ..layers.utils import nll_metrics
 
 from discrete_skip_gram.layers.utils import leaky_relu
-from ..layers.utils import softmax_nd_layer, shift_tensor_layer, softmax_nd
-from ..layers.highway_layer_discrete import HighwayLayerDiscrete
+from ..layers.utils import softmax_nd_layer, softmax_nd
 from .skipgram_model import SkipgramModel
+from ..layers.highway_layer import HighwayLayer
+from ..layers.shift_padding_layer import ShiftPaddingLayer
 
 
 class SkipgramSoftmaxModel(SkipgramModel):
@@ -59,50 +60,41 @@ class SkipgramSoftmaxModel(SkipgramModel):
         sm = softmax_nd_layer()
         z = sm(rs(x_embedding(input_x)))  # n, z_depth, z_k
 
-        # sampler = Sampler3DLayer(srng=srng)
-        sampler = Lambda(lambda _x: T.argmax(_x, axis=2),
-                         output_shape=lambda _x: (_x[0], _x[1]),
-                         name='z_sampler')
-        z_sampled = sampler(z)
-        z_shifted = shift_tensor_layer()(z_sampled)
+        zrnn = HighwayLayer(units=self.units,
+                            layernorm=layernorm,
+                            inner_activation=self.inner_activation,
+                            hidden_layers=self.hidden_layers,
+                            kernel_regularizer=kernel_regularizer)
 
-        zrnn = HighwayLayerDiscrete(units=self.units,
-                                    embedding_units=self.embedding_units,
-                                    k=self.z_k + 1,
-                                    layernorm=layernorm,
-                                    inner_activation=self.inner_activation,
-                                    hidden_layers=self.hidden_layers,
-                                    kernel_regularizer=kernel_regularizer)
-
-        zh = zrnn(z_shifted)  # n, z_depth, units
+        zh = zrnn(z)  # n, z_depth, units
 
         h = zh
         for i in range(3):
             h = TimeDistributedDense(units=self.units,
                                      activation=self.inner_activation,
                                      kernel_regularizer=kernel_regularizer)(h)
-        h = TimeDistributedDense(units=self.z_k * x_k,
-                                 kernel_regularizer=kernel_regularizer)(h)
-        h = Reshape((z_depth, self.z_k, x_k))(h)  # (n, z_depth, z_k, x_k)
-        p = softmax_nd_layer()(h)  # (n, z_depth, z_k, x_k)
-        eps = 1e-7
-        nll = Lambda(lambda (_p, _y): -T.log(eps+_p[T.arange(_p.shape[0]), :, :, T.flatten(_y)]),
-                     output_shape=lambda (_p, _y): (_p[0], _p[1], _p[2]))([p, input_y])
+        p = TimeDistributedDense(units=x_k,
+                                 kernel_regularizer=kernel_regularizer,
+                                 activation=softmax_nd)(h)  # (n, z_depth, x_k)
 
-        loss = Lambda(lambda (_nll, _z): T.sum(T.sum(_nll * _z, axis=2), axis=1, keepdims=True),
-                      output_shape=lambda (_nll, _z): (_nll[0], 1),
-                      name="loss_layer")([nll, z])
+        eps = 1e-7
+        nll = Lambda(lambda (_p, _y): -T.log(eps + _p[T.arange(_p.shape[0]), :, T.flatten(_y)]),
+                     output_shape=lambda (_p, _y): (_p[0], _p[1]))([p, input_y])  # (n, z_depth)
+
+        loss = Lambda(lambda _nll: T.sum(_nll, axis=1, keepdims=True),
+                      output_shape=lambda _nll: (_nll[0], 1),
+                      name="loss_layer")(nll)  # (n, 1)
 
         # adversary: try to minimize kl with z
-        input_z0 = Input((self.z_depth,), dtype='int32', name='input_z0')
-        arnn = HighwayLayerDiscrete(units=units,
-                                    embedding_units=embedding_units,
-                                    k=self.z_k + 1,
-                                    layernorm=layernorm,
-                                    inner_activation=inner_activation,
-                                    hidden_layers=hidden_layers,
-                                    kernel_regularizer=kernel_regularizer)
-        ah = arnn(input_z0)
+        input_z = Input((self.z_depth, z_k), dtype='float32', name='input_z')
+        z_shifter = ShiftPaddingLayer()
+        z_shifted = z_shifter(input_z)
+        arnn = HighwayLayer(units=units,
+                            layernorm=layernorm,
+                            inner_activation=inner_activation,
+                            hidden_layers=hidden_layers,
+                            kernel_regularizer=kernel_regularizer)
+        ah = arnn(z_shifted)
         h = ah
         for i in range(3):
             h = TimeDistributedDense(units=self.units,
@@ -111,10 +103,10 @@ class SkipgramSoftmaxModel(SkipgramModel):
         d = TimeDistributedDense(units=self.z_k,
                                  activation=softmax_nd,
                                  kernel_regularizer=kernel_regularizer)(h)
-        adversary = Model(inputs=[input_z0], outputs=[d])
+        adversary = Model(inputs=[input_z], outputs=[d])
 
         # train adversary
-        dz = adversary(z_shifted)
+        dz = adversary(z)
 
         def em(yt, yp):
             return T.mean(T.sum(T.sum(T.abs_(yt - yp), axis=2), axis=1), axis=0)
@@ -156,23 +148,21 @@ class SkipgramSoftmaxModel(SkipgramModel):
         self.weights = self.model.weights + self.adversary.weights + opt.weights + aopt.weights
 
         # Prediction model
-        # p: (n, z_depth, z_k, x_k)
-        # z_sampled: (n, z_depth) [int 0-z_k]
-        pfinal = Lambda(lambda (_p, _z_sampled): _p[T.arange(p.shape[0]), -1, T.flatten(_z_sampled[:,-1]), :],
-                        output_shape=lambda (_p, _z_sampled): (_p[0], x_k))([p, z_sampled]) # n, x_k
+        pfinal = Lambda(lambda _p: _p[:, -1, :],
+                        output_shape=lambda _p: (_p[0], _p[2]))(p)  # n, x_k
         policy_sampler = SamplerLayer(srng=srng)
         ygen = policy_sampler(pfinal)
         self.model_predict = Model([input_x], ygen)
 
         # Encoder model
+        sampler = Lambda(lambda _x: T.argmax(_x, axis=2),
+                         output_shape=lambda _x: (_x[0], _x[1]),
+                         name='z_sampler')
+        z_sampled = sampler(z)
         self.model_encode = Model([input_x], z_sampled)
 
-        idx0 = T.extra_ops.repeat(T.reshape(T.arange(p.shape[0]), (-1,1)), p.shape[1], axis=1)
-        idx1 = T.extra_ops.repeat(T.reshape(T.arange(p.shape[1]), (1,-1)), p.shape[0], axis=0)
-        prob = Lambda(lambda (_p, _z): _p[idx0, idx1, _z, :],
-                      output_shape=lambda (_p, _z): (_p[0], _p[1], _p[3]))([p, z_sampled])
         # prob: (n, z_depth, x_k)
-        self.model_probability = Model([input_x], prob)
+        self.model_probability = Model([input_x], p)
 
     def write_encodings(self, output_path):
         x = np.arange(self.dataset.k).reshape((-1, 1))
