@@ -15,8 +15,8 @@ def main():
     vd = validation_load()
     batch_size = 128
     epochs = 5000
-    steps_per_epoch = 512
-    window = 7
+    steps_per_epoch = 1024
+    window = 2
     frequency = 50
     units = 512
     embedding_units = 128

@@ -7,7 +7,7 @@ from dataset_util import load_dataset
 def sample_data():
     print "Loading"
     dataset = load_dataset()
-    window = 7
+    window = 2
     validation_n = 65536
     print "Sampling"
     vd = dataset.skip_gram_batch(n=validation_n, window=window, test=True)

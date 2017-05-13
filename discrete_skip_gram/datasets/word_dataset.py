@@ -13,19 +13,17 @@ def docs_to_arrays(docs, wordmap):
 def sample_skip_gram(adocs, window):
     doc_idx = np.random.randint(0, len(adocs))
     doc = adocs[doc_idx]
-    word_idx = np.random.randint(0, doc.shape[0])
+    assert doc.shape[0] > window
+    word_idx = np.random.randint(0+window, doc.shape[0]-window)
     word = doc[word_idx]
     if window == 0 or doc.shape[0] == 1:
         return word, word
     else:
-        assert doc.shape[0] > 1
-        min_idx = max(0, word_idx - window)
-        max_idx = min(doc.shape[0] - 1, word_idx + window)
-        choices = list(range(min_idx, word_idx) + range(word_idx + 1, max_idx + 1))
-        choice_idx = np.random.randint(0, len(choices))
-        choice = choices[choice_idx]
-        word_context = doc[choice]
-        return word, word_context
+        direction = (np.random.randint(0, 2)*2) - 1
+        offset = np.random.randint(1, window+1)
+        ctx_idx = word_idx + (offset*direction)
+        ctx = doc[ctx_idx]
+        return word, ctx
 
 
 def skip_gram_batch(adocs, window, n):
@@ -33,8 +31,8 @@ def skip_gram_batch(adocs, window, n):
     xs = np.zeros((n, 1), dtype=np.int32)
     ys = np.zeros((n, 1), dtype=np.int32)
     for i, (x, y) in enumerate(grams):
-        xs[i] = x
-        ys[i] = y
+        xs[i,0] = x
+        ys[i,0] = y
     return [xs, ys]
 
 
