@@ -20,7 +20,7 @@ def main():
     epochs = 5000
     steps_per_epoch = 2048
     window = 2
-    frequency = 20
+    frequency = 10
     units = 512
     embedding_units = 128
     z_k = 2
