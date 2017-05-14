@@ -16,7 +16,7 @@ def main():
     batch_size = 128
     epochs = 5000
     steps_per_epoch = 512
-    window = 7
+    window = 2
     frequency = 50
     units = 512
     kernel_regularizer = L1L2(1e-9, 1e-9)

@@ -2,7 +2,7 @@
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 
-from discrete_skip_gram.skipgram_models.skipgram_validation_model import SkipgramValidationModel
+from discrete_skip_gram.one_bit_models.one_bit_validation_model import OneBitValidationModel
 from sample_validation import validation_load
 from discrete_skip_gram.layers.utils import leaky_relu
 from dataset_util import load_dataset
@@ -12,8 +12,8 @@ from discrete_skip_gram.models.util import latest_model
 
 
 def main():
-    outputpath = "output/skipgram_discrete_validate"
-    inputpath = "output/skipgram_discrete"
+    outputpath = "output/one_bit_discrete_validate"
+    inputpath = "output/one_bit_discrete"
     embeddingpath, epoch = latest_model(inputpath, "encodings-(\\d+).npy")
     embedding = np.load(embeddingpath)
     print "Using epoch {}: {}".format(epoch, embeddingpath)
@@ -21,9 +21,9 @@ def main():
     vd = validation_load()
     batch_size = 128
     epochs = 5000
-    steps_per_epoch = 1024
+    steps_per_epoch = 512
     window = 2
-    frequency = 5
+    frequency = 20
     units = 512
     embedding_units = 128
     z_k = 2

@@ -23,11 +23,12 @@ def main():
     z_k = 2
     z_depth = 10
     kernel_regularizer = L1L2(1e-8, 1e-8)
-    embeddings_regularizer = L1L2(1e-8, 1e-8)
+    #embeddings_regularizer = L1L2(1e-8, 1e-8)
+    embeddings_regularizer = None
     loss_weight = 1e-2
     lr = 3e-4
     lr_a = 1e-3
-    adversary_weight = 1e-4
+    adversary_weight = 1e-5
     layernorm = False
     model = SkipgramDiscreteModel(dataset=ds,
                                   z_k=z_k,
