@@ -24,6 +24,7 @@ class SamplerLayer(Layer):
         rng = self.srng.uniform(low=0, high=1, size=(n,), dtype='float32')
         # print "CSuM ndim: {}".format(csum.ndim)
         sample = T.sum(T.gt(rng.dimshuffle((0, 'x')), csum), axis=1, keepdims=True)
+        sample = T.clip(sample, 0, p.shape[1]-1)
         if self.offset:
             sample += self.offset
         sample = T.cast(sample, dtype='int32')
