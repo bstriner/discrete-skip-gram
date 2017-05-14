@@ -1,5 +1,5 @@
-#import os
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 
 from discrete_skip_gram.skipgram_models.skipgram_validation_model import SkipgramValidationModel
@@ -13,7 +13,7 @@ import numpy as np
 def main():
     outputpath = "output/skipgram_baseline_agglomerative"
     embeddingpath = "output/cluster_agglomerative/encodings.npy"
-    embedding = npp.load(embeddingpath)
+    embedding = np.load(embeddingpath)
     ds = load_dataset()
     vd = validation_load()
     batch_size = 128
@@ -32,19 +32,19 @@ def main():
     adversary_weight = 1e-4
     layernorm = False
     model = SkipgramValidationModel(dataset=ds,
-                                  z_k=z_k,
+                                    z_k=z_k,
                                     embedding=embedding,
-                                  window=window,
-                                  embedding_units=embedding_units,
-                                  kernel_regularizer=kernel_regularizer,
-                                  embeddings_regularizer=embeddings_regularizer,
-                                  adversary_weight=adversary_weight,
-                                  loss_weight=loss_weight,
-                                  lr_a=lr_a,
-                                  layernorm=layernorm,
-                                  inner_activation=leaky_relu,
-                                  units=units,
-                                  lr=lr)
+                                    window=window,
+                                    embedding_units=embedding_units,
+                                    kernel_regularizer=kernel_regularizer,
+                                    embeddings_regularizer=embeddings_regularizer,
+                                    adversary_weight=adversary_weight,
+                                    loss_weight=loss_weight,
+                                    lr_a=lr_a,
+                                    layernorm=layernorm,
+                                    inner_activation=leaky_relu,
+                                    units=units,
+                                    lr=lr)
     model.summary()
     vn = 4096
     validation_data = ([vd[0][:vn, ...], vd[1][:vn, ...]], np.ones((vn, 1), dtype=np.float32))

@@ -15,7 +15,7 @@ from ..layers.time_distributed_dense import TimeDistributedDense
 from ..layers.utils import nll_metrics
 
 from discrete_skip_gram.layers.utils import leaky_relu
-from ..layers.utils import softmax_nd_layer, softmax_nd
+from ..layers.utils import softmax_nd_layer, softmax_nd, drop_dim_2
 from .skipgram_model import SkipgramModel
 from ..layers.highway_layer_discrete import HighwayLayerDiscrete
 from ..layers.highway_layer import HighwayLayer
@@ -57,7 +57,7 @@ class SkipgramValidationModel(SkipgramModel):
         input_y = Input((1,), dtype='int32', name='input_y')
 
         x_embedding = SequentialEmbeddingDiscrete(embedding)
-        z = x_embedding(input_x)
+        z = drop_dim_2()(x_embedding(input_x))
 
         zrnn = HighwayLayerDiscrete(units=self.units,
                                     embedding_units=embedding_units,
@@ -66,7 +66,7 @@ class SkipgramValidationModel(SkipgramModel):
                                     inner_activation=self.inner_activation,
                                     hidden_layers=self.hidden_layers,
                                     kernel_regularizer=kernel_regularizer)
-
+        print "Z dim: {}".format(z.ndim)
         zh = zrnn(z)  # n, z_depth, units
 
         h = zh
