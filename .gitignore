@@ -92,3 +92,4 @@ ENV/
 /.idea
 /experiments/brown/output
 /experiments/brown_skipgram/output
+/report/bstriner_report.synctex.gz

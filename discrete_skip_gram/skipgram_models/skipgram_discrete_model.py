@@ -90,7 +90,8 @@ class SkipgramDiscreteModel(SkipgramModel):
         h = Reshape((z_depth, self.z_k, x_k))(h)  # (n, z_depth, z_k, x_k)
         p = softmax_nd_layer()(h)  # (n, z_depth, z_k, x_k)
         eps = 1e-9
-        nll = Lambda(lambda (_p, _y): -T.log(eps + _p[T.arange(_p.shape[0]), :, :, T.flatten(_y)]),
+        scale = 1.0-(eps * x_k)
+        nll = Lambda(lambda (_p, _y): -T.log(eps + (scale*_p[T.arange(_p.shape[0]), :, :, T.flatten(_y)])),
                      output_shape=lambda (_p, _y): (_p[0], _p[1], _p[2]))([p, input_y])
 
         loss = Lambda(lambda (_nll, _z): T.sum(T.sum(_nll * _z, axis=2), axis=1, keepdims=True),
