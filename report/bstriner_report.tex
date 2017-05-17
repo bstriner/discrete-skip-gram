@@ -324,6 +324,8 @@ Further analysis should also include determining whether an example is prototypi
 
 \section{Implementation Details}
 
+Models were built in Python using a combination of Keras \cite{chollet2015keras} and Theano \cite{2016arXiv160502688short}.
+
 Preprocessing consisted of removing punctuation and non-ASCII symbols, down-casing, and replacing words that occur less that 20 times with an unknown symbol.
 
 All discrete models used a depth of 10 and symbol set of 2, so represent a total of 10 bits of information per word. After filtration and cleaning the corpus consisted of 4908 unique words plus the unknown symbol, so there should be an average of $\frac{4909}{2^{10}} \approx 4.8$ words per encoding.
