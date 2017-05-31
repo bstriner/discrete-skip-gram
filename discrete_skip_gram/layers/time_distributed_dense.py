@@ -5,7 +5,7 @@ from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
 
-from .utils import pair
+from .utils import build_pair
 
 
 class TimeDistributedDense(Layer):
@@ -32,7 +32,7 @@ class TimeDistributedDense(Layer):
         assert len(input_shape) == 3
         input_dim = input_shape[2]
 
-        h_W, h_b = pair(self, (input_dim, self.units), "h")
+        h_W, h_b = build_pair(self, (input_dim, self.units), "h")
         self.kernel = h_W
         self.bias = h_b
         self.non_sequences = [

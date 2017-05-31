@@ -4,7 +4,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor, embedding, leaky_relu
+from .utils import build_kernel, build_bias, build_pair, shift_tensor, build_embedding, leaky_relu
 from .utils import softmax_nd
 from ..units.mlp_unit import MLPUnit
 from ..units.lstm_muli_unit import LSTMMultiUnit
@@ -50,7 +50,7 @@ class SkipgramLayerDiscrete(Layer):
         assert (len(z) == 3)  # n, z_depth, units
         assert (len(y) == 2)  # n, y_depth
         input_dim = z[2]
-        y_embedding = embedding(self, (self.y_k + 1, self.embedding_units), "y_embedding")
+        y_embedding = build_embedding(self, (self.y_k + 1, self.embedding_units), "y_embedding")
         self.rnn = MLPUnit(self,
                            input_units=[self.units, self.embedding_units],
                            units=self.units,
@@ -68,7 +68,7 @@ class SkipgramLayerDiscrete(Layer):
                            layernorm=self.layernorm,
                            name="mlp")
         self.non_sequences = [y_embedding] + self.rnn.non_sequences + self.mlp.non_sequences
-        self.h0 = b(self, (1, self.units), name="h0")
+        self.h0 = build_bias(self, (1, self.units), name="h0")
         self.built = True
 
     def compute_output_shape(self, (z, y)):

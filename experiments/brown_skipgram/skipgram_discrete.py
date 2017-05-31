@@ -1,12 +1,13 @@
-#import os
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
+from keras.optimizers import RMSprop, Adam
+from keras.regularizers import L1L2
 
+from dataset_util import load_dataset
+from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.skipgram_discrete_model import SkipgramDiscreteModel
 from sample_validation import validation_load
-from discrete_skip_gram.layers.utils import leaky_relu
-from dataset_util import load_dataset
-from keras.regularizers import L1L2
 
 
 def main():
@@ -22,14 +23,15 @@ def main():
     embedding_units = 128
     z_k = 2
     z_depth = 10
-    kernel_regularizer = L1L2(1e-8, 1e-8)
-    #embeddings_regularizer = L1L2(1e-8, 1e-8)
-    embeddings_regularizer = None
+    kernel_regularizer = L1L2(1e-9, 1e-9)
+    embeddings_regularizer = L1L2(1e-9, 1e-9)
+    # embeddings_regularizer = None
     loss_weight = 1e-2
-    lr = 3e-4
-    lr_a = 1e-3
-    adversary_weight = 1e-5
+    opt = Adam(1e-4)
+    opt_a = Adam(1e-3)
+    adversary_weight = 1e-6
     layernorm = False
+    batchnorm = True
     model = SkipgramDiscreteModel(dataset=ds,
                                   z_k=z_k,
                                   z_depth=z_depth,
@@ -39,11 +41,12 @@ def main():
                                   embeddings_regularizer=embeddings_regularizer,
                                   adversary_weight=adversary_weight,
                                   loss_weight=loss_weight,
-                                  lr_a=lr_a,
+                                  opt=opt,
+                                  opt_a=opt_a,
                                   layernorm=layernorm,
+                                  batchnorm=batchnorm,
                                   inner_activation=leaky_relu,
-                                  units=units,
-                                  lr=lr)
+                                  units=units)
     model.summary()
     vn = 4096
     validation_data = ([vd[0][:vn, ...], vd[1][:vn, ...]], np.ones((vn, 1), dtype=np.float32))

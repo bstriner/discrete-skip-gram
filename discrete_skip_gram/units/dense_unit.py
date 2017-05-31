@@ -1,10 +1,10 @@
-from ..layers.utils import pair
+from ..layers.utils import build_pair
 import theano.tensor as T
 
 class DenseUnit(object):
     def __init__(self, model, input_dim, units, name, activation=None):
         self.activation = activation
-        h_W, h_b = pair(model, (input_dim, units), name)
+        h_W, h_b = build_pair(model, (input_dim, units), name)
         self.non_sequences = [h_W, h_b]
 
     def call(self, x, params):

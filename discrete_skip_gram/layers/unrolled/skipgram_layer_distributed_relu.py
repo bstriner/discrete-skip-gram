@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair, shift_tensor, embedding
+from ..utils import build_kernel, build_bias, build_pair, shift_tensor, build_embedding
 from ...units.mlp_unit import MLPUnit
 from ..utils import leaky_relu, softmax_nd
 
@@ -44,7 +44,7 @@ class SkipgramLayerDistributedRelu(Layer):
 
     def build_params(self, input_dim):
 
-        y_embedding = embedding(self, (self.k + 1, self.embedding_units), "y_embedding")
+        y_embedding = build_embedding(self, (self.k + 1, self.embedding_units), "y_embedding")
         self.rnn = MLPUnit(self,
                            input_units=[self.units, self.embedding_units],
                            units=self.units,
@@ -66,7 +66,7 @@ class SkipgramLayerDistributedRelu(Layer):
         self.non_sequences = ([y_embedding] +
                               self.rnn.non_sequences +
                               self.mlp.non_sequences)
-        h0 = b(self, (1, self.units), "h0")
+        h0 = build_bias(self, (1, self.units), "h0")
         self.h0 = h0
         self.built = True
 

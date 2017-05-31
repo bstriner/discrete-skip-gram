@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor, leaky_relu
+from .utils import build_kernel, build_bias, build_pair, shift_tensor, leaky_relu
 from ..units.mlp_unit import MLPUnit
 
 
@@ -44,7 +44,7 @@ class HighwayLayer(Layer):
                            inner_activation=self.inner_activation,
                            layernorm=self.layernorm,
                            name="mlp")
-        self.h0 = b(self, (1, self.units), "h0")
+        self.h0 = build_bias(self, (1, self.units), "h0")
         self.built = True
 
     def compute_output_shape(self, input_shape):

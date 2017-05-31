@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair
+from .utils import build_kernel, build_bias, build_pair
 
 
 class DiscreteLSTM(Layer):
@@ -24,12 +24,12 @@ class DiscreteLSTM(Layer):
     def build(self, input_shape):
         assert len(input_shape) == 2
 
-        h_W, h_b = pair(self, (self.k, self.units), "h")
-        h_U = W(self, (self.units, self.units), "h_U")
-        f_W, f_b = pair(self, (self.units, self.units), "f")
-        i_W, i_b = pair(self, (self.units, self.units), "i")
-        c_W, c_b = pair(self, (self.units, self.units), "c")
-        o_W, o_b = pair(self, (self.units, self.units), "o")
+        h_W, h_b = build_pair(self, (self.k, self.units), "h")
+        h_U = build_kernel(self, (self.units, self.units), "h_U")
+        f_W, f_b = build_pair(self, (self.units, self.units), "f")
+        i_W, i_b = build_pair(self, (self.units, self.units), "i")
+        c_W, c_b = build_pair(self, (self.units, self.units), "c")
+        o_W, o_b = build_pair(self, (self.units, self.units), "o")
         self.non_sequences = [
             h_W, h_U, h_b,
             f_W, f_b,
@@ -37,7 +37,7 @@ class DiscreteLSTM(Layer):
             c_W, c_b,
             o_W, o_b
         ]
-        self.h0 = b(self, (1, self.units), "h0")
+        self.h0 = build_bias(self, (1, self.units), "h0")
         self.built = True
 
     def compute_output_shape(self, input_shape):

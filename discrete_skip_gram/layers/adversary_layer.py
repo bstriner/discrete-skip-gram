@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor
+from .utils import build_kernel, build_bias, build_pair, shift_tensor
 
 
 class AdversaryLayer(Layer):
@@ -31,14 +31,14 @@ class AdversaryLayer(Layer):
     def build(self, input_shape):
         assert len(input_shape) == 2
 
-        h_W, h_b = pair(self, (self.z_k+1, self.units), "h")
-        h_U = W(self, (self.units, self.units), "h_U")
-        f_W, f_b = pair(self, (self.units, self.units), "f")
-        i_W, i_b = pair(self, (self.units, self.units), "i")
-        c_W, c_b = pair(self, (self.units, self.units), "c")
-        o_W, o_b = pair(self, (self.units, self.units), "o")
-        t_W, t_b = pair(self, (self.units, self.units), "t")
-        y_W, y_b = pair(self, (self.units, self.z_k), "y")
+        h_W, h_b = build_pair(self, (self.z_k + 1, self.units), "h")
+        h_U = build_kernel(self, (self.units, self.units), "h_U")
+        f_W, f_b = build_pair(self, (self.units, self.units), "f")
+        i_W, i_b = build_pair(self, (self.units, self.units), "i")
+        c_W, c_b = build_pair(self, (self.units, self.units), "c")
+        o_W, o_b = build_pair(self, (self.units, self.units), "o")
+        t_W, t_b = build_pair(self, (self.units, self.units), "t")
+        y_W, y_b = build_pair(self, (self.units, self.z_k), "y")
         self.non_sequences = [
             h_W, h_U, h_b,
             f_W, f_b,
@@ -48,7 +48,7 @@ class AdversaryLayer(Layer):
             t_W, t_b,
             y_W, y_b
         ]
-        h0 = b(self, (1, self.units), "h0")
+        h0 = build_bias(self, (1, self.units), "h0")
         self.h0 = h0
         self.built = True
 

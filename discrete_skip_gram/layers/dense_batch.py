@@ -5,7 +5,7 @@ from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
 
-from .utils import pair, W, b
+from .utils import build_pair, build_kernel, build_bias
 
 
 class DenseBatch(Layer):
@@ -32,8 +32,8 @@ class DenseBatch(Layer):
         assert len(input_shape) == 3
         depth = input_shape[1]
         input_dim = input_shape[2]
-        self.kernel = W(self, (depth, input_dim, self.units), "kernel")
-        self.bias = b(self, (depth, self.units), "bias")
+        self.kernel = build_kernel(self, (depth, input_dim, self.units), "kernel")
+        self.bias = build_bias(self, (depth, self.units), "bias")
         self.built = True
 
     def compute_mask(self, inputs, mask=None):

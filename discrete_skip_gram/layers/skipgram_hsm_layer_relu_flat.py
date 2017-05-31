@@ -4,7 +4,7 @@ from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
 
-from .utils import W, shift_tensor, embedding, b
+from .utils import build_kernel, shift_tensor, build_embedding, build_bias
 from ..units.dense_unit import DenseUnit
 from ..units.mlp_unit import MLPUnit
 import keras.backend as K
@@ -44,9 +44,9 @@ class SkipgramHSMLayerReluFlat(Layer):
     def build_params(self, input_dim):
 
         # Embedding step
-        self.outer_h0 = b(self, (1, self.units), "outer_h0")
-        prediction_h0 = b(self, (1, self.units), "prediction_h0")
-        y_embedding = embedding(self, (self.k + 1, self.embedding_units), "y_embedding")
+        self.outer_h0 = build_bias(self, (1, self.units), "outer_h0")
+        prediction_h0 = build_bias(self, (1, self.units), "prediction_h0")
+        y_embedding = build_embedding(self, (self.k + 1, self.embedding_units), "y_embedding")
 
         # Main lstm
         self.outer_rnn = MLPUnit(self,
@@ -65,7 +65,7 @@ class SkipgramHSMLayerReluFlat(Layer):
                                  name="outer_mlp")
 
         # Prediction step
-        yp_embedding = embedding(self, (3, self.units), "yp_embedding")
+        yp_embedding = build_embedding(self, (3, self.units), "yp_embedding")
         self.prediction_rnn = MLPUnit(self,
                                       input_units=[self.units, self.units, self.units],
                                       units=self.units,

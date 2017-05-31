@@ -4,7 +4,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair, shift_tensor, embedding, leaky_relu
+from ..utils import build_kernel, build_bias, build_pair, shift_tensor, build_embedding, leaky_relu
 from ...units.mlp_unit import MLPUnit
 from ...units.lstm_muli_unit import LSTMMultiUnit
 from ..utils import leaky_relu
@@ -38,7 +38,7 @@ class SkipgramLayer(Layer):
         Layer.__init__(self)
 
     def build_params(self, input_dim):
-        y_embedding = embedding(self, (self.k + 1, self.embedding_units), "h_U1")
+        y_embedding = build_embedding(self, (self.k + 1, self.embedding_units), "h_U1")
         self.lstm = LSTMMultiUnit(self,
                                   input_units=[input_dim, self.embedding_units],
                                   units=self.units,

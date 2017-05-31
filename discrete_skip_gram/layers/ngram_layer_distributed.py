@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor
+from .utils import build_kernel, build_bias, build_pair, shift_tensor
 from .ngram_layer import NgramLayer
 
 

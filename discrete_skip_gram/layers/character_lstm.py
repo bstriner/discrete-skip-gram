@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair
+from .utils import build_kernel, build_bias, build_pair
 
 
 class CharacterLSTM(Layer):
@@ -22,12 +22,12 @@ class CharacterLSTM(Layer):
     def build(self, input_shape):
         assert len(input_shape) == 2
 
-        h_W, h_b = pair(self, (self.k+2, self.units), "h")
-        h_U = W(self, (self.units, self.units), "h_U")
-        f_W, f_b = pair(self, (self.units, self.units), "f")
-        i_W, i_b = pair(self, (self.units, self.units), "i")
-        c_W, c_b = pair(self, (self.units, self.units), "c")
-        o_W, o_b = pair(self, (self.units, self.units), "o")
+        h_W, h_b = build_pair(self, (self.k + 2, self.units), "h")
+        h_U = build_kernel(self, (self.units, self.units), "h_U")
+        f_W, f_b = build_pair(self, (self.units, self.units), "f")
+        i_W, i_b = build_pair(self, (self.units, self.units), "i")
+        c_W, c_b = build_pair(self, (self.units, self.units), "c")
+        o_W, o_b = build_pair(self, (self.units, self.units), "o")
         self.non_sequences = [
             h_W, h_U, h_b,
             f_W, f_b,
@@ -35,8 +35,8 @@ class CharacterLSTM(Layer):
             c_W, c_b,
             o_W, o_b
         ]
-        h0 = b(self, (1, self.units), "h0")
-        y0 = b(self, (1, self.units), "y0")
+        h0 = build_bias(self, (1, self.units), "h0")
+        y0 = build_bias(self, (1, self.units), "y0")
         self.initial_states = [h0, y0]
         self.built = True
 

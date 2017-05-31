@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair
+from .utils import build_kernel, build_bias, build_pair
 
 
 
@@ -37,10 +37,10 @@ class DecoderMerge(Layer):
         input_dim_y = y[2]
         input_dim_h = dec_h[2]
 
-        h1_W, h1_b = pair(self, (input_dim_y, self.units), "h1")
-        h1_U = W(self, (input_dim_h, self.units), "h1_U")
-        h2_W, h2_b = pair(self, (self.units, self.units), "h2")
-        y_W, y_b = pair(self, (self.units, self.z_k * (self.y_k + 2)), "y")
+        h1_W, h1_b = build_pair(self, (input_dim_y, self.units), "h1")
+        h1_U = build_kernel(self, (input_dim_h, self.units), "h1_U")
+        h2_W, h2_b = build_pair(self, (self.units, self.units), "h2")
+        y_W, y_b = build_pair(self, (self.units, self.z_k * (self.y_k + 2)), "y")
         self.non_sequences = [
             h1_W, h1_U, h1_b,
             h2_W, h2_b,

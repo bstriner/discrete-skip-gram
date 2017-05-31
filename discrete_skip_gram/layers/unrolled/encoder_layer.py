@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair
+from ..utils import build_kernel, build_bias, build_pair
 from theano.tensor.shared_randomstreams import RandomStreams
 
 class EncoderLayer(Layer):
@@ -25,15 +25,15 @@ class EncoderLayer(Layer):
     def build(self, (h0, z0, x)):
         h_dim = h0[1]
         x_dim = x[1]
-        self.h_W, self.h_b = pair(self, (h_dim, self.units), "h")
-        self.h_U = W(self, (self.z_k+1, self.units), "h_U")
-        self.h_V = W(self, (x_dim, self.units), "h_V")
-        self.f = pair(self, (self.units, self.units), "f")
-        self.i = pair(self, (self.units, self.units), "i")
-        self.c = pair(self, (self.units, self.units), "c")
-        self.o = pair(self, (self.units, self.units), "o")
-        self.t = pair(self, (self.units, self.units), "t")
-        self.y = pair(self, (self.units, self.z_k), "y")
+        self.h_W, self.h_b = build_pair(self, (h_dim, self.units), "h")
+        self.h_U = build_kernel(self, (self.z_k + 1, self.units), "h_U")
+        self.h_V = build_kernel(self, (x_dim, self.units), "h_V")
+        self.f = build_pair(self, (self.units, self.units), "f")
+        self.i = build_pair(self, (self.units, self.units), "i")
+        self.c = build_pair(self, (self.units, self.units), "c")
+        self.o = build_pair(self, (self.units, self.units), "o")
+        self.t = build_pair(self, (self.units, self.units), "t")
+        self.y = build_pair(self, (self.units, self.z_k), "y")
         self.built = True
 
     def compute_output_shape(self, (h0, z0, x)):

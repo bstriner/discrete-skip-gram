@@ -4,7 +4,7 @@ from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
 
-from .utils import W, shift_tensor, embedding
+from .utils import build_kernel, shift_tensor, build_embedding
 from ..units.dense_unit import DenseUnit
 from ..units.lstm_unit import LSTMUnit
 
@@ -36,7 +36,7 @@ class SkipgramHSMLayerFast(Layer):
     def build_params(self, input_dim):
 
         # Embedding step
-        y_embedding = embedding(self, (3, self.units), "y_embedding")
+        y_embedding = build_embedding(self, (3, self.units), "y_embedding")
         self.embedding_lstm = LSTMUnit(self, self.units, "embedding_lstm")
         embedding_params = ([y_embedding] +
                             self.embedding_lstm.non_sequences)
@@ -46,7 +46,7 @@ class SkipgramHSMLayerFast(Layer):
         self.embedding_d2 = DenseUnit(self, self.units, self.units, "embedding_d2")
 
         # Prediction step
-        yp_embedding = embedding(self, (3, self.units), "yp_embedding")
+        yp_embedding = build_embedding(self, (3, self.units), "yp_embedding")
         self.prediction_lstm = LSTMUnit(self, self.units, "prediction_lstm")
         self.prediction_d1 = DenseUnit(self, self.units, self.units, "prediction_d1", activation=T.tanh)
         self.prediction_d2 = DenseUnit(self, self.units, self.units, "prediction_d2", activation=T.tanh)

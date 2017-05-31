@@ -3,7 +3,7 @@ from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
 
-from ..utils import W, pair
+from ..utils import build_kernel, build_pair
 
 
 class DecoderLayerSimple(Layer):
@@ -21,11 +21,11 @@ class DecoderLayerSimple(Layer):
 
     def build(self, (h0, z)):
         h_dim = h0[1]
-        self.h_W, self.h_b = pair(self, (h_dim, self.units), "h")
-        self.h_U = W(self, (self.z_k, self.units), "h_U")
-        self.d = pair(self, (self.units, self.units), "d")
-        self.y1 = pair(self, (self.units, self.units), "y1")
-        self.y2 = pair(self, (self.units, self.units), "y2")
+        self.h_W, self.h_b = build_pair(self, (h_dim, self.units), "h")
+        self.h_U = build_kernel(self, (self.z_k, self.units), "h_U")
+        self.d = build_pair(self, (self.units, self.units), "d")
+        self.y1 = build_pair(self, (self.units, self.units), "y1")
+        self.y2 = build_pair(self, (self.units, self.units), "y2")
         self.built = True
 
     def compute_mask(self, inputs, mask=None):

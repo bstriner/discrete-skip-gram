@@ -3,21 +3,45 @@ from keras.layers import Lambda
 from theano import tensor as T
 
 
-def W(model, shape, name):
+def build_kernel(model, shape, name):
     return model.add_weight(shape,
                             initializer=model.kernel_initializer,
                             name=name,
                             regularizer=model.kernel_regularizer)
 
 
-def b(model, shape, name):
+def build_bias(model, shape, name):
     return model.add_weight(shape,
                             initializer=model.bias_initializer,
                             name=name,
                             regularizer=model.bias_regularizer)
 
 
-def embedding(model, shape, name, dtype='float32'):
+def build_beta(model, shape, name):
+    return model.add_weight(shape,
+                            initializer=model.beta_initializer,
+                            name=name)
+
+
+def build_gamma(model, shape, name):
+    return model.add_weight(shape,
+                            initializer=model.gamma_initializer,
+                            name=name)
+
+
+def build_moving_mean(model, shape, name):
+    return model.add_weight(shape,
+                            initializer=model.moving_mean_initializer,
+                            name=name)
+
+
+def build_moving_variance(model, shape, name):
+    return model.add_weight(shape,
+                            initializer=model.moving_variance_initializer,
+                            name=name)
+
+
+def build_embedding(model, shape, name, dtype='float32'):
     return model.add_weight(shape,
                             initializer=model.embeddings_initializer,
                             name=name,
@@ -25,8 +49,8 @@ def embedding(model, shape, name, dtype='float32'):
                             dtype=dtype)
 
 
-def pair(model, shape, name):
-    return [W(model, shape, "{}_W".format(name)), b(model, (shape[1],), "{}_b".format(name))]
+def build_pair(model, shape, name):
+    return [build_kernel(model, shape, "{}_W".format(name)), build_bias(model, (shape[1],), "{}_b".format(name))]
 
 
 def shift_tensor_layer():
@@ -39,8 +63,8 @@ def shift_tensor(_x):
 
 def softmax_nd(x, axis=-1):
     e_x = T.exp(x - x.max(axis=axis, keepdims=True))
-#    eps = 1e-7
-#    out = e_x / (e_x.sum(axis=axis, keepdims=True) + eps)
+    #    eps = 1e-7
+    #    out = e_x / (e_x.sum(axis=axis, keepdims=True) + eps)
     out = e_x / e_x.sum(axis=axis, keepdims=True)
     return out
 

@@ -1,9 +1,10 @@
 import theano
 import theano.tensor as T
-from keras.layers import Layer
-from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor, leaky_relu, layer_norm
+from keras.engine import InputSpec
+from keras.layers import Layer
+
+from .utils import build_kernel, build_bias, leaky_relu
 from ..units.mlp_unit import MLPUnit
 
 
@@ -18,27 +19,37 @@ class HighwayLayerDiscrete(Layer):
                  k,
                  hidden_layers=2,
                  layernorm=False,
+                 batchnorm=True,
                  inner_activation=leaky_relu,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None,
+                 beta_initializer='zeros',
+                 gamma_initializer='ones',
+                 moving_mean_initializer='zeros',
+                 moving_variance_initializer='ones',
                  **kwargs):
         self.units = units
         self.embedding_units = embedding_units
         self.k = k
         self.layernorm = layernorm
+        self.batchnorm = batchnorm
         self.hidden_layers = hidden_layers
         self.inner_activation = inner_activation
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
+        self.beta_initializer = beta_initializer
+        self.gamma_initializer = gamma_initializer
+        self.moving_mean_initializer = moving_mean_initializer
+        self.moving_variance_initializer = moving_variance_initializer
         self.input_spec = InputSpec(ndim=2)
         self.supports_masking = False
         Layer.__init__(self, **kwargs)
 
     def build(self, input_shape):
         assert len(input_shape) == 2
-        self.x_embedding = W(self, (self.k, self.embedding_units), name="x_embedding")
+        self.x_embedding = build_kernel(self, (self.k, self.embedding_units), name="x_embedding")
         self.mlp = MLPUnit(self,
                            input_units=[self.units, self.embedding_units],
                            units=self.units,
@@ -46,9 +57,10 @@ class HighwayLayerDiscrete(Layer):
                            hidden_layers=self.hidden_layers,
                            inner_activation=self.inner_activation,
                            layernorm=self.layernorm,
+                           batchnorm=self.batchnorm,
                            name="mlp")
         self.non_sequences = [self.x_embedding] + self.mlp.non_sequences
-        self.h0 = b(self, (1, self.units), "h0")
+        self.h0 = build_bias(self, (1, self.units), "h0")
         self.built = True
 
     def compute_output_shape(self, input_shape):

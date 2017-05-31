@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair
+from .utils import build_kernel, build_bias, build_pair
 from .utils import shift_tensor, softmax_nd
 
 
@@ -34,26 +34,26 @@ class DecoderLSTMSkipgram(Layer):
         assert (len(rng) == 2)
         #input_dim = z[1]
 
-        h_outer_W, h_outer_b = pair(self, (self.z_k + 1, self.units), "h_outer")
-        h_outer_U = W(self, (self.units, self.units), "h_outer_U")
-        f_outer_W, f_outer_b = pair(self, (self.units, self.units), "f_outer")
-        i_outer_W, i_outer_b = pair(self, (self.units, self.units), "i_outer")
-        c_outer_W, c_outer_b = pair(self, (self.units, self.units), "c_outer")
-        o_outer_W, o_outer_b = pair(self, (self.units, self.units), "o_outer")
-        t_outer_W, t_outer_b = pair(self, (self.units, self.units), "t_outer")
-        y_outer_W, y_outer_b = pair(self, (self.units, self.units), "y_outer")
-        h0_outer = b(self, (1, self.units), "h0_outer")
+        h_outer_W, h_outer_b = build_pair(self, (self.z_k + 1, self.units), "h_outer")
+        h_outer_U = build_kernel(self, (self.units, self.units), "h_outer_U")
+        f_outer_W, f_outer_b = build_pair(self, (self.units, self.units), "f_outer")
+        i_outer_W, i_outer_b = build_pair(self, (self.units, self.units), "i_outer")
+        c_outer_W, c_outer_b = build_pair(self, (self.units, self.units), "c_outer")
+        o_outer_W, o_outer_b = build_pair(self, (self.units, self.units), "o_outer")
+        t_outer_W, t_outer_b = build_pair(self, (self.units, self.units), "t_outer")
+        y_outer_W, y_outer_b = build_pair(self, (self.units, self.units), "y_outer")
+        h0_outer = build_bias(self, (1, self.units), "h0_outer")
 
-        h_W, h_b = pair(self, (self.y_k + 1, self.units), "h")
-        h_U = W(self, (self.units, self.units), "h_U")
-        h_V = W(self, (self.units, self.units), "h_V")
-        f_W, f_b = pair(self, (self.units, self.units), "f")
-        i_W, i_b = pair(self, (self.units, self.units), "i")
-        c_W, c_b = pair(self, (self.units, self.units), "c")
-        o_W, o_b = pair(self, (self.units, self.units), "o")
-        t_W, t_b = pair(self, (self.units, self.units), "t")
-        y_W, y_b = pair(self, (self.units, self.z_k*self.y_k), "y")
-        h0 = b(self, (1, self.units), "h0")
+        h_W, h_b = build_pair(self, (self.y_k + 1, self.units), "h")
+        h_U = build_kernel(self, (self.units, self.units), "h_U")
+        h_V = build_kernel(self, (self.units, self.units), "h_V")
+        f_W, f_b = build_pair(self, (self.units, self.units), "f")
+        i_W, i_b = build_pair(self, (self.units, self.units), "i")
+        c_W, c_b = build_pair(self, (self.units, self.units), "c")
+        o_W, o_b = build_pair(self, (self.units, self.units), "o")
+        t_W, t_b = build_pair(self, (self.units, self.units), "t")
+        y_W, y_b = build_pair(self, (self.units, self.z_k * self.y_k), "y")
+        h0 = build_bias(self, (1, self.units), "h0")
 
         self.non_sequences = [
             h_outer_W, h_outer_U, h_outer_b,

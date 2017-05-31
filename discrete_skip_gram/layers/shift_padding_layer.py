@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair, shift_tensor
+from .utils import build_kernel, build_bias, build_pair, shift_tensor
 
 
 class ShiftPaddingLayer(Layer):
@@ -22,7 +22,7 @@ class ShiftPaddingLayer(Layer):
     def build(self, input_shape):
         assert len(input_shape) == 3
         input_dim = input_shape[2]
-        self.h0 = b(self, (1, 1, input_dim), "h0")
+        self.h0 = build_bias(self, (1, 1, input_dim), "h0")
         self.built = True
 
     def compute_output_shape(self, input_shape):

@@ -1,26 +1,24 @@
 """
 Each element of sequence is an embedding layer
 """
-import keras.backend as K
 import csv
 import os
+
+import keras.backend as K
 import numpy as np
+from keras.layers import BatchNormalization
 from keras.layers import Input, Embedding, Lambda, Reshape
 from keras.models import Model
-from keras.optimizers import Adam
 from theano import tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
-from ..layers.unrolled.sampler_layer import SamplerLayer
-from ..layers.time_distributed_dense import TimeDistributedDense
-from ..layers.utils import nll_metrics
 
 from discrete_skip_gram.layers.utils import leaky_relu
-from ..layers.utils import softmax_nd_layer, shift_tensor_layer, softmax_nd
-from ..layers.highway_layer_discrete import HighwayLayerDiscrete
 from .skipgram_model import SkipgramModel
-from ..layers.dense_batch import DenseBatch
-from ..layers.highway_layer import HighwayLayer
-from ..layers.shift_padding_layer import ShiftPaddingLayer
+from ..layers.highway_layer_discrete import HighwayLayerDiscrete
+from ..layers.time_distributed_dense import TimeDistributedDense
+from ..layers.unrolled.sampler_layer import SamplerLayer
+from ..layers.utils import nll_metrics
+from ..layers.utils import softmax_nd_layer, shift_tensor_layer, softmax_nd
 
 
 class SkipgramDiscreteModel(SkipgramModel):
@@ -31,13 +29,14 @@ class SkipgramDiscreteModel(SkipgramModel):
                  window,
                  z_depth,
                  z_k,
-                 lr=1e-4,
-                 lr_a=1e-3,
+                 opt,
+                 opt_a,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
                  embeddings_regularizer=None,
                  hidden_layers=2,
                  layernorm=False,
+                 batchnorm=True,
                  loss_weight=1e-2,
                  adversary_weight=1.0
                  ):
@@ -69,14 +68,17 @@ class SkipgramDiscreteModel(SkipgramModel):
                          name='z_sampler')
         z_sampled = sampler(z)
 
-        z_shifter = ShiftPaddingLayer()
-        z_shifted = z_shifter(z)
+        z_shifter = shift_tensor_layer()
+        z_shifted = z_shifter(z_sampled)
 
-        zrnn = HighwayLayer(units=self.units,
-                            layernorm=layernorm,
-                            inner_activation=self.inner_activation,
-                            hidden_layers=self.hidden_layers,
-                            kernel_regularizer=kernel_regularizer)
+        zrnn = HighwayLayerDiscrete(units=self.units,
+                                    embedding_units=embedding_units,
+                                    k=self.z_k + 1,
+                                    layernorm=layernorm,
+                                    inner_activation=self.inner_activation,
+                                    hidden_layers=self.hidden_layers,
+                                    batchnorm=batchnorm,
+                                    kernel_regularizer=kernel_regularizer)
 
         zh = zrnn(z_shifted)  # n, z_depth, units
 
@@ -85,13 +87,15 @@ class SkipgramDiscreteModel(SkipgramModel):
             h = TimeDistributedDense(units=self.units,
                                      activation=self.inner_activation,
                                      kernel_regularizer=kernel_regularizer)(h)
+            if batchnorm:
+                h = BatchNormalization()(h)
         h = TimeDistributedDense(units=self.z_k * x_k,
                                  kernel_regularizer=kernel_regularizer)(h)
         h = Reshape((z_depth, self.z_k, x_k))(h)  # (n, z_depth, z_k, x_k)
         p = softmax_nd_layer()(h)  # (n, z_depth, z_k, x_k)
-        eps = 1e-9
-        scale = 1.0-(eps * x_k)
-        nll = Lambda(lambda (_p, _y): -T.log(eps + (scale*_p[T.arange(_p.shape[0]), :, :, T.flatten(_y)])),
+        eps = 1e-8
+        scale = 1.0 - (eps * x_k)
+        nll = Lambda(lambda (_p, _y): -T.log(eps + (scale * _p[T.arange(_p.shape[0]), :, :, T.flatten(_y)])),
                      output_shape=lambda (_p, _y): (_p[0], _p[1], _p[2]))([p, input_y])
 
         loss = Lambda(lambda (_nll, _z): T.sum(T.sum(_nll * _z, axis=2), axis=1, keepdims=True),
@@ -99,27 +103,32 @@ class SkipgramDiscreteModel(SkipgramModel):
                       name="loss_layer")([nll, z])
 
         # adversary: try to minimize kl with z
-        input_z = Input((self.z_depth, self.z_k), dtype='float32', name='input_z')
-        z_shifter = ShiftPaddingLayer()
+        input_z = Input((self.z_depth,), dtype='int32', name='input_z')
+        z_shifter = shift_tensor_layer()
         z_shifted = z_shifter(input_z)
-        arnn = HighwayLayer(units=units,
-                            layernorm=layernorm,
-                            inner_activation=inner_activation,
-                            hidden_layers=hidden_layers,
-                            kernel_regularizer=kernel_regularizer)
+        arnn = HighwayLayerDiscrete(units=units,
+                                    k=self.z_k + 1,
+                                    embedding_units=embedding_units,
+                                    layernorm=layernorm,
+                                    inner_activation=inner_activation,
+                                    hidden_layers=hidden_layers,
+                                    batchnorm=batchnorm,
+                                    kernel_regularizer=kernel_regularizer)
         ah = arnn(z_shifted)
         h = ah
         for i in range(3):
             h = TimeDistributedDense(units=self.units,
                                      kernel_regularizer=kernel_regularizer,
                                      activation=self.inner_activation)(h)
+            if batchnorm:
+                h = BatchNormalization()(h)
         d = TimeDistributedDense(units=self.z_k,
                                  activation=softmax_nd,
                                  kernel_regularizer=kernel_regularizer)(h)
         adversary = Model(inputs=[input_z], outputs=[d])
 
         # train adversary
-        dz = adversary(z)
+        dz = adversary(z_sampled)
 
         def em(yt, yp):
             return T.mean(T.sum(T.sum(T.abs_(yt - yp), axis=2), axis=1), axis=0)
@@ -129,17 +138,17 @@ class SkipgramDiscreteModel(SkipgramModel):
         for layer in adversary.layers:
             for l in layer.losses:
                 adversary_reg += l
-        aopt = Adam(lr=lr_a)
         atotal = aem + adversary_reg
         aweights = adversary.trainable_weights
         print "A weights: {}".format(aweights)
-        aupdates = aopt.get_updates(aweights, {}, atotal)
+        aupdates = opt_a.get_updates(aweights, {}, atotal)
         self.adversary_weight = K.variable(np.float32(adversary_weight), dtype='float32', name='adversary_weight')
         self.loss_weight = K.variable(np.float32(loss_weight), dtype='float32', name='loss_weight')
         regloss = -self.adversary_weight * aem
 
         self.adversary = adversary
-        zrnn.add_loss(regloss)
+        if adversary_weight > 0:
+            zrnn.add_loss(regloss)
         zrnn.add_update(aupdates)
 
         def adversary_em(ytrue, ypred):
@@ -153,11 +162,9 @@ class SkipgramDiscreteModel(SkipgramModel):
 
         avg_nll = T.mean(nll, axis=0)
         metrics = nll_metrics(avg_nll, z_depth)
-        opt = Adam(lr)
-
         self.model = Model(inputs=[input_x, input_y], outputs=[loss])
         self.model.compile(opt, loss_f, metrics=[adversary_loss, adversary_em] + metrics)
-        self.weights = self.model.weights + self.adversary.weights + opt.weights + aopt.weights
+        self.weights = self.model.weights + self.adversary.weights + opt.weights + opt_a.weights
 
         # Prediction model
         # p: (n, z_depth, z_k, x_k)

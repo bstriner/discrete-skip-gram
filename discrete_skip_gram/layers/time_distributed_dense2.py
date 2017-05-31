@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from .utils import W, b, pair
+from .utils import build_kernel, build_bias, build_pair
 from keras import activations
 
 class TimeDistributedDense2(Layer):
@@ -29,7 +29,7 @@ class TimeDistributedDense2(Layer):
         assert len(input_shape) == 3
         input_dim = input_shape[2]
 
-        self.kernel, self.bias = pair(self, (input_dim, self.units), "h")
+        self.kernel, self.bias = build_pair(self, (input_dim, self.units), "h")
         self.built = True
 
     def compute_mask(self, inputs, mask=None):

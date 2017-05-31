@@ -3,7 +3,7 @@ import theano.tensor as T
 from keras.layers import Layer
 from keras.engine import InputSpec
 from keras import initializers, regularizers
-from ..utils import W, b, pair
+from ..utils import build_kernel, build_bias, build_pair
 
 
 class BiasLayer(Layer):
@@ -16,7 +16,7 @@ class BiasLayer(Layer):
         Layer.__init__(self)
 
     def build(self, input_shape):
-        self.bias = b(self, (1, self.units), "bias")
+        self.bias = build_bias(self, (1, self.units), "bias")
         self.built = True
 
     def compute_output_shape(self, input_shape):

@@ -1,15 +1,15 @@
 import theano.tensor as T
 
-from ..layers.utils import pair, b
+from ..layers.utils import build_pair, build_bias
 
 
 class LSTMUnit(object):
     def __init__(self, model, units, name):
-        h_W, h_b = pair(model, (units, units), "{}_h".format(name))
-        f_W, f_b = pair(model, (units, units), "{}_f".format(name))
-        i_W, i_b = pair(model, (units, units), "{}_i".format(name))
-        c_W, c_b = pair(model, (units, units), "{}_c".format(name))
-        o_W, o_b = pair(model, (units, units), "{}_o".format(name))
+        h_W, h_b = build_pair(model, (units, units), "{}_h".format(name))
+        f_W, f_b = build_pair(model, (units, units), "{}_f".format(name))
+        i_W, i_b = build_pair(model, (units, units), "{}_i".format(name))
+        c_W, c_b = build_pair(model, (units, units), "{}_c".format(name))
+        o_W, o_b = build_pair(model, (units, units), "{}_o".format(name))
         self.non_sequences = [
             h_W, h_b,
             f_W, f_b,
@@ -18,7 +18,7 @@ class LSTMUnit(object):
             o_W, o_b
         ]
         self.count = len(self.non_sequences)
-        self.h0 = b(model, (1, units), "{}_h0".format(name))
+        self.h0 = build_bias(model, (1, units), "{}_h0".format(name))
 
     def call(self, h0, haddl, params):
         (h_W, h_b,
