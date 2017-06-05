@@ -5,7 +5,7 @@ import keras.backend as K
 import csv
 import os
 import numpy as np
-from keras.layers import Input, Embedding, Lambda, Reshape
+from keras.layers import Input, Embedding, Lambda, Reshape, BatchNormalization
 from keras.models import Model
 from keras.optimizers import Adam
 from theano import tensor as T
@@ -22,7 +22,6 @@ from ..layers.highway_layer import HighwayLayer
 from ..layers.shift_padding_layer import ShiftPaddingLayer
 from ..layers.sequential_embedding_discrete import SequentialEmbeddingDiscrete
 
-
 class SkipgramValidationModel(SkipgramModel):
     def __init__(self,
                  dataset,
@@ -32,14 +31,13 @@ class SkipgramValidationModel(SkipgramModel):
                  window,
                  z_k,
                  lr=1e-4,
-                 lr_a=1e-3,
                  loss_weight=1e-2,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
                  embeddings_regularizer=None,
                  hidden_layers=2,
                  layernorm=False,
-                 adversary_weight=1.0
+                 batchnorm=True
                  ):
         self.dataset = dataset
         self.units = units
@@ -63,6 +61,7 @@ class SkipgramValidationModel(SkipgramModel):
                                     embedding_units=embedding_units,
                                     k=z_k,
                                     layernorm=layernorm,
+                                    batchnorm=batchnorm,
                                     inner_activation=self.inner_activation,
                                     hidden_layers=self.hidden_layers,
                                     kernel_regularizer=kernel_regularizer)
@@ -74,6 +73,8 @@ class SkipgramValidationModel(SkipgramModel):
             h = TimeDistributedDense(units=self.units,
                                      activation=self.inner_activation,
                                      kernel_regularizer=kernel_regularizer)(h)
+            if batchnorm:
+                h = BatchNormalization()(h)
         p = TimeDistributedDense(units=x_k,
                                  kernel_regularizer=kernel_regularizer,
                                  activation=softmax_nd)(h)  # (n, z_depth, x_k)

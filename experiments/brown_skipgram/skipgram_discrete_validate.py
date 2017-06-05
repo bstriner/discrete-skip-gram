@@ -31,9 +31,8 @@ def main():
     embeddings_regularizer = L1L2(1e-8, 1e-8)
     loss_weight = 1e-2
     lr = 3e-4
-    lr_a = 1e-3
-    adversary_weight = 1e-4
     layernorm = False
+    batchnorm = True
     model = SkipgramValidationModel(dataset=ds,
                                     z_k=z_k,
                                     embedding=embedding,
@@ -41,10 +40,9 @@ def main():
                                     embedding_units=embedding_units,
                                     kernel_regularizer=kernel_regularizer,
                                     embeddings_regularizer=embeddings_regularizer,
-                                    adversary_weight=adversary_weight,
                                     loss_weight=loss_weight,
-                                    lr_a=lr_a,
                                     layernorm=layernorm,
+                                    batchnorm=batchnorm,
                                     inner_activation=leaky_relu,
                                     units=units,
                                     lr=lr)
