@@ -5,17 +5,17 @@ import csv
 import os
 
 import numpy as np
-from keras.layers import Input, Embedding, Lambda, Reshape, Add
+from keras.layers import Input, Embedding, Lambda, Reshape
 from keras.models import Model
 from keras.optimizers import Adam
 from theano import tensor as T
 
 from discrete_skip_gram.layers.utils import leaky_relu
 from ..layers.one_bit_bayes_layer import OneBitBayesLayer
+from ..layers.one_bit_validation_layer import OneBitValidationLayer
 from ..layers.uniform_smoothing import UniformSmoothing
 from ..layers.utils import softmax_nd_layer
 from ..skipgram_models.skipgram_model import SkipgramModel
-from ..layers.one_bit_validation_layer import OneBitValidationLayer
 
 
 class OneBitBayesModel(SkipgramModel):
@@ -55,9 +55,11 @@ class OneBitBayesModel(SkipgramModel):
 
         # validation nll
         val_layer = OneBitValidationLayer(y_k=x_k, z_k=z_k)
-        val_nll = val_layer([p_z_given_x, input_y]) # (n,1)
+        val_nll = val_layer([p_z_given_x, input_y])  # (n,1)
 
-        tot_loss = Add()([val_nll, posterior_nll])
+        tot_loss = Lambda(lambda (_a, _b, _c): _a + _b+_c,
+                          output_shape=lambda (_a, _b, _c): _a)(
+            [val_nll, prior_nll, posterior_nll])
 
         def avg_prior_nll(ytrue, ypred):
             return T.mean(prior_nll, axis=None)

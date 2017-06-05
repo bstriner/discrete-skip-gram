@@ -54,12 +54,12 @@ class OneBitBayesLayer(Layer):
         p_z = T.sum((p_y.dimshuffle((0, 'x'))) * p_z_given_y, axis=0)  # (z_k,)
 
         # p(y|x) = p(y|z)p(z|x) = p(y) p(z|y)p(z|x)/p(z)
-        p_y_z = p_y_t * T.sum(p_z_given_y_t * p_z_given_x / p_z, axis=1)  # (n,)
+        p_y_z_t = p_y_t * T.sum(p_z_given_y_t * p_z_given_x / p_z, axis=1)  # (n,)
 
         # nll
         prior_nll = -T.log(p_y_t)
         prior_nll = T.reshape(prior_nll, (-1, 1))
-        posterior_nll = -T.log(p_y_z)
+        posterior_nll = -T.log(p_y_z_t)
         posterior_nll = T.reshape(posterior_nll, (-1, 1))
 
         return [prior_nll, posterior_nll]

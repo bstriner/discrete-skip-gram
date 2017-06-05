@@ -1,5 +1,5 @@
-# import os
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+#import os
+#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 from keras.regularizers import L1L2
 
@@ -13,14 +13,14 @@ def main():
     outputpath = "output/one_bit_bayes_discrete"
     ds = load_dataset()
     vd = validation_load()
-    batch_size = 128
+    batch_size = 256
     epochs = 5000
-    steps_per_epoch = 2048
+    steps_per_epoch = 4096
     window = 2
     frequency = 10
     kernel_regularizer = L1L2(1e-8, 1e-8)
     embeddings_regularizer = None
-    lr = 1e-4
+    lr = 1e-5
     z_k = 2
     model = OneBitBayesModel(dataset=ds,
                              z_k=z_k,

@@ -46,5 +46,5 @@ class OneBitValidationLayer(Layer):
         p_y_given_z = uniform_smoothing(softmax_nd(self.y_z_bias))  # (z_k, y_k)
         p_y_given_z_t = p_y_given_z[z, y]
         nll = -T.log(p_y_given_z_t)
+        nll = T.reshape(nll, (-1, 1))
         return nll
-
