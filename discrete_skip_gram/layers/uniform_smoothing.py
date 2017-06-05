@@ -3,9 +3,9 @@ from keras.layers import Layer
 
 
 class UniformSmoothing(Layer):
-    def __init__(self, factor=1e-8):
+    def __init__(self, factor=1e-8, **kwargs):
         self.factor = np.float32(factor)
-        super(Layer, self).__init__()
+        super(UniformSmoothing, self).__init__(**kwargs)
 
     def build(self, input_shape):
         assert len(input_shape) == 2
