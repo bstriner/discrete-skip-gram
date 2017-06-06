@@ -1,32 +1,29 @@
-#import os
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 
+from dataset_util import load_dataset
+from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.unigram_baseline_model import UnigramBaselineModel
 from sample_validation import validation_load
-from discrete_skip_gram.layers.utils import leaky_relu
-from dataset_util import load_dataset
-from keras.regularizers import L1L2
 
 
 def main():
     outputpath = "output/unigram_baseline"
     ds = load_dataset()
     vd = validation_load()
-    batch_size = 128
+    batch_size = 256
     epochs = 5000
-    steps_per_epoch = 512
+    steps_per_epoch = 4096
     window = 2
-    frequency = 50
+    frequency = 20
     units = 512
-    kernel_regularizer = L1L2(1e-9, 1e-9)
-    lr = 1e-3
+    lr = 3e-5
     model = UnigramBaselineModel(dataset=ds,
-                                  window=window,
-                                  kernel_regularizer=kernel_regularizer,
-                                  inner_activation=leaky_relu,
-                                  units=units,
-                                  lr=lr)
+                                 window=window,
+                                 inner_activation=leaky_relu,
+                                 units=units,
+                                 lr=lr)
     model.summary()
     vn = 4096
     validation_data = ([vd[0][:vn, ...], vd[1][:vn, ...]], np.ones((vn, 1), dtype=np.float32))

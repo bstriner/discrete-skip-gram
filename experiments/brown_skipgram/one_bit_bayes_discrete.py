@@ -1,7 +1,6 @@
-#import os
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
-from keras.regularizers import L1L2
 
 from dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
@@ -18,15 +17,11 @@ def main():
     steps_per_epoch = 4096
     window = 2
     frequency = 10
-    kernel_regularizer = L1L2(1e-8, 1e-8)
-    embeddings_regularizer = None
-    lr = 1e-5
+    lr = 3e-5
     z_k = 2
     model = OneBitBayesModel(dataset=ds,
                              z_k=z_k,
                              window=window,
-                             kernel_regularizer=kernel_regularizer,
-                             embeddings_regularizer=embeddings_regularizer,
                              inner_activation=leaky_relu,
                              lr=lr)
     model.summary()

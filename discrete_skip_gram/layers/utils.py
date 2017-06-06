@@ -134,7 +134,7 @@ def sample_3d_layer(**kwargs):
     return Lambda(lambda _x: sample_3d(_x), output_shape=lambda _x: (_x[0], _x[1]), **kwargs)
 
 
-def uniform_smoothing(x, factor=1e-8):
+def uniform_smoothing(x, factor=1e-9):
     factor = np.float32(factor)
     scale = 1.0 - (x.shape[-1] * factor)
     return factor + (scale * x)

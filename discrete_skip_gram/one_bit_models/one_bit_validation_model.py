@@ -21,7 +21,7 @@ from ..layers.highway_layer_discrete import HighwayLayerDiscrete
 from ..layers.highway_layer import HighwayLayer
 from ..layers.shift_padding_layer import ShiftPaddingLayer
 from ..layers.sequential_embedding_discrete import SequentialEmbeddingDiscrete
-
+from ..layers.uniform_smoothing import UniformSmoothing
 
 class OneBitValidationModel(SkipgramModel):
     def __init__(self,
@@ -34,11 +34,8 @@ class OneBitValidationModel(SkipgramModel):
                  lr=1e-4,
                  loss_weight=1e-2,
                  inner_activation=leaky_relu,
-                 kernel_regularizer=None,
                  embeddings_regularizer=None,
                  hidden_layers=2,
-                 layernorm=False,
-                 adversary_weight=1.0
                  ):
         self.dataset = dataset
         self.units = units
@@ -48,7 +45,6 @@ class OneBitValidationModel(SkipgramModel):
         self.z_depth = embedding.shape[1]
         self.z_k = z_k
         self.inner_activation = inner_activation
-        srng = RandomStreams(123)
         x_k = self.dataset.k
         assert x_k == embedding.shape[0]
 
@@ -61,11 +57,11 @@ class OneBitValidationModel(SkipgramModel):
         h = Embedding(input_dim=z_k,
                       embeddings_regularizer=embeddings_regularizer,
                       output_dim=x_k)(z)  # n, 1, x_k
-        p = softmax_nd_layer()(drop_dim_2()(h))  # n, x_k
+        h = drop_dim_2()(h)
+        h = softmax_nd_layer()(h)
+        p = UniformSmoothing()(h) # n, x_k
 
-        eps = 1e-7
-        scale = 1.0 - (eps * x_k)
-        nll = Lambda(lambda (_p, _y): T.reshape(-T.log(eps + (scale * _p[T.arange(_p.shape[0]), T.flatten(_y)])),
+        nll = Lambda(lambda (_p, _y): T.reshape(-T.log(_p[T.arange(_p.shape[0]), T.flatten(_y)]),
                                                 (-1, 1)),
                      output_shape=lambda (_p, _y): (_p[0], 1))([p, input_y])  # (n, z_depth)
 

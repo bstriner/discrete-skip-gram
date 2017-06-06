@@ -1,28 +1,31 @@
 from keras import initializers
 from keras.layers import Layer
 from theano import tensor as T
-from theano.gradient import zero_grad, disconnected_grad
 
 from .utils import softmax_nd, uniform_smoothing
+from theano.gradient import zero_grad
 
-
-class OneBitBayesLayer(Layer):
+class OneBitLayer(Layer):
     def __init__(self, y_k, z_k,
                  kernel_initializer='glorot_uniform',
                  bias_initializer='random_uniform'
                  ):
-        super(OneBitBayesLayer, self).__init__()
+        super(OneBitLayer, self).__init__()
         self.y_k = y_k
         self.z_k = z_k
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
         self.supports_masking = False
 
-    def build(self, input_shape):
+    def build(self, (p_z_given_x, y)):
         y_k = self.y_k
         z_k = self.z_k
+        assert len(y) == 2
+        assert len(p_z_given_x) == 2
+        assert p_z_given_x[1] == z_k
+        assert y[1] == 1
         self.y_bias = self.add_weight(initializer=self.bias_initializer, shape=(y_k,), name="y_bias")
-        self.z_y_bias = self.add_weight(initializer=self.kernel_initializer, shape=(y_k, z_k), name="z_y_bias")
+        self.y_x_bias = self.add_weight(initializer=self.bias_initializer, shape=(z_k, y_k), name="y_x_bias")
         self.built = True
 
     def compute_output_shape(self, (p_z_x, y)):
@@ -44,24 +47,21 @@ class OneBitBayesLayer(Layer):
         y = T.flatten(y)
 
         # p(y)
-        p_y = uniform_smoothing(softmax_nd(self.y_bias))  # (y_k,)
-        p_y_t = p_y[y]  # (n,)
+        p_y = uniform_smoothing(softmax_nd(self.y_bias))
+        p_y_t = p_y[y] # (n,)
 
-        # p(z|y)
-        p_z_given_y = uniform_smoothing(softmax_nd(self.z_y_bias))  # (y_k, z_k)
-        p_z_given_y_t = p_z_given_y[y, :]  # (n, z_k)
+        # p(y|z)
+        y_z_logit = zero_grad(self.y_bias) + self.y_x_bias # (z_k, y_k)
+        p_y_given_z = T.transpose(uniform_smoothing(softmax_nd(y_z_logit)),(1,0)) # (y_k, z_k)
+        p_y_given_z_t = p_y_given_z[y, :]  # (n, z_k)
 
-        # p(z)
-        #p_z = T.sum((p_y.dimshuffle((0, 'x'))) * p_z_given_y, axis=0)  # (z_k,)
-        p_z = T.mean(p_z_given_x, axis=0) # (z_k,)
+        # partial loss
+        #ploss = -T.log(p_y_given_z_t)  # (n, z_k)
 
-        # p(y|x) = p(y|z)p(z|x) = p(y) p(z|y)p(z|x)/p(z)
-        p_y_z_t = disconnected_grad(p_y_t) * T.sum(p_z_given_y_t * p_z_given_x / p_z, axis=1)  # (n,)
-
-        # nll
+        # loss = p(z|x) * log(p(y|z))
         prior_nll = -T.log(p_y_t)
-        prior_nll = T.reshape(prior_nll, (-1, 1))
-        posterior_nll = -T.log(p_y_z_t)
+        prior_nll= T.reshape(prior_nll, (-1, 1))
+        posterior_nll = -T.log(T.sum(p_z_given_x * p_y_given_z_t, axis=1))  # (n,)
         posterior_nll = T.reshape(posterior_nll, (-1, 1))
 
         return [prior_nll, posterior_nll]
