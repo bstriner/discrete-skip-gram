@@ -19,15 +19,14 @@ def main():
     print "Using epoch {}: {}".format(epoch, embeddingpath)
     ds = load_dataset()
     vd = validation_load()
-    batch_size = 128
+    batch_size = 256
     epochs = 5000
-    steps_per_epoch = 512
+    steps_per_epoch = 2048
     window = 2
     frequency = 20
     units = 512
     embedding_units = 128
     z_k = 2
-    embeddings_regularizer = L1L2(1e-8, 1e-8)
     loss_weight = 1e-2
     lr = 3e-4
     model = OneBitValidationModel(dataset=ds,
@@ -35,7 +34,6 @@ def main():
                                   embedding=embedding,
                                   window=window,
                                   embedding_units=embedding_units,
-                                  embeddings_regularizer=embeddings_regularizer,
                                   loss_weight=loss_weight,
                                   inner_activation=leaky_relu,
                                   units=units,
