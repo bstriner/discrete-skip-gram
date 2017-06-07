@@ -1,12 +1,11 @@
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
-from keras.optimizers import RMSprop, Adam
-from keras.regularizers import L1L2
 
 from dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.skipgram_discrete_model import SkipgramDiscreteModel
+from keras.optimizers import Adam
 from sample_validation import validation_load
 
 
@@ -14,22 +13,22 @@ def main():
     outputpath = "output/skipgram_discrete"
     ds = load_dataset()
     vd = validation_load()
-    batch_size = 128
+    batch_size = 256
     epochs = 5000
     steps_per_epoch = 2048
     window = 2
-    frequency = 5
+    frequency = 20
     units = 512
     embedding_units = 128
     z_k = 2
     z_depth = 10
-    kernel_regularizer = L1L2(1e-9, 1e-9)
-    embeddings_regularizer = L1L2(1e-9, 1e-9)
+    # kernel_regularizer = L1L2(1e-9, 1e-9)
+    # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None
     loss_weight = 1e-2
     opt = Adam(1e-4)
     opt_a = Adam(1e-3)
-    adversary_weight = 1e-6
+    adversary_weight = 0
     layernorm = False
     batchnorm = True
     model = SkipgramDiscreteModel(dataset=ds,
@@ -37,8 +36,6 @@ def main():
                                   z_depth=z_depth,
                                   window=window,
                                   embedding_units=embedding_units,
-                                  kernel_regularizer=kernel_regularizer,
-                                  embeddings_regularizer=embeddings_regularizer,
                                   adversary_weight=adversary_weight,
                                   loss_weight=loss_weight,
                                   opt=opt,
