@@ -47,9 +47,10 @@ class OneBitValidationModel(SkipgramModel):
         x_embedding = SequentialEmbeddingDiscrete(embedding)  # n, 1, 1
         z = drop_dim_2()(x_embedding(input_x))  # n, 1
 
-        h = Embedding(input_dim=z_k,
+        z_embedding = Embedding(input_dim=z_k,
                       embeddings_regularizer=embeddings_regularizer,
-                      output_dim=x_k)(z)  # n, 1, x_k
+                      output_dim=x_k)
+        h = z_embedding(z)  # n, 1, x_k
         h = drop_dim_2()(h)
         h = softmax_nd_layer()(h)
         p = UniformSmoothing()(h)  # n, x_k
