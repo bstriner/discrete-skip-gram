@@ -21,7 +21,7 @@ def main():
     units = 512
     embedding_units = 128
     z_k = 2
-    z_depth = 10
+    z_depth = 5
     # kernel_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None

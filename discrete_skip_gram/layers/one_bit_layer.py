@@ -57,9 +57,10 @@ class OneBitLayer(Layer):
         p_y_given_z_t = p_y_given_z[y, :]  # (n, z_k)
 
         # loss = p(z|x) * log(p(y|z))
+        eps = 1e-8
         prior_nll = -T.log(p_y_t)
         prior_nll = T.reshape(prior_nll, (-1, 1))
-        posterior_nll = -T.log(T.sum(p_z_given_x * p_y_given_z_t, axis=1))  # (n,)
+        posterior_nll = -T.log(eps + T.sum(p_z_given_x * p_y_given_z_t, axis=1))  # (n,)
         # posterior_nll = T.sum(p_z_given_x * -T.log(p_y_given_z_t), axis=1)  # (n,)
         posterior_nll = T.reshape(posterior_nll, (-1, 1))
 
