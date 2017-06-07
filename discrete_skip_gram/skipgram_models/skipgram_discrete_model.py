@@ -97,7 +97,7 @@ class SkipgramDiscreteModel(SkipgramModel):
                                      activation=self.inner_activation,
                                      kernel_regularizer=kernel_regularizer)(h)
             if batchnorm:
-                h = BatchNormalization()(h)
+                h = BatchNormalization()(h) # (n, z_depth, units)
         h = TimeDistributedDense(units=self.z_k * x_k,
                                  kernel_regularizer=kernel_regularizer)(h)
         h = Reshape((z_depth, self.z_k, x_k))(h)  # (n, z_depth, z_k, y_k)
@@ -107,7 +107,8 @@ class SkipgramDiscreteModel(SkipgramModel):
                                output_shape=lambda (_p, _y): (_p[0], _p[1], _p[2]))(
             [p_y_given_z, input_y])  # (n, z_depth, z_k)
 
-        nll = Lambda(lambda (_pyz, _pzx): -T.log(T.sum(_pyz * _pzx, axis=2)),
+        eps = 1e-8
+        nll = Lambda(lambda (_pyz, _pzx): -T.log(eps+T.sum(_pyz * _pzx, axis=2)),
                      output_shape=lambda (_pyz, _pzx): (_pyz[0], _pyz[1]),
                      name="loss_layer")([p_y_given_z_t, p_z_given_x])  # (n, z_depth)
         loss = Lambda(lambda _nll: T.sum(nll, axis=1, keepdims=True),
