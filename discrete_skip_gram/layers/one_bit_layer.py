@@ -1,9 +1,10 @@
+from theano import tensor as T
+from theano.gradient import zero_grad
+
 from keras import initializers
 from keras.layers import Layer
-from theano import tensor as T
-
 from .utils import softmax_nd, uniform_smoothing
-from theano.gradient import zero_grad
+
 
 class OneBitLayer(Layer):
     def __init__(self, y_k, z_k,
@@ -48,20 +49,18 @@ class OneBitLayer(Layer):
 
         # p(y)
         p_y = uniform_smoothing(softmax_nd(self.y_bias))
-        p_y_t = p_y[y] # (n,)
+        p_y_t = p_y[y]  # (n,)
 
         # p(y|z)
-        y_z_logit = zero_grad(self.y_bias) + self.y_x_bias # (z_k, y_k)
-        p_y_given_z = T.transpose(uniform_smoothing(softmax_nd(y_z_logit)),(1,0)) # (y_k, z_k)
+        y_z_logit = zero_grad(self.y_bias) + self.y_x_bias  # (z_k, y_k)
+        p_y_given_z = T.transpose(uniform_smoothing(softmax_nd(y_z_logit)), (1, 0))  # (y_k, z_k)
         p_y_given_z_t = p_y_given_z[y, :]  # (n, z_k)
-
-        # partial loss
-        #ploss = -T.log(p_y_given_z_t)  # (n, z_k)
 
         # loss = p(z|x) * log(p(y|z))
         prior_nll = -T.log(p_y_t)
-        prior_nll= T.reshape(prior_nll, (-1, 1))
+        prior_nll = T.reshape(prior_nll, (-1, 1))
         posterior_nll = -T.log(T.sum(p_z_given_x * p_y_given_z_t, axis=1))  # (n,)
+        # posterior_nll = T.sum(p_z_given_x * -T.log(p_y_given_z_t), axis=1)  # (n,)
         posterior_nll = T.reshape(posterior_nll, (-1, 1))
 
         return [prior_nll, posterior_nll]

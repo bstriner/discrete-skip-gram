@@ -1,27 +1,20 @@
 """
 Each element of sequence is an embedding layer
 """
-import keras.backend as K
-import csv
-import os
 import numpy as np
-from keras.layers import Input, Embedding, Lambda, Reshape
+from theano import tensor as T
+
+import keras.backend as K
+from discrete_skip_gram.layers.utils import leaky_relu
+from keras.layers import Input, Embedding, Lambda
 from keras.models import Model
 from keras.optimizers import Adam
-from theano import tensor as T
-from theano.tensor.shared_randomstreams import RandomStreams
-from ..layers.unrolled.sampler_layer import SamplerLayer
-from ..layers.time_distributed_dense import TimeDistributedDense
-from ..layers.utils import nll_metrics
-
-from discrete_skip_gram.layers.utils import leaky_relu
-from ..layers.utils import softmax_nd_layer, softmax_nd, drop_dim_2
-from .skipgram_model import SkipgramModel
-from ..layers.highway_layer_discrete import HighwayLayerDiscrete
-from ..layers.highway_layer import HighwayLayer
-from ..layers.shift_padding_layer import ShiftPaddingLayer
 from ..layers.sequential_embedding_discrete import SequentialEmbeddingDiscrete
 from ..layers.uniform_smoothing import UniformSmoothing
+from ..layers.utils import nll_metrics
+from ..layers.utils import softmax_nd_layer, drop_dim_2
+from ..skipgram_models.skipgram_model import SkipgramModel
+
 
 class OneBitValidationModel(SkipgramModel):
     def __init__(self,
@@ -59,18 +52,13 @@ class OneBitValidationModel(SkipgramModel):
                       output_dim=x_k)(z)  # n, 1, x_k
         h = drop_dim_2()(h)
         h = softmax_nd_layer()(h)
-        p = UniformSmoothing()(h) # n, x_k
+        p = UniformSmoothing()(h)  # n, x_k
 
         nll = Lambda(lambda (_p, _y): T.reshape(-T.log(_p[T.arange(_p.shape[0]), T.flatten(_y)]),
                                                 (-1, 1)),
-                     output_shape=lambda (_p, _y): (_p[0], 1))([p, input_y])  # (n, z_depth)
-
-        loss = Lambda(lambda _nll: T.sum(_nll, axis=1, keepdims=True),
-                      output_shape=lambda _nll: (_nll[0], 1),
-                      name="loss_layer")(nll)  # (n, 1)
+                     output_shape=lambda (_p, _y): (_p[0], 1))([p, input_y])  # (n, 1)
 
         self.loss_weight = K.variable(np.float32(loss_weight), dtype='float32', name='loss_weight')
-        self.model = Model([input_x, input_y], loss)
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None) * self.loss_weight
@@ -79,7 +67,7 @@ class OneBitValidationModel(SkipgramModel):
         metrics = nll_metrics(avg_nll, self.z_depth)
         opt = Adam(lr)
 
-        self.model = Model(inputs=[input_x, input_y], outputs=[loss])
+        self.model = Model(inputs=[input_x, input_y], outputs=[nll])
         self.model.compile(opt, loss_f, metrics=metrics)
         self.weights = self.model.weights + opt.weights
 
