@@ -40,6 +40,7 @@ class SkipgramDiscreteModel(SkipgramModel):
                  layernorm=False,
                  batchnorm=True,
                  loss_weight=1e-2,
+                 balancer=True,
                  adversary_weight=1.0
                  ):
         self.dataset = dataset
@@ -74,10 +75,13 @@ class SkipgramDiscreteModel(SkipgramModel):
         h = softmax_nd_layer()(h)
         p_z_given_x = UniformSmoothing()(h)  # (n, z_depth, z_k)
 
-        sampler = Lambda(lambda _x: T.argmax(_x, axis=2),
-                         output_shape=lambda _x: (_x[0], _x[1]),
-                         name='z_sampler')
-        z_sampled = sampler(p_z_given_x)  # (n, z_depth)
+        if balancer:
+            raise NotImplementedError()
+        else:
+            sampler = Lambda(lambda _x: T.argmax(_x, axis=2),
+                             output_shape=lambda _x: (_x[0], _x[1]),
+                             name='z_sampler')
+            z_sampled = sampler(p_z_given_x)  # (n, z_depth)
 
         # p(y|z)
         z_shifter = shift_tensor_layer()

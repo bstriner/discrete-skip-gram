@@ -1,6 +1,7 @@
 import numpy as np
-from keras.layers import Lambda
 from theano import tensor as T
+
+from keras.layers import Lambda
 
 
 def build_kernel(model, shape, name):
@@ -114,16 +115,16 @@ def leaky_relu(x):
     return T.nnet.relu(x, 0.2)
 
 
-def nll_metric(avg_nll, idx):
+def nll_metric(avg_nll, idx, fmt="nll{:02d}"):
     def metric(ytrue, ypred):
         return avg_nll[idx]
 
-    metric.__name__ = "nll{:02d}".format(idx)
+    metric.__name__ = fmt.format(idx)
     return metric
 
 
-def nll_metrics(avg_nll, z_depth):
-    return [nll_metric(avg_nll, i) for i in range(z_depth)]
+def nll_metrics(avg_nll, z_depth, fmt="nll{:02d}"):
+    return [nll_metric(avg_nll, i, fmt=fmt) for i in range(z_depth)]
 
 
 def sample_3d(x):
@@ -138,3 +139,8 @@ def uniform_smoothing(x, factor=1e-9):
     factor = np.float32(factor)
     scale = 1.0 - (x.shape[-1] * factor)
     return factor + (scale * x)
+
+
+def sigmoid_smoothing(x, factor=1e-9):
+    scale = np.float32(1.0 - (factor * 2))
+    return (x * scale) + factor

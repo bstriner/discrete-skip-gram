@@ -17,7 +17,7 @@ class ShiftPaddingLayer(Layer):
         self.bias_regularizer = regularizers.get(bias_regularizer)
         self.input_spec = [InputSpec(ndim=3)]
         self.supports_masking = False
-        Layer.__init__(self)
+        super(ShiftPaddingLayer, self).__init__()
 
     def build(self, input_shape):
         assert len(input_shape) == 3

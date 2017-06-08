@@ -1,9 +1,9 @@
 import theano
 import theano.tensor as T
+
 from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
-
 from .utils import build_kernel, shift_tensor, build_embedding
 from ..units.dense_unit import DenseUnit
 from ..units.lstm_unit import LSTMUnit

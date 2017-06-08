@@ -21,7 +21,7 @@ def main():
     units = 512
     embedding_units = 128
     z_k = 2
-    z_depth = 5
+    z_depth = 10
     # kernel_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None
@@ -31,10 +31,12 @@ def main():
     adversary_weight = 0
     layernorm = False
     batchnorm = True
+    balancer = False
     model = SkipgramDiscreteModel(dataset=ds,
                                   z_k=z_k,
                                   z_depth=z_depth,
                                   window=window,
+                                  balancer=balancer,
                                   embedding_units=embedding_units,
                                   adversary_weight=adversary_weight,
                                   loss_weight=loss_weight,

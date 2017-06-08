@@ -7,9 +7,9 @@ from .utils import build_kernel, build_bias, build_pair, shift_tensor, leaky_rel
 from ..units.mlp_unit import MLPUnit
 
 
-class HighwayLayer(Layer):
+class BalanceLayer(Layer):
     """
-    Given a flattened representation of x, encode as a series of symbols
+    Balanced samples from z distribution
     """
 
     def __init__(self,
@@ -17,13 +17,11 @@ class HighwayLayer(Layer):
                  hidden_layers=2,
                  inner_activation=leaky_relu,
                  layernorm=False,
-                 batchnorm=True,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='random_uniform', bias_regularizer=None,
                  **kwargs):
         self.units = units
         self.layernorm=layernorm
-        self.batchnorm=batchnorm
         self.hidden_layers = hidden_layers
         self.inner_activation = inner_activation
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -45,7 +43,6 @@ class HighwayLayer(Layer):
                            hidden_layers=self.hidden_layers,
                            inner_activation=self.inner_activation,
                            layernorm=self.layernorm,
-                           batchnorm=self.batchnorm,
                            name="mlp")
         self.h0 = build_bias(self, (1, self.units), "h0")
         self.built = True
@@ -54,12 +51,17 @@ class HighwayLayer(Layer):
         assert len(input_shape) == 3
         return input_shape[0], input_shape[1], self.units
 
-    def step(self, x, y0, *params):
+    def step(self, z0, pz1  x, y0, *params):
         hd = self.mlp.call([y0, x], params)
         y1 = hd + y0
         return y1
 
-    def call(self, x):
+    def call(self, p_z_given_x):
+        """
+
+        :param p_z_given_x: (n, z_depth, z_k)
+        :return:
+        """
         # x: (n, depth, input_dim)
         xr = T.transpose(x, (1, 0, 2))  # (depth, n, input_dim)
         n = x.shape[0]
