@@ -21,7 +21,7 @@ from ..layers.unrolled.bias_layer import BiasLayer
 from ..layers.unrolled.sampler_layer import SamplerLayer
 from ..layers.utils import nll_metrics
 from ..layers.utils import softmax_nd_layer, shift_tensor_layer, softmax_nd
-
+from ..layers.dense_batch import DenseBatch
 
 class SkipgramDiscreteModel(SkipgramModel):
     def __init__(self,
@@ -72,12 +72,12 @@ class SkipgramDiscreteModel(SkipgramModel):
         h = x_embedding(input_x)
         h = Reshape((z_depth, z_k))(h)
         h = softmax_nd_layer()(h)
-        p_z_given_x = UniformSmoothing()(h)  # n, z_depth, z_k
+        p_z_given_x = UniformSmoothing()(h)  # (n, z_depth, z_k)
 
         sampler = Lambda(lambda _x: T.argmax(_x, axis=2),
                          output_shape=lambda _x: (_x[0], _x[1]),
                          name='z_sampler')
-        z_sampled = sampler(p_z_given_x)
+        z_sampled = sampler(p_z_given_x)  # (n, z_depth)
 
         # p(y|z)
         z_shifter = shift_tensor_layer()
@@ -92,13 +92,13 @@ class SkipgramDiscreteModel(SkipgramModel):
                                     kernel_regularizer=kernel_regularizer)
         zh = zrnn(z_shifted)  # n, z_depth, units
         h = zh
-        for i in range(3):
-            h = TimeDistributedDense(units=self.units,
+        for i in range(2):
+            h = DenseBatch(units=self.units,
                                      activation=self.inner_activation,
                                      kernel_regularizer=kernel_regularizer)(h)
             if batchnorm:
-                h = BatchNormalization()(h) # (n, z_depth, units)
-        h = TimeDistributedDense(units=self.z_k * x_k,
+                h = BatchNormalization()(h)  # (n, z_depth, units)
+        h = DenseBatch(units=self.z_k * x_k,
                                  kernel_regularizer=kernel_regularizer)(h)
         h = Reshape((z_depth, self.z_k, x_k))(h)  # (n, z_depth, z_k, y_k)
         h = softmax_nd_layer()(h)
@@ -108,7 +108,7 @@ class SkipgramDiscreteModel(SkipgramModel):
             [p_y_given_z, input_y])  # (n, z_depth, z_k)
 
         eps = 1e-8
-        nll = Lambda(lambda (_pyz, _pzx): -T.log(eps+T.sum(_pyz * _pzx, axis=2)),
+        nll = Lambda(lambda (_pyz, _pzx): -T.log(eps + T.sum(_pyz * _pzx, axis=2)),
                      output_shape=lambda (_pyz, _pzx): (_pyz[0], _pyz[1]),
                      name="loss_layer")([p_y_given_z_t, p_z_given_x])  # (n, z_depth)
         loss = Lambda(lambda _nll: T.sum(nll, axis=1, keepdims=True),

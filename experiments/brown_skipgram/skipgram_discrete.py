@@ -26,7 +26,7 @@ def main():
     # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None
     loss_weight = 1e-2
-    opt = Adam(1e-4)
+    opt = Adam(3e-4)
     opt_a = Adam(1e-3)
     adversary_weight = 0
     layernorm = False
