@@ -85,9 +85,10 @@ class SequentialEmbeddingBalancedBinary(Layer):
         # loss is MAE
         z_loss = T.abs_(pred_z - pz)  # (n,)
         # z is relative to median
-        z = theano.gradient.zero_grad(T.reshape(T.cast(T.gt(pz, pred_z), 'float32'), (-1,)))  # (n,)
+        z = theano.gradient.zero_grad(T.cast(T.gt(pz, pred_z), 'float32'))  # (n,)
+        z_input = T.reshape(z, (-1, 1))
         # h1 incorporates z
-        h1 = self.rnn.call([h0, z], rnn_params)  # (n, units)
+        h1 = self.rnn.call([h0, z_input], rnn_params)  # (n, units)
         print "Ndim: {}, {}, {}, {}, {}".format(pz.ndim, h0.ndim, h1.ndim, z.ndim, z_loss.ndim)
         return h1, z, z_loss
 

@@ -17,7 +17,7 @@ def main():
     frequency = 10
     units = 512
     embedding_units = 128
-    z_depth = 5
+    z_depth = 10
     # kernel_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None
