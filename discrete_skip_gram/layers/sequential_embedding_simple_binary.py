@@ -43,5 +43,5 @@ class SequentialEmbeddingSimpleBinary(Layer):
         h = self.embedding[T.flatten(inputs), :]  # (n, z_depth)
         h = T.nnet.sigmoid(h)
         p_z = sigmoid_smoothing(h)
-        z = T.gt(p_z, 0.5)  # (n, z_depth)
+        z = T.cast(T.gt(p_z, 0.5), 'uint8')  # (n, z_depth)
         return [p_z, z]

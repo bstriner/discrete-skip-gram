@@ -13,7 +13,7 @@ def main():
     epochs = 5000
     steps_per_epoch = 2048
     window = 2
-    frequency = 10
+    frequency = 5
     units = 512
     embedding_units = 128
     z_depth = 10

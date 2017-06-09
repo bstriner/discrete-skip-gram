@@ -92,8 +92,8 @@ class SkipgramDiscreteBinaryModel(SkipgramModel):
             x_embedding = SequentialEmbeddingSimpleBinary(x_k=x_k, z_depth=z_depth)
         p_z_given_x, z_sampled = x_embedding(input_x)
         # p_z_given_x (n, z_depth)
-        # z_sampled (n, z_depth)
-        z_sampled_3d = Lambda(lambda _x: _x.dimshuffle((0, 1, 'x')),
+        # z_sampled (n, z_depth) uint8
+        z_sampled_3d = Lambda(lambda _x: T.cast(_x.dimshuffle((0, 1, 'x')), 'float32'),
                               output_shape=lambda _x: (_x[0], _x[1], 1))(z_sampled)  # (n, z_depth, 1)
 
         # p(y|z)
