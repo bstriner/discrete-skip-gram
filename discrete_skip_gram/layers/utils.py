@@ -4,54 +4,55 @@ from theano import tensor as T
 from keras.layers import Lambda
 
 
-def build_kernel(model, shape, name):
+def build_kernel(model, shape, name, **kwargs):
     return model.add_weight(shape,
                             initializer=model.kernel_initializer,
                             name=name,
-                            regularizer=model.kernel_regularizer)
+                            regularizer=model.kernel_regularizer, **kwargs)
 
 
-def build_bias(model, shape, name):
+def build_bias(model, shape, name, **kwargs):
     return model.add_weight(shape,
                             initializer=model.bias_initializer,
                             name=name,
-                            regularizer=model.bias_regularizer)
+                            regularizer=model.bias_regularizer, **kwargs)
 
 
-def build_beta(model, shape, name):
+def build_beta(model, shape, name, **kwargs):
     return model.add_weight(shape,
                             initializer=model.beta_initializer,
-                            name=name)
+                            name=name, **kwargs)
 
 
-def build_gamma(model, shape, name):
+def build_gamma(model, shape, name, **kwargs):
     return model.add_weight(shape,
                             initializer=model.gamma_initializer,
-                            name=name)
+                            name=name, **kwargs)
 
 
-def build_moving_mean(model, shape, name):
+def build_moving_mean(model, shape, name, **kwargs):
     return model.add_weight(shape,
                             initializer=model.moving_mean_initializer,
-                            name=name)
+                            name=name, **kwargs)
 
 
-def build_moving_variance(model, shape, name):
+def build_moving_variance(model, shape, name, **kwargs):
     return model.add_weight(shape,
                             initializer=model.moving_variance_initializer,
-                            name=name)
+                            name=name, **kwargs)
 
 
-def build_embedding(model, shape, name, dtype='float32'):
+def build_embedding(model, shape, name, dtype='float32', **kwargs):
     return model.add_weight(shape,
                             initializer=model.embeddings_initializer,
                             name=name,
                             regularizer=model.embeddings_regularizer,
-                            dtype=dtype)
+                            dtype=dtype, **kwargs)
 
 
-def build_pair(model, shape, name):
-    return [build_kernel(model, shape, "{}_W".format(name)), build_bias(model, (shape[1],), "{}_b".format(name))]
+def build_pair(model, shape, name, **kwargs):
+    return [build_kernel(model, shape, "{}_W".format(name), **kwargs),
+            build_bias(model, (shape[1],), "{}_b".format(name), **kwargs)]
 
 
 def shift_tensor_layer():

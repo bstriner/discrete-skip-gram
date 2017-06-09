@@ -18,7 +18,8 @@ class MLPUnit(object):
                  inner_activation=T.nnet.relu,
                  layernorm=False,
                  batchnorm=True,
-                 output_activation=None):
+                 output_activation=None,
+                 trainable=True):
         self.inner_activation = inner_activation
         self.output_activation = output_activation
         self.input_units = input_units
@@ -26,12 +27,12 @@ class MLPUnit(object):
         self.hidden_layers = hidden_layers
         self.layernorm = layernorm
         self.batchnorm = batchnorm
-        input_b = build_bias(model, (units,), "{}_input_b".format(name))
-        input_ws = [build_kernel(model, (iu, units), "{}_input_{}_W".format(name, i)) for i, iu in
+        input_b = build_bias(model, (units,), "{}_input_b".format(name), trainable=trainable)
+        input_ws = [build_kernel(model, (iu, units), "{}_input_{}_W".format(name, i), trainable=trainable) for i, iu in
                     enumerate(input_units)]
-        hidden_params = [build_pair(model, (units, units), "{}_hidden_{}".format(name, i)) for i in
+        hidden_params = [build_pair(model, (units, units), "{}_hidden_{}".format(name, i), trainable=trainable) for i in
                          range(self.hidden_layers)]
-        output_params = build_pair(model, (units, output_units), "{}_output".format(name))
+        output_params = build_pair(model, (units, output_units), "{}_output".format(name), trainable=trainable)
         self.non_sequences = ([input_b] + input_ws +
                               list(itertools.chain.from_iterable(hidden_params)) +
                               output_params)

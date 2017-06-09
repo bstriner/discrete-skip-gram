@@ -82,7 +82,12 @@ class SkipgramDiscreteBinaryModel(SkipgramModel):
 
         # p(z|x)
         if balancer:
-            x_embedding = SequentialEmbeddingBalancedBinary(x_k=x_k, z_depth=z_depth)
+            x_embedding = SequentialEmbeddingBalancedBinary(x_k=x_k,
+                                                            z_depth=z_depth,
+                                                            units=self.units,
+                                                            batchnorm=batchnorm,
+                                                            srng=srng,
+                                                            inner_activation=self.inner_activation)
         else:
             x_embedding = SequentialEmbeddingSimpleBinary(x_k=x_k, z_depth=z_depth)
         p_z_given_x, z_sampled = x_embedding(input_x)

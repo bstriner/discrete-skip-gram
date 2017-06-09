@@ -1,6 +1,5 @@
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
-
 from dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.skipgram_discrete_binary_model import SkipgramDiscreteBinaryModel
@@ -8,7 +7,7 @@ from keras.optimizers import Adam
 
 
 def main():
-    outputpath = "output/skipgram_discrete_binary"
+    outputpath = "output/skipgram_discrete_binary_balanced"
     ds = load_dataset()
     batch_size = 256
     epochs = 5000
@@ -17,7 +16,7 @@ def main():
     frequency = 10
     units = 512
     embedding_units = 128
-    z_depth = 5
+    z_depth = 10
     # kernel_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None
@@ -25,7 +24,7 @@ def main():
     opt = Adam(3e-4)
     layernorm = False
     batchnorm = True
-    balancer = False
+    balancer = True
     dense_batch = False
     do_validate = False
     do_prior = False
