@@ -56,10 +56,10 @@ class SequentialEmbeddingBalancedBinary(Layer):
         self.embedding = build_embedding(self, (self.x_k, self.z_depth), "embedding")
         self.h0 = build_bias(self, (1, self.units), "h0", trainable=False)
         self.rnn = MLPUnit(self, input_units=[self.units, 1], units=self.units, output_units=self.units,
-                           hidden_layers=2, inner_activation=self.inner_activation, trainable=False,
+                           hidden_layers=1, inner_activation=self.inner_activation, trainable=False,
                            batchnorm=self.batchnorm, name="rnn")
         self.mlp = MLPUnit(self, input_units=[self.units], units=self.units, output_units=1,
-                           hidden_layers=2, inner_activation=self.inner_activation, trainable=False,
+                           hidden_layers=1, inner_activation=self.inner_activation, trainable=False,
                            output_activation=T.nnet.sigmoid,
                            batchnorm=self.batchnorm, name="mlp")
         self.built = True
@@ -88,7 +88,8 @@ class SequentialEmbeddingBalancedBinary(Layer):
         z = theano.gradient.zero_grad(T.cast(T.gt(pz, pred_z), 'float32'))  # (n,)
         z_input = T.reshape(z, (-1, 1))
         # h1 incorporates z
-        h1 = self.rnn.call([h0, z_input], rnn_params)  # (n, units)
+        hdiff = self.rnn.call([h0, z_input], rnn_params)  # (n, units)
+        h1 = h0 + hdiff
         print "Ndim: {}, {}, {}, {}, {}".format(pz.ndim, h0.ndim, h1.ndim, z.ndim, z_loss.ndim)
         return h1, z, z_loss
 
