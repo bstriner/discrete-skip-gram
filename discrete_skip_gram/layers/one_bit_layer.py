@@ -48,7 +48,7 @@ class OneBitLayer(Layer):
         y = T.flatten(y)
 
         # p(y)
-        p_y = uniform_smoothing(softmax_nd(self.y_bias))
+        p_y = uniform_smoothing(softmax_nd(self.y_bias)) #(y_k,)
         p_y_t = p_y[y]  # (n,)
 
         # p(y|z)
@@ -60,8 +60,11 @@ class OneBitLayer(Layer):
         eps = 1e-8
         prior_nll = -T.log(p_y_t)
         prior_nll = T.reshape(prior_nll, (-1, 1))
-        #posterior_nll = -T.log(eps + T.sum(p_z_given_x * p_y_given_z_t, axis=1))  # (n,)
-        posterior_nll = T.sum(p_z_given_x * -T.log(p_y_given_z_t), axis=1)  # (n,)
+        v2 = True
+        if v2:
+            posterior_nll = T.sum(p_z_given_x * -T.log(p_y_given_z_t), axis=1)  # (n,)
+        else:
+            posterior_nll = -T.log(eps + T.sum(p_z_given_x * p_y_given_z_t, axis=1))  # (n,)
         posterior_nll = T.reshape(posterior_nll, (-1, 1))
 
         return [prior_nll, posterior_nll]

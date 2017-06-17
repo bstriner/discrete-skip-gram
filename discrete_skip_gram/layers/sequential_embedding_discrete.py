@@ -1,9 +1,7 @@
-import theano
-import theano.tensor as T
-from keras.layers import Layer
-from keras.engine import InputSpec
-from theano.tensor.shared_randomstreams import RandomStreams
 import keras.backend as K
+from keras.engine import InputSpec
+from keras.layers import Layer
+
 
 class SequentialEmbeddingDiscrete(Layer):
     """
@@ -12,14 +10,20 @@ class SequentialEmbeddingDiscrete(Layer):
     """
 
     def __init__(self, embedding):
+        super(SequentialEmbeddingDiscrete, self).__init__()
         assert len(embedding.shape) == 2
         self.depth = embedding.shape[1]
-        self.embedding = K.variable(embedding, dtype='int32')
+        self.initial_embedding = embedding
         self.input_spec = InputSpec(ndim=2)
-        Layer.__init__(self)
 
     def build(self, input_shape):
         assert len(input_shape) == 2
+        self.embedding = self.add_weight(name="embedding",
+                                         shape=self.initial_embedding.shape,
+                                         dtype='int32',
+                                         initializer='zero',
+                                         trainable=False)
+        K.set_value(self.embedding, self.initial_embedding)
         self.built = True
 
     def compute_mask(self, inputs, mask=None):

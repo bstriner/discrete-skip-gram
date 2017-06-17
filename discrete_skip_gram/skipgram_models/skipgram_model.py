@@ -83,3 +83,20 @@ class SkipgramModel(object):
                 word = self.dataset.get_word(ix)
                 samples = [self.dataset.get_word(y[i,0]) for y in ys]
                 w.writerow([ix, word] + samples)
+
+    def write_encodings(self, output_path):
+        x = np.arange(self.dataset.k).reshape((-1, 1))
+        z = self.model_encode.predict(x, verbose=0)
+
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+        with open(output_path + ".csv", 'wb') as f:
+            w = csv.writer(f)
+            w.writerow(["Id", "Word", "Encoding"] + ["Cat {}".format(j) for j in range(self.z_depth)])
+            for i in range(self.dataset.k):
+                enc = z[i, :]
+                enca = [enc[j] for j in range(enc.shape[0])]
+                encf = "".join(chr(ord('a') + e) for e in enca)
+                word = self.dataset.get_word(i)
+                w.writerow([i, word, encf] + enca)
+        np.save(output_path + ".npy", z)

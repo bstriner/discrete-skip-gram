@@ -46,8 +46,8 @@ class OneBitDiscreteModel(SkipgramModel):
                                 embeddings_regularizer=embeddings_regularizer)
         h = x_embedding(input_x)
         h = Reshape((z_k,))(h)
-        h = softmax_nd_layer()(h)
-        p_z_given_x = UniformSmoothing()(h)  # n, z_k
+        p_z_given_x = softmax_nd_layer()(h)
+        #p_z_given_x = UniformSmoothing()(h)  # n, z_k
 
         # NLL
         layer = OneBitLayer(y_k=x_k, z_k=z_k)
