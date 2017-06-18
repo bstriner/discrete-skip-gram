@@ -9,6 +9,8 @@ from keras.layers import Input, Embedding, Lambda, Reshape
 from keras.models import Model
 from .skipgram_model import SkipgramModel
 from ..layers.skipgram_loookahead_layer import SkipgramLookaheadLayer
+from ..layers.skipgram_loookahead_partial_layer import SkipgramLookaheadPartialLayer
+from ..layers.skipgram_loookahead_flat_layer import SkipgramLookaheadFlatLayer
 from ..layers.utils import nll_metrics
 from ..layers.utils import softmax_nd_layer
 
@@ -20,9 +22,11 @@ class SkipgramDiscreteLookaheadModel(SkipgramModel):
                  embedding_units,
                  window,
                  z_depth,
+                 lookahead_depth,
                  z_k,
                  schedule,
                  opt,
+                 mode=0,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
                  embeddings_regularizer=None,
@@ -30,12 +34,14 @@ class SkipgramDiscreteLookaheadModel(SkipgramModel):
                  layernorm=False,
                  batchnorm=True,
                  ):
+        assert z_depth >= lookahead_depth
         self.dataset = dataset
         self.units = units
         self.embedding_units = embedding_units
         self.window = window
         self.hidden_layers = hidden_layers
         self.z_depth = z_depth
+        self.lookahead_depth = lookahead_depth
         self.z_k = z_k
         self.inner_activation = inner_activation
         self.schedule = schedule
@@ -58,16 +64,48 @@ class SkipgramDiscreteLookaheadModel(SkipgramModel):
         p_z_given_x = h  # (n, z_depth, z_k)
 
         # skipgram
-        skipgram = SkipgramLookaheadLayer(y_k=x_k,
-                                          z_k=z_k,
-                                          z_depth=z_depth,
-                                          units=units,
-                                          hidden_layers=hidden_layers,
-                                          embedding_units=embedding_units,
-                                          kernel_regularizer=kernel_regularizer,
-                                          inner_activation=inner_activation,
-                                          layernorm=layernorm,
-                                          batchnorm=batchnorm)
+        if mode==0:
+            print "Sampled Lookahead ({}/{})".format(lookahead_depth, z_depth)
+            skipgram = SkipgramLookaheadPartialLayer(y_k=x_k,
+                                                     z_k=z_k,
+                                                     z_depth=z_depth,
+                                                     lookahead_depth=lookahead_depth,
+                                                     units=units,
+                                                     hidden_layers=hidden_layers,
+                                                     embedding_units=embedding_units,
+                                                     kernel_regularizer=kernel_regularizer,
+                                                     inner_activation=inner_activation,
+                                                     layernorm=layernorm,
+                                                     batchnorm=batchnorm)
+        elif mode==1:
+            print "Full Lookahead ({}/{})".format(lookahead_depth, z_depth)
+            skipgram = SkipgramLookaheadLayer(y_k=x_k,
+                                              z_k=z_k,
+                                              z_depth=z_depth,
+                                              units=units,
+                                              hidden_layers=hidden_layers,
+                                              embedding_units=embedding_units,
+                                              lookahead_depth=lookahead_depth,
+                                              kernel_regularizer=kernel_regularizer,
+                                              inner_activation=inner_activation,
+                                              layernorm=layernorm,
+                                              batchnorm=batchnorm)
+        elif mode==2:
+            print "Flat lookahead"
+            skipgram = SkipgramLookaheadFlatLayer(y_k=x_k,
+                                              z_k=z_k,
+                                              z_depth=z_depth,
+                                              units=units,
+                                              hidden_layers=hidden_layers,
+                                              embedding_units=embedding_units,
+                                              lookahead_depth=lookahead_depth,
+                                              kernel_regularizer=kernel_regularizer,
+                                              inner_activation=inner_activation,
+                                              layernorm=layernorm,
+                                              batchnorm=batchnorm)
+        else:
+            raise ValueError("Unknown mode")
+
         losses = skipgram([p_z_given_x, input_y])
 
         weighted_losses = Lambda(lambda _x: _x * schedule,

@@ -22,16 +22,6 @@ def merge_losses(a, b):
     return c
 
 
-def mean_tensors(x):
-    l = len(x)
-    if l == 0:
-        raise ValueError("Error")
-    if l == 1:
-        return x[0]
-    else:
-        return add_tensors(x) / l
-
-
 def add_tensors(x):
     l = len(x)
     if l == 0:
@@ -45,7 +35,17 @@ def add_tensors(x):
         return add_tensors(x[:mid]) + add_tensors(x[mid:])
 
 
-class SkipgramLookaheadLayer(Layer):
+def mean_tensors(x):
+    l = len(x)
+    if l == 0:
+        raise ValueError("Error")
+    if l == 1:
+        return x[0]
+    else:
+        return add_tensors(x) / l
+
+
+class SkipgramLookaheadPartialLayer(Layer):
     """
     
     """
@@ -53,10 +53,10 @@ class SkipgramLookaheadLayer(Layer):
     def __init__(self,
                  z_k,
                  z_depth,
+                 lookahead_depth,
                  y_k,
                  units,
                  embedding_units,
-                 lookahead_depth,
                  hidden_layers=2,
                  inner_activation=leaky_relu,
                  layernorm=False,
@@ -65,6 +65,7 @@ class SkipgramLookaheadLayer(Layer):
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None):
+        assert z_depth >= lookahead_depth
         self.negative_sampling = negative_sampling
         self.z_k = z_k
         self.z_depth = z_depth
@@ -110,7 +111,7 @@ class SkipgramLookaheadLayer(Layer):
                            layernorm=self.layernorm,
                            batchnorm=self.batchnorm,
                            name="mlp")
-        self.h0 = build_bias(self, (self.units,), name="h0")
+        self.h0 = build_bias(self, (1, self.units), name="h0")
         self.built = True
 
     def compute_output_shape(self, (pz, y)):
@@ -121,23 +122,26 @@ class SkipgramLookaheadLayer(Layer):
         return y[0], pz[1]
 
     def recurse(self, h0, p0, p_z, y, depth, max_depth):
-        # h0: (1, units)
+        # h0: (n, units)
         # p_z: (n, depth, z_k)
         # y: (n, 1)
         if depth >= max_depth:
             return {}
-        hd = self.rnn.call([h0, self.z_embedding], self.rnn.non_sequences)  # (z_k, units)
-        h1 = h0 + hd  # (z_k, units)
-        y1 = self.mlp.call([h1], self.mlp.non_sequences)  # (z_k, y_k)
-        p1 = uniform_smoothing(softmax_nd(y1))  # (z_k, y_k)
-        nll1 = -T.log(p1)  # (z_k, y_k)
-        nllt = T.transpose(nll1, (1, 0))[T.flatten(y), :]  # (n, z_k)
+        t1 = h0.dimshuffle((0, 'x', 1))  # (n, 'x', units)
+        t2 = self.z_embedding.dimshuffle(('x', 0, 1))  # ('x', z_k, embedding_units)
+        hd = self.rnn.call([t1, t2], self.rnn.non_sequences)
+        # hd: (n, z_k, units)
+        h1 = h0.dimshuffle((0, 'x', 1)) + hd  # (n, z_k, units)
+        y1 = self.mlp.call([h1], self.mlp.non_sequences)  # (n, z_k, y_k)
+        p1 = uniform_smoothing(softmax_nd(y1))  # (n, z_k, y_k)
+        nll1 = -T.log(p1)  # (n, z_k, y_k)
+        nllt = nll1[T.arange(y.shape[0]), :, T.flatten(y)]  # (n, z_k)
         pzt = p0.dimshuffle((0, 'x')) * (p_z[:, depth, :])  # (n, z_k)
         loss = T.sum(pzt * nllt, axis=1, keepdims=True)  # (n, 1)
         losses = {depth: [loss]}
         for z in range(self.z_k):
-            h2 = T.reshape(h1[z, :], (1, -1))
-            sublosses = self.recurse(h0=h2, p_z=p_z, y=y, depth=depth + 1, p0=pzt[:, z], max_depth=max_depth)
+            h_branch = h1[:, z, :]
+            sublosses = self.recurse(h0=h_branch, p_z=p_z, y=y, depth=depth + 1, p0=pzt[:, z], max_depth=max_depth)
             losses = merge_losses(losses, sublosses)
         return losses
 
@@ -148,25 +152,20 @@ class SkipgramLookaheadLayer(Layer):
         # y: ngram: (n, 1) int32
         n = y.shape[0]
         p0 = T.ones(shape=(n,), dtype='float32')  # (n,)
-        h0 = self.h0.dimshuffle(('x', 0))
+        h0 = T.extra_ops.repeat(self.h0, n, axis=0)
+        z_sampled = T.argmax(p_z, axis=-1)  # (n, z_depth)
         recurse_len = 1 + self.z_depth - self.lookahead_depth
         all_losses = {i: [] for i in range(self.z_depth)}
-        z_samples = T.argmax(T.mean(p_z, axis=0), axis=1)  # (z_depth,)
-
         for start in range(recurse_len):
             losses = self.recurse(h0=h0, p0=p0, p_z=p_z, y=y, depth=start, max_depth=start + self.lookahead_depth)
             assert len(losses.keys()) == self.lookahead_depth
             for i in range(self.lookahead_depth):
                 all_losses[start + i].append(add_tensors(losses[start + i]))
-            zt = z_samples[start]
-            z_embedded = T.reshape(self.z_embedding[zt, :], (1, -1))  # (1,embedding_units)
-            hd = self.rnn.call([h0, z_embedded], self.rnn.non_sequences)  # (1, units)
-            h1 = h0 + hd  # (1, units)
+            z_t = z_sampled[:, start]  # (n,)
+            z_embed = self.z_embedding[z_t]  # (n, embedding_units)
+            hd = self.rnn.call([h0, z_embed], self.rnn.non_sequences)  # (z_k, units)
+            h1 = h0 + hd
             h0 = h1
-            pzt = p0 * (p_z[:, start, zt])  # (n,)
-            scale = 2.
-            p0 = pzt * scale  # / T.mean(pzt)
-
         print "All losses: {}".format(all_losses)
         loss_means = [mean_tensors(all_losses[k]) for k in range(self.z_depth)]
         lossarray = T.concatenate(loss_means, axis=1)  # (n, z_depth)

@@ -1,6 +1,7 @@
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import sys
+
 print "sys.getrecursionlimit: {}".format(sys.getrecursionlimit())
 sys.setrecursionlimit(10000)  # with z_depth=10 you get maximum recursion depth exceeded
 import numpy as np
@@ -22,8 +23,10 @@ def main():
     units = 512
     embedding_units = 128
     z_k = 2
-    z_depth = 7
+    lookahead_depth = 10
+    z_depth = 10
     opt = Adam(3e-4)
+    mode = 2
     layernorm = False
     batchnorm = False
     hidden_layers = 1
@@ -34,11 +37,13 @@ def main():
                                            z_depth=z_depth,
                                            window=window,
                                            embedding_units=embedding_units,
+                                           lookahead_depth=lookahead_depth,
                                            opt=opt,
                                            hidden_layers=hidden_layers,
                                            layernorm=layernorm,
                                            batchnorm=batchnorm,
                                            inner_activation=leaky_relu,
+                                           mode=mode,
                                            units=units)
     model.summary()
     model.train(batch_size=batch_size,
