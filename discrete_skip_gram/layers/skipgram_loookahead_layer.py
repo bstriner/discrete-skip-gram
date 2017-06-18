@@ -12,14 +12,27 @@ from ..units.mlp_unit import MLPUnit
 def merge_losses(a, b):
     c = {}
     for k in set(a.keys() + b.keys()):
+        c[k] = []
         if k in a:
-            if k in b:
-                c[k] = a[k] + b[k]
-            else:
-                c[k] = a[k]
-        else:
-            c[k] = b[k]
+            for v in a[k]:
+                c[k].append(v)
+        if k in b:
+            for v in b[k]:
+                c[k].append(v)
     return c
+
+
+def add_tensors(x):
+    l = len(x)
+    if l == 0:
+        raise ValueError("Error")
+    elif l == 1:
+        return x[0]
+    elif l == 2:
+        return x[0] + x[1]
+    else:
+        mid = int(l / 2)
+        return add_tensors(x[:mid]) + add_tensors(x[mid:])
 
 
 class SkipgramLookaheadLayer(Layer):
@@ -30,6 +43,7 @@ class SkipgramLookaheadLayer(Layer):
     def __init__(self,
                  z_k,
                  z_depth,
+                 lookahead_depth,
                  y_k,
                  units,
                  embedding_units,
@@ -44,6 +58,7 @@ class SkipgramLookaheadLayer(Layer):
         self.negative_sampling = negative_sampling
         self.z_k = z_k
         self.z_depth = z_depth
+        self.lookahead_depth = lookahead_depth
         self.layernorm = layernorm
         self.batchnorm = batchnorm
         self.y_k = y_k
@@ -95,11 +110,11 @@ class SkipgramLookaheadLayer(Layer):
         assert (len(y) == 2)  # n, 1
         return y[0], pz[1]
 
-    def recurse(self, h0, p0, p_z, y, depth):
+    def recurse(self, h0, p0, p_z, y, depth, max_depth):
         # h0: (1, units)
         # p_z: (n, depth, z_k)
         # y: (n, 1)
-        if depth >= self.z_depth:
+        if depth >= max_depth:
             return {}
         hd = self.rnn.call([h0, self.z_embedding], self.rnn.non_sequences)  # (z_k, units)
         h1 = h0 + hd  # (z_k, units)
@@ -109,21 +124,25 @@ class SkipgramLookaheadLayer(Layer):
         nllt = T.transpose(nll1, (1, 0))[T.flatten(y), :]  # (n, z_k)
         pzt = p0.dimshuffle((0, 'x')) * (p_z[:, depth, :])  # (n, z_k)
         loss = T.sum(pzt * nllt, axis=1, keepdims=True)  # (n, 1)
-        losses = {depth: loss}
+        losses = {depth: [loss]}
         for z in range(self.z_k):
             h2 = T.reshape(h1[z, :], (1, -1))
-            sublosses = self.recurse(h0=h2, p_z=p_z, y=y, depth=depth + 1, p0=pzt[:, z])
+            sublosses = self.recurse(h0=h2, p_z=p_z, y=y, depth=depth + 1, p0=pzt[:, z], max_depth=max_depth)
             losses = merge_losses(losses, sublosses)
         return losses
 
-    def call(self, (p_z, y)):
+    def call(self, inputs, **kwargs):
+        assert len(inputs) == 2
+        (p_z, y) = inputs
         # p_z: p(z): (n, z_depth, z_k)
         # y: ngram: (n, 1) int32
         n = y.shape[0]
         p0 = T.ones(shape=(n,), dtype='float32')  # (n,)
 
-        #h0 = T.extra_ops.repeat(self.h0, self.z_k, axis=0)
-        h0 = self.h0.dimshuffle(('x',0))
-        losses = self.recurse(h0=h0, p0=p0, p_z=p_z, y=y, depth=0)
-        lossarray = T.concatenate([losses[k] for k in range(self.z_depth)], axis=1)  # (n, z_depth)
+        # h0 = T.extra_ops.repeat(self.h0, self.z_k, axis=0)
+        h0 = self.h0.dimshuffle(('x', 0))
+        losses = self.recurse(h0=h0, p0=p0, p_z=p_z, y=y, depth=0, max_depth=self.z_depth)
+        assert len(losses.keys()) == self.z_depth
+        lossvals = [add_tensors(losses[k]) for k in range(self.z_depth)]
+        lossarray = T.concatenate(lossvals, axis=1)  # (n, z_depth)
         return lossarray

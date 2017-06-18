@@ -1,5 +1,8 @@
-#import os
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+import sys
+print "sys.getrecursionlimit: {}".format(sys.getrecursionlimit())
+sys.setrecursionlimit(10000)  # with z_depth=10 you get maximum recursion depth exceeded
 import numpy as np
 
 from dataset_util import load_dataset
@@ -19,7 +22,7 @@ def main():
     units = 512
     embedding_units = 128
     z_k = 2
-    z_depth = 10
+    z_depth = 7
     opt = Adam(3e-4)
     layernorm = False
     batchnorm = False
