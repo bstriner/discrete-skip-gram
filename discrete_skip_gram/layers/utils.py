@@ -55,6 +55,39 @@ def build_pair(model, shape, name, **kwargs):
             build_bias(model, (shape[1],), "{}_b".format(name), **kwargs)]
 
 
+def merge_losses(a, b):
+    c = {}
+    for k in set(a.keys() + b.keys()):
+        c[k] = []
+        if k in a:
+            for v in a[k]:
+                c[k].append(v)
+        if k in b:
+            for v in b[k]:
+                c[k].append(v)
+    return c
+
+
+def mean_tensors(x):
+    l = len(x)
+    if l == 0:
+        raise ValueError("Error")
+    if l == 1:
+        return x[0]
+    else:
+        return add_tensors(x) / np.float32(l)
+
+
+def add_tensors(x):
+    l = len(x)
+    if l == 0:
+        raise ValueError("Error")
+    elif l == 1:
+        return x[0]
+    else:
+        mid = int(l / 2)
+        return add_tensors(x[:mid]) + add_tensors(x[mid:])
+
 def shift_tensor_layer():
     return Lambda(shift_tensor, output_shape=lambda _x: _x)
 
