@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 import theano.tensor as T
 
@@ -29,7 +31,7 @@ def mean_tensors(x):
     if l == 1:
         return x[0]
     else:
-        return add_tensors(x) / l
+        return add_tensors(x) / np.float32(l)
 
 
 def add_tensors(x):
@@ -38,8 +40,6 @@ def add_tensors(x):
         raise ValueError("Error")
     elif l == 1:
         return x[0]
-    elif l == 2:
-        return x[0] + x[1]
     else:
         mid = int(l / 2)
         return add_tensors(x[:mid]) + add_tensors(x[mid:])
@@ -62,11 +62,13 @@ class SkipgramLookaheadFlatLayer(Layer):
                  layernorm=False,
                  batchnorm=False,
                  negative_sampling=None,
+                 floating='float64',
                  embeddings_initializer='random_uniform', embeddings_regularizer=None,
                  kernel_initializer='glorot_uniform', kernel_regularizer=None,
                  bias_initializer='zero', bias_regularizer=None):
         assert lookahead_depth == z_depth
         self.negative_sampling = negative_sampling
+        self.floating = floating
         self.z_k = z_k
         self.z_depth = z_depth
         self.lookahead_depth = lookahead_depth
@@ -98,20 +100,22 @@ class SkipgramLookaheadFlatLayer(Layer):
         self.p_yzs = []
         self.p_masks = []
         for i in range(self.z_depth):
-            p_yz = build_embedding(self, (int(np.power(2, i + 1)), self.y_k), "p_yz_{}".format(i))
+            p_yz = build_embedding(self, (int(np.power(2, i + 1)), self.y_k), "p_yz_{}".format(i), dtype=self.floating)
             self.p_yzs.append(p_yz)
             masks = []
-            import itertools
             combos = list(itertools.product(list(range(self.z_k)), repeat=i + 1))
             for j in range(i + 1):
                 mask = []
                 for k in range(self.z_k):
-                    m = np.array([c[j] == k for c in combos], dtype=np.float32).reshape((1, 1, -1))
+                    m = np.array([c[j] == k for c in combos]).reshape((1, 1, -1))
                     mask.append(m)
                 mask = np.concatenate(mask, axis=1)  # (1, z_k, buckets)
                 masks.append(mask)
             masks = np.concatenate(masks, axis=0)  # (depth, z_k, buckets)
-            masks = T.constant(masks, name="mask_{}".format(i))
+            if self.floating == 'float32':
+                masks = T.constant(masks.astype(np.float32), name="mask_{}".format(i))
+            else:
+                masks = T.constant(masks.astype(np.float64), name="mask_{}".format(i))
             self.p_masks.append(masks)
         self.built = True
 
@@ -129,9 +133,17 @@ class SkipgramLookaheadFlatLayer(Layer):
         m = self.p_masks[depth]  # (depth, z_k, buckets)
         t = (p_z_t.dimshuffle((0, 1, 2, 'x'))) * (m.dimshuffle(('x', 0, 1, 2)))  # (n, depth, z_k, buckets)
         pm = T.prod(T.sum(t, axis=2), axis=1)  # (n, buckets)
-        pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
-        nllt = -T.log(T.transpose(pyz, (1, 0))[T.flatten(y), :])  # (n, buckets)
-        loss = T.sum(nllt * pm, axis=1, keepdims=True)  # (n,1)
+        v2 = False
+        if v2:
+            # log(p*q)
+            pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
+            pyz_t = T.transpose(pyz, (1, 0))[T.flatten(y), :]  # (n, buckets)
+            loss = -T.log(T.sum(pyz_t * pm, axis=1, keepdims=True))  # (n,1)
+        else:
+            # p*log(q)
+            pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
+            nllt = -T.log(T.transpose(pyz, (1, 0))[T.flatten(y), :])  # (n, buckets)
+            loss = T.sum(nllt * pm, axis=1, keepdims=True)  # (n,1)
         return loss
 
     def call(self, inputs, **kwargs):

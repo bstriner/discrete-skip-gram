@@ -100,6 +100,7 @@ class SkipgramValidationModel(SkipgramModel):
 
         self.model = Model(inputs=[input_x, input_y], outputs=[loss])
         self.model.compile(opt, loss_f, metrics=metrics)
+        self.model._make_train_function()
         self.weights = self.model.weights + opt.weights
 
         # Prediction model

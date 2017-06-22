@@ -9,7 +9,8 @@ import numpy as np
 from dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.skipgram_discrete_lookahead_model import SkipgramDiscreteLookaheadModel
-from keras.optimizers import Adam
+from keras.optimizers import RMSprop, Adam
+from keras.regularizers import L1L2
 
 
 def main():
@@ -19,23 +20,33 @@ def main():
     epochs = 5000
     steps_per_epoch = 2048
     window = 2
-    frequency = 10
+    frequency = 20
     units = 512
     embedding_units = 128
     z_k = 2
     lookahead_depth = 10
     z_depth = 10
-    opt = Adam(3e-4)
+    adam = True
+    if adam:
+        opt = Adam(3e-4)
+    else:
+        opt = RMSprop(3e-4)
     mode = 2
     layernorm = False
     batchnorm = False
     hidden_layers = 1
-    schedule = np.float32(np.power(1.2, np.arange(z_depth)))
+    embeddings_regularizer = L1L2(1e-8, 1e-8)
+    scale = 1e-1
+    growth = 1.5
+    floating = 'float64'
+    schedule = np.float64(scale * np.power(growth, np.arange(z_depth)))
     model = SkipgramDiscreteLookaheadModel(dataset=ds,
                                            z_k=z_k,
                                            schedule=schedule,
                                            z_depth=z_depth,
                                            window=window,
+                                           floating=floating,
+                                           embeddings_regularizer=embeddings_regularizer,
                                            embedding_units=embedding_units,
                                            lookahead_depth=lookahead_depth,
                                            opt=opt,

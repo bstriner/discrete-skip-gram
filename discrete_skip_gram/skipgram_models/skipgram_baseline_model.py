@@ -66,6 +66,7 @@ class SkipgramBaselineModel(SkipgramModel):
 
         self.model = Model(inputs=[input_x, input_y], outputs=[nll])
         self.model.compile(opt, loss_f, metrics=[avg_nll])
+        self.model._make_train_function()
         self.weights = self.model.weights + opt.weights
         policy_sampler = SamplerLayer(srng=srng)
         ygen = policy_sampler(p)
