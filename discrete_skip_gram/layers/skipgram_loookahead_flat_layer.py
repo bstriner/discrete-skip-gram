@@ -133,7 +133,7 @@ class SkipgramLookaheadFlatLayer(Layer):
         m = self.p_masks[depth]  # (depth, z_k, buckets)
         t = (p_z_t.dimshuffle((0, 1, 2, 'x'))) * (m.dimshuffle(('x', 0, 1, 2)))  # (n, depth, z_k, buckets)
         pm = T.prod(T.sum(t, axis=2), axis=1)  # (n, buckets)
-        v2 = False
+        v2 = True
         if v2:
             # log(p*q)
             pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)

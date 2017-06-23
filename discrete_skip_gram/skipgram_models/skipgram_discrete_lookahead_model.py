@@ -60,7 +60,7 @@ class SkipgramDiscreteLookaheadModel(SkipgramModel):
         x_embedding = Embedding(input_dim=self.dataset.k,
                                 output_dim=z_depth * z_k,
                                 embeddings_regularizer=embeddings_regularizer,
-                                output_dtype=self.floating)
+                                dtype=self.floating)
         h = x_embedding(input_x)
         h = Reshape((z_depth, z_k))(h)
         h = softmax_nd_layer()(h)

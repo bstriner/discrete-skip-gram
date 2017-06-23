@@ -19,6 +19,7 @@ class SequentialEmbeddingBalancedBinary(Layer):
                  z_depth,
                  units,
                  srng,
+                 subopt,
                  batchnorm=True,
                  norm_batch_size=512,
                  inner_activation=leaky_relu,
@@ -26,6 +27,7 @@ class SequentialEmbeddingBalancedBinary(Layer):
                  bias_initializer='zero', bias_regularizer=None,
                  embeddings_initializer='random_uniform', embeddings_regularizer=None):
         self.srng = srng
+        self.subopt=subopt
         self.norm_batch_size = norm_batch_size
         self.x_k = x_k
         self.z_depth = z_depth
@@ -117,9 +119,8 @@ class SequentialEmbeddingBalancedBinary(Layer):
         pz_norm = sigmoid_smoothing(T.nnet.sigmoid(norm_batch))  # (n, z_depth)
         _, z_loss = self.scan(pz_norm)
         loss = T.mean(T.sum(z_loss, axis=1), axis=0)
-        subopt = Adam(1e-3)
         params = [self.h0] + self.rnn.non_sequences + self.mlp.non_sequences
-        updates = subopt.get_updates(params, {}, loss)
+        updates = self.subopt.get_updates(params, {}, loss)
         self.add_update(updates=updates)
 
         # training batch

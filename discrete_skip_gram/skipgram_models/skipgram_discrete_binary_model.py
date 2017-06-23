@@ -35,6 +35,7 @@ class SkipgramDiscreteBinaryModel(SkipgramModel):
                  window,
                  z_depth,
                  opt,
+                 subopt=None,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
                  embeddings_regularizer=None,
@@ -87,6 +88,7 @@ class SkipgramDiscreteBinaryModel(SkipgramModel):
                                                             units=self.units,
                                                             batchnorm=batchnorm,
                                                             srng=srng,
+                                                            subopt=subopt,
                                                             inner_activation=self.inner_activation)
         else:
             x_embedding = SequentialEmbeddingSimpleBinary(x_k=x_k, z_depth=z_depth)

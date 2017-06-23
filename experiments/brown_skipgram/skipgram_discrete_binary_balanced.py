@@ -13,7 +13,7 @@ def main():
     epochs = 5000
     steps_per_epoch = 2048
     window = 2
-    frequency = 5
+    frequency = 10
     units = 512
     embedding_units = 128
     z_depth = 10
@@ -21,7 +21,8 @@ def main():
     # embeddings_regularizer = L1L2(1e-9, 1e-9)
     # embeddings_regularizer = None
     loss_weight = 1e-2
-    opt = Adam(3e-4)
+    opt = Adam(3e-5)
+    subopt = Adam(3e-4)
     layernorm = False
     batchnorm = True
     balancer = True
@@ -37,6 +38,7 @@ def main():
                                         embedding_units=embedding_units,
                                         loss_weight=loss_weight,
                                         opt=opt,
+                                        subopt=subopt,
                                         layernorm=layernorm,
                                         batchnorm=batchnorm,
                                         inner_activation=leaky_relu,

@@ -28,7 +28,7 @@ def main():
     z_depth = 10
     adam = True
     if adam:
-        opt = Adam(3e-4)
+        opt = Adam(1e-3)
     else:
         opt = RMSprop(3e-4)
     mode = 2
