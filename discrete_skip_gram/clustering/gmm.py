@@ -14,7 +14,7 @@ def cluster_recursive(words, code, depth):
         if len(words) == 1:
             return cluster_recursive(words, code+[0], depth-1)
         else:
-            gmm = GaussianMixture(n_components=2, n_init=3)
+            gmm = GaussianMixture(n_components=2, n_init=5)
             z = np.stack(w['z'] for w in words)
             gmm.fit(z)
             p = gmm.predict_proba(z)

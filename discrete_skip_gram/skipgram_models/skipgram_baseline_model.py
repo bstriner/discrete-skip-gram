@@ -2,33 +2,34 @@
 Each element of sequence is an embedding layer
 """
 import os
+
 import numpy as np
+from theano import tensor as T
+from theano.tensor.shared_randomstreams import RandomStreams
+
+from discrete_skip_gram.layers.utils import leaky_relu
 from keras.layers import Input, Embedding, Lambda, Dense
 from keras.models import Model
 from keras.optimizers import Adam
-from theano import tensor as T
-from theano.tensor.shared_randomstreams import RandomStreams
+from .skipgram_model import SkipgramModel
+from ..layers.nll_layer import NLL
+from ..layers.uniform_smoothing import UniformSmoothing
 from ..layers.unrolled.sampler_layer import SamplerLayer
 from ..layers.utils import drop_dim_2
-from discrete_skip_gram.layers.utils import leaky_relu
-from .skipgram_model import SkipgramModel
 
 
 class SkipgramBaselineModel(SkipgramModel):
     def __init__(self,
                  dataset,
-                 units,
                  embedding_units,
                  window,
                  lr=1e-4,
                  inner_activation=leaky_relu,
                  kernel_regularizer=None,
                  embeddings_regularizer=None,
-                 hidden_layers=2,
-                 layernorm=False
+                 hidden_layers=2
                  ):
         self.dataset = dataset
-        self.units = units
         self.window = window
         self.hidden_layers = hidden_layers
         self.inner_activation = inner_activation
@@ -42,19 +43,15 @@ class SkipgramBaselineModel(SkipgramModel):
         x_embedding = Embedding(input_dim=self.dataset.k,
                                 output_dim=embedding_units,
                                 embeddings_regularizer=embeddings_regularizer)
-        z = drop_dim_2()(x_embedding(input_x))  # n, embedding_units
+        z = drop_dim_2()(x_embedding(input_x))  # (n, embedding_units)
 
-        h = z
-        for i in range(2):
-            h = Dense(self.units,
-                      kernel_regularizer=kernel_regularizer,
-                      activation=self.inner_activation)(h)
         p = Dense(x_k,
                   kernel_regularizer=kernel_regularizer,
-                  activation='softmax')(h)
-        eps = 1e-7
-        nll = Lambda(lambda (_p, _y): -T.log(eps + _p[T.arange(_p.shape[0]), T.flatten(_y)]),
+                  activation='softmax')(z)  # (n, y_k)
+        p = UniformSmoothing()(p)
+        p_t = Lambda(lambda (_p, _y): T.reshape(_p[T.arange(_p.shape[0]), T.flatten(_y)], (-1, 1)),
                      output_shape=lambda (_p, _y): (_p[0], 1))([p, input_y])
+        nll = NLL()(p_t)
 
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
@@ -88,5 +85,4 @@ class SkipgramBaselineModel(SkipgramModel):
 
     def on_epoch_end(self, output_path, epoch):
         self.write_encodings("{}/encodings-{:08d}".format(output_path, epoch))
-        self.write_predictions("{}/predictions-{:08d}.csv".format(output_path, epoch))
         self.save("{}/model-{:08d}.h5".format(output_path, epoch))

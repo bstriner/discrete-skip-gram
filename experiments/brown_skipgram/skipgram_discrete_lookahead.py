@@ -6,7 +6,7 @@ print "sys.getrecursionlimit: {}".format(sys.getrecursionlimit())
 sys.setrecursionlimit(10000)  # with z_depth=10 you get maximum recursion depth exceeded
 import numpy as np
 
-from dataset_util import load_dataset
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.skipgram_discrete_lookahead_model import SkipgramDiscreteLookaheadModel
 from keras.optimizers import RMSprop, Adam
@@ -28,6 +28,7 @@ def main():
     z_depth = 10
     adam = True
     if adam:
+        #        opt = Adam(3e-4)
         opt = Adam(1e-3)
     else:
         opt = RMSprop(3e-4)
@@ -35,7 +36,7 @@ def main():
     layernorm = False
     batchnorm = False
     hidden_layers = 1
-    embeddings_regularizer = L1L2(1e-8, 1e-8)
+    embeddings_regularizer = L1L2(1e-9, 1e-9)
     scale = 1e-1
     growth = 1.5
     floating = 'float64'

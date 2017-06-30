@@ -1,14 +1,14 @@
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+
 import numpy as np
 
-from discrete_skip_gram.skipgram_models.skipgram_validation_model import SkipgramValidationModel
-from sample_validation import validation_load
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
-from dataset_util import load_dataset
-from keras.regularizers import L1L2
-import numpy as np
 from discrete_skip_gram.models.util import latest_model
+from discrete_skip_gram.skipgram_models.skipgram_validation_model import SkipgramValidationModel
+from keras.regularizers import L1L2
+from sample_validation import validation_load
 
 
 def main():

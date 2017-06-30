@@ -1,9 +1,11 @@
-from discrete_skip_gram.clustering.utils import write_encodings
-from discrete_skip_gram.clustering.gmm import cluster_gmm
-from discrete_skip_gram.models.util import latest_model
-import numpy as np
-from dataset_util import load_dataset
 import os
+
+import numpy as np
+
+from discrete_skip_gram.clustering.gmm import cluster_gmm
+from discrete_skip_gram.clustering.utils import write_encodings
+from discrete_skip_gram.dataset_util import load_dataset
+from discrete_skip_gram.models.util import latest_model
 
 
 def main():

@@ -2,7 +2,7 @@
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 
-from dataset_util import load_dataset
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.one_bit_models.one_bit_bayes_model import OneBitBayesModel
 from sample_validation import validation_load

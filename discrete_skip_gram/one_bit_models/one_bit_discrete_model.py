@@ -11,11 +11,10 @@ from discrete_skip_gram.layers.utils import leaky_relu
 from keras.layers import Input, Embedding, Lambda, Reshape
 from keras.models import Model
 from keras.optimizers import Adam
+from ..layers.one_bit_layer import OneBitLayer
 from ..layers.uniform_smoothing import UniformSmoothing
-from ..layers.unrolled.bias_layer import BiasLayer
 from ..layers.utils import softmax_nd_layer
 from ..skipgram_models.skipgram_model import SkipgramModel
-from ..layers.one_bit_layer import OneBitLayer
 
 
 class OneBitDiscreteModel(SkipgramModel):
@@ -25,8 +24,8 @@ class OneBitDiscreteModel(SkipgramModel):
                  z_k,
                  lr=1e-4,
                  inner_activation=leaky_relu,
-                 kernel_regularizer=None,
                  embeddings_regularizer=None,
+                 bias_regularizer=None,
                  hidden_layers=2,
                  ):
         self.dataset = dataset
@@ -46,17 +45,18 @@ class OneBitDiscreteModel(SkipgramModel):
                                 embeddings_regularizer=embeddings_regularizer)
         h = x_embedding(input_x)
         h = Reshape((z_k,))(h)
-        p_z_given_x = softmax_nd_layer()(h)
-        #p_z_given_x = UniformSmoothing()(h)  # n, z_k
+        h = softmax_nd_layer()(h)
+        h = UniformSmoothing()(h)  # n, z_k
+        p_z_given_x = h  # (n, z_k)
 
         # NLL
-        layer = OneBitLayer(y_k=x_k, z_k=z_k)
-        prior_nll, posterior_nll = layer([p_z_given_x, input_y])
+        layer = OneBitLayer(y_k=x_k, z_k=z_k, bias_regularizer=bias_regularizer)
+        prior_nll, posterior_nll, val_quick_nll = layer([p_z_given_x, input_y])
 
         # argmax
         z_sampled = Lambda(lambda _z: T.argmax(_z, axis=1, keepdims=True),
                            output_shape=lambda _z: (_z[0], 1))(p_z_given_x)
-        z_embedding = Embedding(input_dim=z_k, output_dim=x_k)
+        z_embedding = Embedding(input_dim=z_k, output_dim=x_k, embeddings_regularizer=embeddings_regularizer)
         h = z_embedding(z_sampled)
         h = Reshape((x_k,))(h)
         h = softmax_nd_layer()(h)
@@ -79,13 +79,16 @@ class OneBitDiscreteModel(SkipgramModel):
         def avg_val_nll(ytrue, ypred):
             return T.mean(val_nll, axis=None)
 
+        def avg_val_quick(ytrue, ypred):
+            return T.mean(val_quick_nll, axis=None)
+
         def loss_f(ytrue, ypred):
             return T.mean(ypred, axis=None)
 
         opt = Adam(lr)
 
         self.model = Model(inputs=[input_x, input_y], outputs=[total_loss])
-        self.model.compile(opt, loss_f, metrics=[avg_prior_nll, avg_posterior_nll, avg_val_nll])
+        self.model.compile(opt, loss_f, metrics=[avg_prior_nll, avg_posterior_nll, avg_val_nll, avg_val_quick])
         self.weights = self.model.weights + opt.weights
 
         # Encoder model

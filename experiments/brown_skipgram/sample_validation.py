@@ -1,7 +1,7 @@
 import os
 import pickle
 
-from dataset_util import load_dataset
+from discrete_skip_gram.dataset_util import load_dataset
 
 
 def sample_data():

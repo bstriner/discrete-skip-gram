@@ -64,7 +64,7 @@ class SkipgramDiscreteLookaheadModel(SkipgramModel):
         h = x_embedding(input_x)
         h = Reshape((z_depth, z_k))(h)
         h = softmax_nd_layer()(h)
-        h = UniformSmoothing()(h)
+        #h = UniformSmoothing()(h)
         p_z_given_x = h  # (n, z_depth, z_k)
 
         # skipgram

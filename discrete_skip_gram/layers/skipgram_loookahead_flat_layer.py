@@ -133,17 +133,25 @@ class SkipgramLookaheadFlatLayer(Layer):
         m = self.p_masks[depth]  # (depth, z_k, buckets)
         t = (p_z_t.dimshuffle((0, 1, 2, 'x'))) * (m.dimshuffle(('x', 0, 1, 2)))  # (n, depth, z_k, buckets)
         pm = T.prod(T.sum(t, axis=2), axis=1)  # (n, buckets)
-        v2 = True
-        if v2:
+        mode = 0
+        if mode == 0:
             # log(p*q)
             pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
             pyz_t = T.transpose(pyz, (1, 0))[T.flatten(y), :]  # (n, buckets)
             loss = -T.log(T.sum(pyz_t * pm, axis=1, keepdims=True))  # (n,1)
-        else:
+        elif mode == 1:
             # p*log(q)
-            pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
+            pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]), 1e-6)  # (buckets, y_k)
             nllt = -T.log(T.transpose(pyz, (1, 0))[T.flatten(y), :])  # (n, buckets)
             loss = T.sum(nllt * pm, axis=1, keepdims=True)  # (n,1)
+        elif mode == 2:
+            # log(p) * log(q)
+            #t = (T.log(p_z_t.dimshuffle((0, 1, 2, 'x'))) +
+            #     T.log(m.dimshuffle(('x', 0, 1, 2))))  # (n, depth, z_k, buckets)
+            #pm = T.sum(T.sum(t, axis=2), axis=1)  # (n, buckets)
+            pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
+            nllt = -T.log(T.transpose(pyz, (1, 0))[T.flatten(y), :])  # (n, buckets)
+            loss = T.sum(nllt * T.log(pm), axis=1, keepdims=True)  # (n,1)
         return loss
 
     def call(self, inputs, **kwargs):

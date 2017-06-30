@@ -1,6 +1,6 @@
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
-from dataset_util import load_dataset
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.skipgram_models.skipgram_discrete_binary_model import SkipgramDiscreteBinaryModel
 from keras.optimizers import Adam

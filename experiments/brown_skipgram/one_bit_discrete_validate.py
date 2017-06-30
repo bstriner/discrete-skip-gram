@@ -3,11 +3,10 @@
 
 import numpy as np
 
-from dataset_util import load_dataset
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.models.util import latest_model
 from discrete_skip_gram.one_bit_models.one_bit_validation_model import OneBitValidationModel
-from keras.regularizers import L1L2
 from sample_validation import validation_load
 
 

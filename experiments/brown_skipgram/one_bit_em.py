@@ -1,7 +1,7 @@
 import os
 os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
-from dataset_util import load_dataset
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.one_bit_models.one_bit_em_model import OneBitEMModel
 
 

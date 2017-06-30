@@ -1,12 +1,13 @@
 #import os
 #os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
-from discrete_skip_gram.skipgram_models.skipgram_validation_model import SkipgramValidationModel
-from discrete_skip_gram.layers.utils import leaky_relu
-from dataset_util import load_dataset
-from keras.regularizers import L1L2
 import numpy as np
+
+from discrete_skip_gram.dataset_util import load_dataset
+from discrete_skip_gram.layers.utils import leaky_relu
 from discrete_skip_gram.models.util import latest_model
+from discrete_skip_gram.skipgram_models.skipgram_validation_model import SkipgramValidationModel
+from keras.regularizers import L1L2
 
 
 def main():
@@ -18,25 +19,26 @@ def main():
     ds = load_dataset()
     batch_size = 256
     epochs = 5000
+    z_depth = embedding.shape[1]
     steps_per_epoch = 2048
     window = 2
     frequency = 10
     units = 512
     embedding_units = 128
     z_k = 2
-    kernel_regularizer = L1L2(1e-8, 1e-8)
-    embeddings_regularizer = L1L2(1e-8, 1e-8)
+    kernel_regularizer = L1L2(1e-9, 1e-9)
     loss_weight = 1e-2
     lr = 3e-4
     layernorm = False
     batchnorm = True
+    schedule = np.power(1.5, np.arange(z_depth))
     model = SkipgramValidationModel(dataset=ds,
                                     z_k=z_k,
+                                    schedule=schedule,
                                     embedding=embedding,
                                     window=window,
                                     embedding_units=embedding_units,
                                     kernel_regularizer=kernel_regularizer,
-                                    embeddings_regularizer=embeddings_regularizer,
                                     loss_weight=loss_weight,
                                     layernorm=layernorm,
                                     batchnorm=batchnorm,

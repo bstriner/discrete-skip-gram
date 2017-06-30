@@ -2,11 +2,11 @@
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 
-from discrete_skip_gram.skipgram_models.skipgram_softmax_model import SkipgramSoftmaxModel
-from sample_validation import validation_load
+from discrete_skip_gram.dataset_util import load_dataset
 from discrete_skip_gram.layers.utils import leaky_relu
-from dataset_util import load_dataset
+from discrete_skip_gram.skipgram_models.skipgram_softmax_model import SkipgramSoftmaxModel
 from keras.regularizers import L1L2
+from sample_validation import validation_load
 
 
 def main():
