@@ -5,7 +5,7 @@ from keras import initializers, regularizers
 from keras.engine import InputSpec
 from keras.layers import Layer
 from .utils import build_embedding
-from .utils import uniform_smoothing, softmax_nd
+from .utils import softmax_nd
 
 
 class SkipgramValidationFlatLayer(Layer):
@@ -48,22 +48,46 @@ class SkipgramValidationFlatLayer(Layer):
         assert (len(y) == 2)  # n, 1
         return y[0], pz[1]
 
-    def calc_loss(self, z, y, depth):
+    def calc_loss1(self, z, y, depth):
         # p0: (n,)
         # p_z: (n, z_depth, z_k)
         z_t = z[:, :(depth + 1)]  # (n, depth)
-        mask = T.power(self.z_k, T.arange(depth + 1, dtype='int32'))  # (depth,)
+        # mask = T.power(self.z_k, T.arange(depth + 1, dtype='int32'))  # (depth,)
+        _mask = np.power(self.z_k, np.arange(depth + 1, dtype=np.int32)).astype(np.int32)
+        mask = T.constant(_mask)  # (depth,)
         buckets = T.sum(z_t * (mask.dimshuffle(('x', 0))), axis=1)  # (n,)
-        pyz = uniform_smoothing(softmax_nd(self.p_yzs[depth]))  # (buckets, y_k)
-        pyz_t = pyz[buckets, T.flatten(y)]  # (n,)
-        loss = T.reshape(-T.log(pyz_t), (-1, 1))  # (n,1)
+        pyz1 = self.p_yzs[depth]  # (buckets, y_k)
+        pyz2 = pyz1[buckets, :]  # (n, y_k)
+        pyz3 = softmax_nd(pyz2)  # (n, y_k)
+        pyz4 = pyz3[T.arange(y.shape[0]), T.flatten(y)]  # (n,)
+        loss = -T.log(pyz4)  # (n,)
         return loss
+
+    def calc_loss2(self, z, y, depth):
+        # p0: (n,)
+        # p_z: (n, z_depth, z_k)
+        z_t = z[:, :(depth + 1)]  # (n, depth)
+        # mask = T.power(self.z_k, T.arange(depth + 1, dtype='int32'))  # (depth,)
+        _mask = np.power(self.z_k, np.arange(depth + 1, dtype=np.int32)).astype(np.int32)
+        mask = T.constant(_mask)  # (depth,)
+        buckets = T.sum(z_t * (mask.dimshuffle(('x', 0))), axis=1)  # (n,)
+        pyz = softmax_nd(self.p_yzs[depth])  # (buckets, y_k)
+        pyz_t = pyz[buckets, T.flatten(y)]
+        eps = 1e-5
+        loss = -T.log(pyz_t+eps)  # (n,)
+        return loss
+
+    def calc_loss(self, z, y, depth):
+        if np.power(self.z_k, depth) >= 256:
+            return self.calc_loss2(z, y, depth)
+        else:
+            return self.calc_loss1(z, y, depth)
 
     def call(self, inputs, **kwargs):
         assert len(inputs) == 2
         (z, y) = inputs
         # z: encoding: (n, z_depth) [int 0-k]
         # y: ngram: (n, 1) int32
-        losses = [self.calc_loss(z=z, y=y, depth=i) for i in range(self.z_depth)]
-        lossarray = T.concatenate(losses, axis=1)  # (n, z_depth)
+        losses = [self.calc_loss2(z=z, y=y, depth=i) for i in range(self.z_depth)]
+        lossarray = T.stack(losses, axis=1)  # (n, z_depth)
         return lossarray
