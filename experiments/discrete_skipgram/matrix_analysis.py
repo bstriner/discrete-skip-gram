@@ -16,7 +16,6 @@ if __name__ == '__main__':
 
     # Unigram
     unigram = np.sum(p_a * -np.log(p_a + eps), axis=0)
-    print np.sum(x, axis=0)
     print "Unigram: {}".format(unigram)
 
     # Skipgram

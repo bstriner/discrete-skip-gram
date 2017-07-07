@@ -34,7 +34,7 @@ class SkipgramModel(object):
             print "Resuming training at {}".format(initial_epoch)
         return initial_epoch
 
-    def train(self, batch_size, epochs, steps_per_epoch, output_path, frequency=10, continue_training=True, **kwargs):
+    def train(self, x, batch_size, epochs, output_path, frequency=10, continue_training=True, **kwargs):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         initial_epoch = 0
@@ -45,11 +45,11 @@ class SkipgramModel(object):
             if (epoch + 1) % frequency == 0:
                 self.on_epoch_end(output_path, epoch)
 
-        gen = self.dataset.skipgram_generator(n=batch_size, window=self.window)
+        y = np.zeros((x.shape[0], 1), dtype='float32')
         csvcb = CSVLogger("{}/history.csv".format(output_path), append=continue_training)
         cb = LambdaCallback(on_epoch_end=on_epoch_end)
-        self.model.fit_generator(gen, epochs=epochs,
-                                 steps_per_epoch=steps_per_epoch,
+        self.model.fit(x, y, epochs=epochs,
+                       batch_size=batch_size,
                                  callbacks=[cb, csvcb],
                                  initial_epoch=initial_epoch,
                                  **kwargs)
