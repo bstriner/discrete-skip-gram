@@ -16,7 +16,7 @@ def main():
     vocab, corpus = load_corpus(corpus_path)
     if os.path.exists(output_path):
         raise ValueError("Already exists: {}".format(output_path))
-    path = "output/skipgram_baseline"
+    path = "output/skipgram_baseline_co"
     file, epoch = latest_model(path, "encodings-(\\d+).npy")
     print "Loading epoch {}: {}".format(epoch, file)
     z = np.load(file)

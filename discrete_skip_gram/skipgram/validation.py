@@ -2,6 +2,8 @@ import csv
 
 import numpy as np
 
+from .cooccurrence import load_cooccurrence
+
 
 def validate_depth(depth, encoding, co):
     count = 2 ** (depth + 1)
@@ -35,6 +37,7 @@ def calc_validation(encoding, co):
         print "NLL {}: {}".format(depth, nll)
     return nlls
 
+
 def write_validation(output_path, encoding, co):
     val = calc_validation(encoding, co)
     with open(output_path, 'wb') as f:
@@ -42,3 +45,14 @@ def write_validation(output_path, encoding, co):
         w.writerow(['Bits', 'NLL'])
         for i, v in enumerate(val):
             w.writerow([i + 1, v])
+        vals = np.array(val)
+        sched = np.power(1.5, np.arange(vals.shape[0]))
+        loss = np.sum(vals * sched)
+        w.writerow(['Total', loss])
+        print("Loss: {}".format(loss))
+
+
+def validate(output_path, cooccurrence_path, encoding_path):
+    x = load_cooccurrence(cooccurrence_path)
+    encoding = np.load(encoding_path)
+    write_validation(output_path=output_path, encoding=encoding, co=x)
