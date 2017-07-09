@@ -16,6 +16,13 @@ float_n = np.float32
 float_t = 'float32'
 
 
+def scan_fun(co, nll):
+    # co: (x_k,) conditional p of y
+    # nll: (buckets, x_k) -log(p(y))
+    h = (co.dimshuffle(('x',0)))*nll #(buckets, x_k)
+    loss = T.sum(h, axis=1) #(buckets,)
+    return loss
+
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 def calc_depth(depth, p_z, co_pt, z_k, py_weight):
     # p_z: (n, z_depth, z_k)
@@ -33,16 +40,18 @@ def calc_depth(depth, p_z, co_pt, z_k, py_weight):
     mask = T.constant(_mask)  # (depth, z_k, buckets)
     # Bucket softmax
     py = softmax_nd(py_weight)  # (buckets, x_k)
-    # Calculate probability by bucket
-    p_z_part = p_z[:, :depth, :]  # (n, depth, z_k)
-    h = (mask.dimshuffle(('x', 0, 1, 2))) * (p_z_part.dimshuffle((0, 1, 2, 'x')))  # (n, depth, z_k, buckets)
-    h = T.sum(h, axis=2)  # (n, depth, buckets)
-    h = T.prod(h, axis=1)  # (n, buckets)
-    p_b = h  # / (T.sum(h, axis=1, keepdims=True))  # (n, buckets)
-    # Calculate loss by bucket
     eps = 1e-8
-    h = (co_pt.dimshuffle((0, 'x', 1))) * -T.log(eps + py.dimshuffle(('x', 0, 1)))  # (n, buckets, x_k)
-    loss_by_bucket = T.sum(h, axis=2)  # (n, buckets)
+    nlly = -T.log(eps+py)
+    # Calculate probability by bucket
+    p_z_part = p_z[:, :depth, :]  # (x_k, depth, z_k)
+    h = (mask.dimshuffle(('x', 0, 1, 2))) * (p_z_part.dimshuffle((0, 1, 2, 'x')))  # (x_k, depth, z_k, buckets)
+    h = T.sum(h, axis=2)  # (x_k, depth, buckets)
+    h = T.prod(h, axis=1)  # (x_k, buckets)
+    p_b = h  # / (T.sum(h, axis=1, keepdims=True))  # (x_k, buckets)
+    # Calculate loss by bucket
+    loss_by_bucket, _ = theano.scan(scan_fun, sequences=[co_pt], non_sequences=[nlly]) # (x_k, buckets)
+    #h = (co_pt.dimshuffle((0, 'x', 1))) * -T.log(eps + py.dimshuffle(('x', 0, 1)))  # (x_k, buckets, x_k)
+    #loss_by_bucket = T.sum(h, axis=2)  # (x_k, buckets)
     # Total loss
     loss = T.sum(loss_by_bucket * p_b, axis=1)  # (n,)
     return loss
@@ -69,36 +78,27 @@ def build_model(cooccurrence, z_depth, z_k, loss_schedule, opt, regularizer=None
     weight = theano.shared(initial_weight, name="weight")  # (x_k, z_depth, z_k)
     pys = []
     for depth in range(z_depth):
-        n = int(2 ** (depth + 1))
-        initial_py = np.random.uniform(-scale, scale, (n, x_k)).astype(float_n)  # (buckets, x_k)
+        bucket_n = int(2 ** (depth + 1))
+        initial_py = np.random.uniform(-scale, scale, (bucket_n, x_k)).astype(float_n)  # (buckets, x_k)
         py_weight = theano.shared(initial_py, name='py_{}'.format(depth))  # (buckets, x_k)
         pys.append(py_weight)
     params = [weight] + pys
 
-    # indices
-    idx = T.ivector()  # (n,)
-    # srng = RandomStreams(123)
-    # rng = srng.random_integers(size=(batch_size,), low=0, high=corp.shape[0] - 1)  # (n,)
-    # idx = corp[rng]  # (n,)
-
     # p_z
-    h = weight[idx, :, :]  # (n, z_depth, z_k)
-    p_z = softmax_nd(h)  # (n, z_depth, z_k)
+    p_z = softmax_nd(weight)  # (n, z_depth, z_k)
 
-    co_pt = cond_p[idx, :]  # (n, x_k)
-    marg_pt = marg_p[idx]  # (n,)
     nlls = []
     for depth in range(1, z_depth + 1):
-        nll = calc_depth(depth, p_z, co_pt, z_k, pys[depth - 1])
+        nll = calc_depth(depth, p_z, cond_p, z_k, pys[depth - 1])
         nlls.append(nll)
     nlls = T.stack(nlls, axis=1)  # (n, z_depth)
-    wnlls = T.sum((marg_pt.dimshuffle((0, 'x'))) * nlls, axis=0)  # (z_depth,)
+    wnlls = T.sum((marg_p.dimshuffle((0, 'x'))) * nlls, axis=0)  # (z_depth,)
     loss = T.sum(schedule * wnlls)  # scalar
     if regularizer:
         for p in params:
             loss += regularizer(p)
     updates = opt.get_updates(params, {}, loss)
-    train = theano.function([idx], [wnlls, loss], updates=updates)
+    train = theano.function([], [wnlls, loss], updates=updates)
 
     encs = softmax_nd(weight)
     encodings = theano.function([], encs)
@@ -106,21 +106,7 @@ def build_model(cooccurrence, z_depth, z_k, loss_schedule, opt, regularizer=None
 
 
 def train_batch(idx, train, z_depth, batch_size=32):
-    nll = np.zeros((z_depth,))
-    loss = 0.
-    np.random.shuffle(idx)
-    n = idx.shape[0]
-    batch_count = int(np.ceil(float(n) / float(batch_size)))
-    for batch in range(batch_count):
-        i1 = batch * batch_size
-        i2 = (batch + 1) * batch_size
-        if i2 > n:
-            i2 = n
-        b = idx[i1:i2]
-        _nll, _loss = train(b)
-        nll += _nll
-        loss += _loss
-    return nll, loss
+    return train()
 
 
 def main():
