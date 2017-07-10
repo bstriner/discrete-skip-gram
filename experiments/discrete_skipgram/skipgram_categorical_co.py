@@ -15,7 +15,7 @@ def main():
     outputpath = "output/skipgram_categorical_co"
     z_k = 1024
     epochs = 1000
-    batches = 64
+    batches = 128
     type_t = 'float32'
     type_np = np.float32
     if not os.path.exists(outputpath):
