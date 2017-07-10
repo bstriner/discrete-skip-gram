@@ -2,8 +2,8 @@ import os
 
 import numpy as np
 
-from discrete_skip_gram.skipgram.categorical import CategoricalModel
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
+from discrete_skip_gram.skipgram.discrete_full import DiscreteFullModel
 from keras.optimizers import Adam
 from keras.regularizers import L1L2
 
@@ -12,8 +12,9 @@ def main():
     batch_size = 64
     opt = Adam(3e-4)
     regularizer = L1L2(1e-12, 1e-12)
-    outputpath = "output/skipgram_categorical_co"
-    z_k = 1024
+    outputpath = "output/skipgram_discrete_full"
+    z_depth = 10
+    z_k = 2
     epochs = 1000
     batches = 64
     type_t = 'float32'
@@ -21,8 +22,10 @@ def main():
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
-    model = CategoricalModel(cooccurrence=cooccurrence, z_k=z_k, opt=opt, regularizer=regularizer,
-                             type_np=type_np, type_t=type_t)
+    schedule = np.power(1.5, np.arange(z_depth))
+    model = DiscreteFullModel(cooccurrence=cooccurrence, z_k=z_k, opt=opt, regularizer=regularizer,
+                              z_depth=z_depth, schedule=schedule,
+                              type_np=type_np, type_t=type_t)
     model.train(outputpath=outputpath, epochs=epochs, batches=batches, batch_size=batch_size)
 
 

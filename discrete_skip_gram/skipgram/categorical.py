@@ -1,3 +1,4 @@
+from .tensor_util import save_weights, load_latest_weights
 import csv
 import os
 
@@ -10,8 +11,13 @@ from discrete_skip_gram.skipgram.tensor_util import softmax_nd
 
 
 class CategoricalModel(object):
-    def __init__(self, cooccurrence, z_k, opt, regularizer=None):
+    def __init__(self, cooccurrence, z_k, opt,
+                 type_np=np.float32,
+                 type_t='float32',
+                 regularizer=None):
         self.cooccurrence = cooccurrence
+        self.type_np=type_np
+        self.type_t = type_t
         scale = 1e-1
         x_k = cooccurrence.shape[0]
 
@@ -25,9 +31,9 @@ class CategoricalModel(object):
         cond_p = T.constant(_cond_p)  # (x_k,)
 
         # parameters
-        initial_weight = np.random.uniform(-scale, scale, (x_k, z_k)).astype(np.float32)
+        initial_weight = np.random.uniform(-scale, scale, (x_k, z_k)).astype(type_np)
         pz_weight = theano.shared(initial_weight, name="weight")  # (x_k, z_k)
-        initial_py = np.random.uniform(-scale, scale, (z_k, x_k)).astype(np.float32)  # (z_k, x_k)
+        initial_py = np.random.uniform(-scale, scale, (z_k, x_k)).astype(type_np)  # (z_k, x_k)
         py_weight = theano.shared(initial_py, name='py')  # (z_k, x_k)
         params = [pz_weight, py_weight]
 
@@ -61,6 +67,7 @@ class CategoricalModel(object):
         encodings = theano.function([], encs)
         self.train_fun = train
         self.encodings_fun = encodings
+        self.all_weights = params + opt.weights
 
     def train_batch(self, idx, batch_size=32):
         nll = 0.
@@ -80,12 +87,13 @@ class CategoricalModel(object):
         return nll, loss
 
     def train(self, outputpath, epochs, batches, batch_size):
-        with open(os.path.join(outputpath, 'history.csv'), 'wb') as f:
+        initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.all_weights)
+        with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
             w.writerow(['Epoch', 'Loss', 'NLL'])
             f.flush()
             idx = np.arange(self.cooccurrence.shape[0]).astype(np.int32)
-            for epoch in tqdm(range(epochs), desc="Training"):
+            for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                 it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                 for batch in it:
                     nll, loss = self.train_batch(idx=idx, batch_size=batch_size)
@@ -96,3 +104,4 @@ class CategoricalModel(object):
                 np.save(os.path.join(outputpath, 'probabilities-{:08d}.npy'.format(epoch)), enc)
                 z = np.argmax(enc, axis=1)  # (n,)
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
+                save_weights(os.path.join(outputpath,'model-{:08d}.h5'.format(epoch)),self.all_weights)

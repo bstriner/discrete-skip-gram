@@ -3,6 +3,9 @@ import re
 from os import listdir
 from os.path import join
 
+import numpy as np
+
+
 def make_path(path):
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -22,4 +25,8 @@ def latest_file(path, fmt):
     if latest_m:
         return join(path, latest_m), latest_epoch
     else:
-        return None
+        return None, None
+
+
+def array_string(array, fmt="{:.3f}", cat=", "):
+    return cat.join(fmt.format(np.asscalar(d)) for d in array)
