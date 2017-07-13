@@ -17,22 +17,24 @@ class DiscreteFullModel(object):
                  type_np=np.float32,
                  type_t='float32',
                  regularizer=None):
+        cooccurrence = cooccurrence.astype(type_np)
         self.cooccurrence = cooccurrence
         self.type_np = type_np
         self.type_t = type_t
         self.z_depth = z_depth
-        scale = 1e-1
+        scale = 1e-2
         x_k = cooccurrence.shape[0]
         schedule = T.constant(schedule.astype(type_np), dtype=type_t, name="schedule")  # (z_depth,)
 
         # marginal probability
         n = np.sum(cooccurrence, axis=None)
         _margin = np.sum(cooccurrence, axis=1) / n  # (x_k,)
-        marg_p = T.constant(_margin)
+        marg_p = T.constant(_margin, dtype=type_t)
+        log_marg_p = T.constant(np.log(_margin)-np.max(np.log(_margin)), dtype=type_t) # (x_k,)
 
         # conditional probability
         _cond_p = cooccurrence / np.sum(cooccurrence, axis=1, keepdims=True)
-        cond_p = T.constant(_cond_p)  # (x_k,)
+        cond_p = T.constant(_cond_p, dtype=type_t)  # (x_k,)
 
         # parameters
         # p(z|x) weights
@@ -71,16 +73,19 @@ class DiscreteFullModel(object):
         marg_pt = marg_p[idx]  # (n,)
         nlls = []
         for depth in range(z_depth):
-            nll = self.calc_depth(pzs[depth], py_weights[depth], cond_pt)  # (n,)
+            nll = self.calc_depth(pzs[depth], py_weights[depth]+log_marg_p, cond_pt)  # (n,)
             nlls.append(nll)
         nlls = T.stack(nlls, axis=1)  # (n, z_depth)
         wnlls = T.sum(nlls * (marg_pt.dimshuffle((0, 'x'))), axis=0)  # (z_depth,)
         loss = T.sum(schedule * wnlls, axis=0)  # scalar
+        reg_loss = 0.
         if regularizer:
             for p in params:
-                loss += regularizer(p)
+                reg_loss += regularizer(p)
+            reg_loss *= T.sum(marg_pt) # scale to size of batch
+            loss += reg_loss
         updates = opt.get_updates(params, {}, loss)
-        train = theano.function([idx], [wnlls, loss], updates=updates)
+        train = theano.function([idx], [wnlls, reg_loss, loss], updates=updates)
 
         # Discrete encoding
         e0 = T.zeros((x_k,), dtype='int32')  # (x_k,)
@@ -113,6 +118,7 @@ class DiscreteFullModel(object):
 
     def train_batch(self, idx, batch_size=32):
         nll = np.zeros((self.z_depth,), dtype=self.type_np)
+        reg_loss = 0.
         loss = 0.
         np.random.shuffle(idx)
         n = idx.shape[0]
@@ -123,24 +129,28 @@ class DiscreteFullModel(object):
             if i2 > n:
                 i2 = n
             b = idx[i1:i2]
-            _nll, _loss = self.train_fun(b)
+            _nll, _reg_loss, _loss = self.train_fun(b)
             nll += _nll
+            reg_loss += _reg_loss
             loss += _loss
-        return nll, loss
+        return nll, reg_loss, loss
 
     def train(self, outputpath, epochs, batches, batch_size):
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.all_weights)
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
-            w.writerow(['Epoch', 'Loss', 'NLL'])
+            w.writerow(['Epoch', 'Reg Loss', 'Loss'] + ['NLL {}'.format(i) for i in range(self.z_depth)])
             f.flush()
             idx = np.arange(self.cooccurrence.shape[0]).astype(np.int32)
             for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                 it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                 for batch in it:
-                    nll, loss = self.train_batch(idx=idx, batch_size=batch_size)
-                    it.desc = "Epoch {} Loss {:.4f} NLL [{}]".format(epoch, np.asscalar(loss), array_string(nll))
-                w.writerow([epoch, loss, nll])
+                    nll, reg_loss, loss = self.train_batch(idx=idx, batch_size=batch_size)
+                    it.desc = "Epoch {} Reg Loss {:.4f} Loss {:.4f} NLL [{}]".format(epoch,
+                                                                                     np.asscalar(reg_loss),
+                                                                                     np.asscalar(loss),
+                                                                                     array_string(nll))
+                w.writerow([epoch, reg_loss, loss] + [np.asscalar(nll[i]) for i in range(self.z_depth)])
                 f.flush()
                 enc = self.encodings_fun()  # (n, z_depth) [int 0-z_k]
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
