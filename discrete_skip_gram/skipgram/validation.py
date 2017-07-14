@@ -5,10 +5,10 @@ import numpy as np
 from .cooccurrence import load_cooccurrence
 
 
-def validate_depth(depth, encoding, co):
-    count = 2 ** (depth + 1)
+def validate_depth(depth, encoding, co, z_k):
+    count = z_k ** (depth + 1)
     enc = encoding[:, :depth + 1]
-    mask = np.reshape(np.power(2, np.arange(depth + 1)), (1, -1))
+    mask = np.reshape(np.power(z_k, np.arange(depth + 1)), (1, -1))
     buckets = np.sum(mask * enc, axis=1)
     n = np.sum(co, axis=None)
     eps = 1e-9
@@ -16,8 +16,8 @@ def validate_depth(depth, encoding, co):
     for bucket in range(count):
         ind = np.nonzero(np.equal(buckets, bucket))[0]
         if ind.shape[0] == 0:
-            pass
-            # print "Empty tree: {}".format(bucket)
+            #pass
+            print "Empty tree: {}".format(bucket)
         else:
             rows = co[ind, :]
             d = np.sum(rows, axis=0)
@@ -28,18 +28,18 @@ def validate_depth(depth, encoding, co):
     return tot
 
 
-def calc_validation(encoding, co):
+def calc_validation(encoding, co, z_k):
     z_depth = encoding.shape[1]
     nlls = []
     for depth in range(z_depth):
-        nll = validate_depth(depth, encoding, co)
+        nll = validate_depth(depth=depth, encoding=encoding, co=co, z_k=z_k)
         nlls.append(nll)
         print "NLL {}: {}".format(depth, nll)
     return nlls
 
 
-def write_validation(output_path, encoding, co):
-    val = calc_validation(encoding, co)
+def write_validation(output_path, encoding, co, z_k):
+    val = calc_validation(encoding=encoding, co=co, z_k=z_k)
     with open(output_path, 'wb') as f:
         w = csv.writer(f)
         w.writerow(['Bits', 'NLL'])
@@ -52,7 +52,15 @@ def write_validation(output_path, encoding, co):
         print("Loss: {}".format(loss))
 
 
-def validate(output_path, cooccurrence_path, encoding_path):
+def validate_binary(output_path, cooccurrence_path, encoding_path):
     x = load_cooccurrence(cooccurrence_path)
     encoding = np.load(encoding_path)
-    write_validation(output_path=output_path, encoding=encoding, co=x)
+    write_validation(output_path=output_path, encoding=encoding, co=x, z_k=2)
+
+
+def validate_flat(output_path, cooccurrence_path, encoding_path, z_k):
+    x = load_cooccurrence(cooccurrence_path)
+    encoding = np.load(encoding_path)
+    encoding = np.expand_dims(encoding, axis=1)  # (x_k, 1)
+    print "Encoding {}".format(encoding.shape)
+    write_validation(output_path=output_path, encoding=encoding, co=x, z_k=z_k)

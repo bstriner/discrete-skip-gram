@@ -10,9 +10,7 @@ if __name__ == '__main__':
 
     eps = 1e-9
     a_margin = np.sum(x, axis=1, keepdims=True)
-    b_margin = np.sum(x, axis=0, keepdims=True)
     p_a = a_margin / n
-    p_b = b_margin / n
 
     # Unigram
     unigram = np.sum(p_a * -np.log(p_a + eps), axis=0)
