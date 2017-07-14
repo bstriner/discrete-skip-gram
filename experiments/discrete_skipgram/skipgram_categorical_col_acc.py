@@ -4,14 +4,14 @@ import numpy as np
 
 from discrete_skip_gram.skipgram.categorical_col_acc import CategoricalColAccModel
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
-from keras.optimizers import Adam
-from keras.regularizers import L1L2
 from discrete_skip_gram.skipgram.optimizers import AdamOptimizer
+from keras.regularizers import L1L2
 
-#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
+
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
 def main():
-    opt = AdamOptimizer(lr=3e-4)
+    opt = AdamOptimizer(lr=1e-3)
     epochs = 1000
     batches = 64
     batch_size = 8
@@ -24,10 +24,10 @@ def main():
         os.makedirs(outputpath)
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
     model = CategoricalColAccModel(cooccurrence=cooccurrence,
-                                z_k=z_k,
-                                opt=opt,
-                                regularizer=regularizer,
-                                type_np=type_np, type_t=type_t)
+                                   z_k=z_k,
+                                   opt=opt,
+                                   # regularizer=regularizer,
+                                   type_np=type_np, type_t=type_t)
     print "Training"
     model.train(outputpath, epochs=epochs, batches=batches, batch_size=batch_size)
 

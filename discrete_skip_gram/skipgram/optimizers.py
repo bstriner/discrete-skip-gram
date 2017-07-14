@@ -73,5 +73,5 @@ class AdamOptimizer(Optimizer):
         m_updates = [(a, b) for a, b in zip(ms, ms1)]
         v_updates = [(a, b) for a, b in zip(vs, vs1)]
         w_updates = [(a, b) for a, b in zip(weights, weights1)]
-        updates = v_updates + m_updates + w_updates
+        updates = m_updates + v_updates + w_updates
         return updates

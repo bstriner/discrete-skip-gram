@@ -26,7 +26,7 @@ class CategoricalColAccModel(object):
         self.type_np = type_np
         self.type_t = type_t
         self.z_k = z_k
-        scale = 1e-1
+        scale = 1e1
         x_k = cooccurrence.shape[0]
         self.x_k = x_k
         self.opt = opt
@@ -61,7 +61,7 @@ class CategoricalColAccModel(object):
 
         h = T.sum(p_zt.dimshuffle((0, 1, 'x')) * (co_n.dimshuffle((0, 'x', 1))), axis=0)  # (bn, x_k)
         p_cond = h / T.sum(h, axis=1, keepdims=True)  # (bn, x_k)
-        eps = T.constant(1e-7, dtype=type_t)
+        eps = T.constant(1e-9, dtype=type_t)
         nllpart = T.sum(p_cond * -T.log(eps + p_cond), axis=1)  # (bn,)
         nll = T.sum(p_b * nllpart)  # scalar
         # nll = T.sum(nllpart) / float(z_k) #* T.cast(idx.shape[0],type_t)
