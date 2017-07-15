@@ -10,7 +10,12 @@ class Optimizer(object):
         self.train_fun = None
         self.train_start_fun = None
         self.apply_fun = None
+        self.accs = None
         self.weights = []
+
+    def make_accumulators(self, weights):
+        ws = [K.get_value(w) for w in weights]
+        self.accs = [theano.shared(np.zeros(w.shape, dtype=w.dtype)) for w in ws]
 
     def make_apply_updates(self, weights, ws, grads):
         raise NotImplementedError("make_apply_updates not implemented")
@@ -53,6 +58,8 @@ class AdamOptimizer(Optimizer):
         self.beta_2 = K.variable(beta_2, name='beta_2')
         self.epsilon = epsilon
         super(AdamOptimizer, self).__init__()
+
+
 
     def make_apply_updates(self, weights, ws, grads):
         ms = [theano.shared(np.zeros(w.shape, dtype=w.dtype)) for w in ws]

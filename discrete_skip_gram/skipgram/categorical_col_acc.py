@@ -19,6 +19,7 @@ class CategoricalColAccModel(object):
     def __init__(self, cooccurrence, z_k, opt,
                  type_np=np.float32,
                  type_t='float32',
+                 scale=1e-1,
                  regularizer=None):
         assert isinstance(opt, Optimizer)
         cooccurrence = cooccurrence.astype(type_np)
@@ -26,7 +27,6 @@ class CategoricalColAccModel(object):
         self.type_np = type_np
         self.type_t = type_t
         self.z_k = z_k
-        scale = 1e1
         x_k = cooccurrence.shape[0]
         self.x_k = x_k
         self.opt = opt

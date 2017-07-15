@@ -16,7 +16,7 @@ def main():
     batches = 64
     batch_size = 8
     z_k = 1024
-    regularizer = L1L2(1e-12, 1e-12)
+    regularizer = L1L2(1e-10, 1e-10)
     outputpath = "output/skipgram_categorical_col_acc"
     type_t = 'float32'
     type_np = np.float32
@@ -26,7 +26,7 @@ def main():
     model = CategoricalColAccModel(cooccurrence=cooccurrence,
                                    z_k=z_k,
                                    opt=opt,
-                                   # regularizer=regularizer,
+                                   regularizer=regularizer,
                                    type_np=type_np, type_t=type_t)
     print "Training"
     model.train(outputpath, epochs=epochs, batches=batches, batch_size=batch_size)
