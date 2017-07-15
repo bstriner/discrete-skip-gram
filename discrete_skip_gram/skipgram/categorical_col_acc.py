@@ -74,10 +74,10 @@ class CategoricalColAccModel(object):
             reg_loss *= reg_weight
             loss += reg_loss
 
-        opt.make_functions(inputs=[idx],
-                           outputs=[nll, reg_loss, loss],
-                           loss=loss,
-                           weights=params)
+        opt.make_apply(params)
+        self.train_fun = opt.make_train(inputs=[idx],
+                                        outputs=[nll, reg_loss, loss],
+                                        loss=loss)
 
         val = theano.function([idx], [nll, reg_loss, loss])
 
@@ -101,7 +101,7 @@ class CategoricalColAccModel(object):
             if i2 > n:
                 i2 = n
             b = idx[i1:i2]
-            _nll, _reg_loss, _loss = self.opt.train(b)
+            _nll, _reg_loss, _loss = self.train_fun(b)
             nll += _nll
             reg_loss += _reg_loss
             loss += _loss
