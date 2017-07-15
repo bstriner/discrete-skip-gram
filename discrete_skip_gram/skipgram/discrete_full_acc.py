@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from discrete_skip_gram.skipgram.tensor_util import softmax_nd
 from .tensor_util import save_weights, load_latest_weights
-from .util import array_string
+from .util import array_string, generate_sequences, generate_batches
 
 
 class DiscreteFullAccModel(object):
@@ -25,19 +25,23 @@ class DiscreteFullAccModel(object):
         self.cooccurrence = cooccurrence
         self.type_np = type_np
         self.type_t = type_t
+        self.z_k = z_k
         self.z_depth = z_depth
+        self.eps = T.constant(1e-9, dtype=type_t)
         scale = 1e-2
         x_k = cooccurrence.shape[0]
         schedule = T.constant(schedule.astype(type_np), dtype=type_t, name="schedule")  # (z_depth,)
 
+        # self.modes = [0 if 2 ** i > 8 else 1 for i in range(z_depth)]
+
         # cooccurrence
-        cooccurrence_n = T.constant((cooccurrence/np.sum(cooccurrence,axis=None)).astype(type_np))
+        cooccurrence_n = T.constant((cooccurrence / np.sum(cooccurrence, axis=None)).astype(type_np))
 
         # marginal probability
         n = np.sum(cooccurrence, axis=None)
         _margin = np.sum(cooccurrence, axis=1) / n  # (x_k,)
         marg_p = T.constant(_margin, dtype=type_t)
-        log_marg_p = T.constant(np.log(_margin)-np.max(np.log(_margin)), dtype=type_t) # (x_k,)
+        log_marg_p = T.constant(np.log(_margin) - np.max(np.log(_margin)), dtype=type_t)  # (x_k,)
 
         # conditional probability
         _cond_p = cooccurrence / np.sum(cooccurrence, axis=1, keepdims=True)
@@ -51,43 +55,43 @@ class DiscreteFullAccModel(object):
             initial_weight = np.random.uniform(-scale, scale, (x_k, buckets, z_k)).astype(type_np)
             pz_weight = theano.shared(initial_weight, name="pz_{}".format(depth))  # (x_k, buckets, z_k)
             pz_weights.append(pz_weight)
-
         params = pz_weights
+
+        opt.make_apply(pz_weights)
+
+        # regularization
+        self.regularizer_fun = None
+        if regularizer:
+            reg_loss = T.constant(0., dtype=type_t)
+            for p in params:
+                reg_loss += regularizer(p)
+            self.regularizer_fun = opt.make_train([], reg_loss, reg_loss)
 
         # indices
         idx = T.imatrix()  # (n, z_depth)
-        #n = idx.shape[0]
 
         # calculate p(z|x)
-        p0 = T.ones((x_k, 1, 1), dtype=type_t)  # (n, b0, z_k)
+        p0 = T.ones((x_k, 1), dtype=type_t)  # (n, b0)
         pzs = []
         for depth in range(z_depth):
-            p = softmax_nd(pz_weights[depth])  # (x_k, b1, z_k)
-            h = T.reshape(p0, (p0.shape[0], p0.shape[1] * p0.shape[2]))  # (x_k, b1)
-            p1 = (h.dimshuffle((0, 1, 'x'))) * p  # (x_k, b1, z_k)
+            p = softmax_nd(pz_weights[depth])  # (x_k, b0, z_k)
+            h = (p0.dimshuffle((0, 1, 'x'))) * p  # (x_k, b0, z_k)
+            p1 = T.reshape(h, (h.shape[0], h.shape[1] * h.shape[2]))  # (x_k, b1)
             p0 = p1
             pzs.append(p1)
 
-        pzts = []
-        for depth in range(z_depth):
-
-
-        # loss calculation
-        nlls = []
-        for depth in range(z_depth):
-            nll = self.calc_depth(pzs[depth], py_weights[depth]+log_marg_p, cond_pt)  # (n,)
-            nlls.append(nll)
-        nlls = T.stack(nlls, axis=1)  # (n, z_depth)
-        wnlls = T.sum(nlls * (marg_pt.dimshuffle((0, 'x'))), axis=0)  # (z_depth,)
-        loss = T.sum(schedule * wnlls, axis=0)  # scalar
-        reg_loss = 0.
-        if regularizer:
-            for p in params:
-                reg_loss += regularizer(p)
-            reg_loss *= T.sum(marg_pt) # scale to size of batch
-            loss += reg_loss
-        updates = opt.get_updates(params, {}, loss)
-        train = theano.function([idx], [wnlls, reg_loss, loss], updates=updates)
+        self.train_funs = []
+        for depth in range(self.z_depth):
+            weight = schedule[depth]
+            # f0
+            nll0 = self.calc_depth_full(pz=pzs[depth], cooccurrence_n=cooccurrence_n)
+            loss0 = nll0 * weight
+            fun0 = opt.make_train(inputs=[], outputs=[nll0, loss0], loss=loss0, disconnected_inputs='ignore')
+            # f1
+            nll1 = self.calc_depth_part(pz=pzs[depth], cooccurrence_n=cooccurrence_n, idx=idx)
+            loss1 = nll1 * weight
+            fun1 = opt.make_train(inputs=[idx], outputs=[nll1, loss1], loss=loss1, disconnected_inputs='ignore')
+            self.train_funs.append([fun0, fun1])
 
         # Discrete encoding
         e0 = T.zeros((x_k,), dtype='int32')  # (x_k,)
@@ -101,53 +105,95 @@ class DiscreteFullAccModel(object):
             encs.append(enc)
         encoding = T.stack(encs, axis=1)  # (x_k, z_depth)
         encodings = theano.function([], encoding)
-        self.train_fun = train
         self.encodings_fun = encodings
         self.all_weights = params + opt.weights
 
-    def calc_depth(self, pz, py_weight, cond_pt):
-        # pz: (n, buckets, z_k)
-        # py_weight: (buckets, z_k, x_k)
-        # cond_pt: (n, x_k)
-        py = softmax_nd(py_weight)  # (buckets, z_k, x_k)
-        eps = 1e-9
-        nll = -T.log(eps + py)  # (buckets, z_k, x_k)
-        loss1 = (cond_pt.dimshuffle((0, 'x', 'x', 1))) * (nll.dimshuffle(('x', 0, 1, 2)))  # (n, buckets, z_k, x_k)
-        loss2 = T.sum(loss1, axis=3)  # (n, buckets, z_k)
-        loss3 = T.sum(loss2 * pz, axis=[1, 2])  # (n,)
-        assert loss3.ndim == 1
-        return loss3
+    def calc_depth_full(self, pz, cooccurrence_n):
+        """
+        If buckets are < ~16
+        :param pz:
+        :param co_n:
+        :return:
+        """
+        # pz: (x_k, z_k)
+        # co_n: (x_k, x_k)
+        h = (pz.dimshuffle((0, 1, 'x'))) * (cooccurrence_n.dimshuffle((0, 'x', 1)))  # (x_k, z_k, x_k)
+        p = T.sum(h, axis=0)  # (z_k, x_k)
+        marg = T.sum(p, axis=1, keepdims=True)  # (z_k,1)
+        cond = p / marg  # (z_k, x_k)
+        nll = T.sum(cond * -T.log(self.eps + cond), axis=1)  # (z_k,)
+        loss = T.sum(nll * (marg.dimshuffle((0,))))
+        return loss
 
-    def train_batch(self, idx, batch_size=32):
-        nll = np.zeros((self.z_depth,), dtype=self.type_np)
-        reg_loss = 0.
+    def calc_depth_part(self, pz, cooccurrence_n, idx):
+        """
+        If buckets are > ~16
+        :param pz:
+        :param co_n:
+        :return:
+        """
+        # pz: (x_k, z_k)
+        # co_n: (x_k, x_k)
+        # idx: (bn, depth)
+        mask = T.power(self.z_k, T.arange(idx.shape[1], dtype='int32'))  # (depth,)
+        buckets = T.sum((mask.dimshuffle(('x', 0))) * idx, axis=1)  # (bn,) [int32]
+        pzt = pz[:, buckets]  # (x_k, bn)
+
+        h = (pzt.dimshuffle((0, 1, 'x'))) * (cooccurrence_n.dimshuffle((0, 'x', 1)))  # (x_k, bn, x_k)
+        p = T.sum(h, axis=0)  # (bn, x_k)
+        marg = T.sum(p, axis=1, keepdims=True)  # (bn,1)
+        cond = p / marg  # (bn, x_k)
+        nll = T.sum(cond * -T.log(self.eps + cond), axis=1)  # (bn,)
+        loss = T.sum(nll * (marg.dimshuffle((0,))))
+        return loss
+
+    def train_depth_full(self, depth):
+        fun = self.train_funs[depth][0]
+        return fun()
+
+    def train_depth_part(self, depth, batches):
+        nll = 0.
         loss = 0.
-        np.random.shuffle(idx)
-        n = idx.shape[0]
-        batch_count = int(np.ceil(float(n) / float(batch_size)))
-        for batch in range(batch_count):
-            i1 = batch * batch_size
-            i2 = (batch + 1) * batch_size
-            if i2 > n:
-                i2 = n
-            b = idx[i1:i2]
-            _nll, _reg_loss, _loss = self.train_fun(b)
+        fun = self.train_funs[depth][1]
+        for b in batches:
+            _nll, _loss = fun(b)
             nll += _nll
-            reg_loss += _reg_loss
             loss += _loss
+        return np.asscalar(nll), np.asscalar(loss)
+
+    def train_batch(self, modes, batch_data):
+        nll = np.zeros((self.z_depth,), dtype=self.type_np)
+        loss = 0.
+        for depth, (mode, data) in enumerate(zip(modes, batch_data)):
+            if mode == 0:
+                _nll, _loss = self.train_depth_full(depth)
+                nll[depth] = _nll
+                loss += _loss
+            elif mode == 1:
+                _nll, _loss = self.train_depth_part(depth, batch_data[depth])
+                nll[depth] = _nll
+                loss += _loss
+            else:
+                raise ValueError("invalid mode")
+        reg_loss = 0.
+        if self.regularizer_fun:
+            reg_loss = self.regularizer_fun()
+        loss += reg_loss
         return nll, reg_loss, loss
 
     def train(self, outputpath, epochs, batches, batch_size):
+        modes = [0 if 2 ** (i+1) <= batch_size else 1 for i in range(self.z_depth)]
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.all_weights)
+        train_data = [generate_batches(generate_sequences(i, self.z_k), batch_size=batch_size)
+                      for i in range(self.z_depth)]
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
             w.writerow(['Epoch', 'Reg Loss', 'Loss'] + ['NLL {}'.format(i) for i in range(self.z_depth)])
             f.flush()
-            idx = np.arange(self.cooccurrence.shape[0]).astype(np.int32)
             for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                 it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                 for batch in it:
-                    nll, reg_loss, loss = self.train_batch(idx=idx, batch_size=batch_size)
+                    nll, reg_loss, loss = self.train_batch(modes, train_data)
                     it.desc = "Epoch {} Reg Loss {:.4f} Loss {:.4f} NLL [{}]".format(epoch,
                                                                                      np.asscalar(reg_loss),
                                                                                      np.asscalar(loss),

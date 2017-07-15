@@ -1,3 +1,5 @@
+import itertools
+import math
 import os
 import re
 from os import listdir
@@ -26,6 +28,25 @@ def latest_file(path, fmt):
         return join(path, latest_m), latest_epoch
     else:
         return None, None
+
+
+def generate_batches(data, batch_size):
+    n = data.shape[0]
+    batch_count = int(math.ceil(float(n) / float(batch_size)))
+    batches = []
+    for i in range(batch_count):
+        idx0 = batch_size * i
+        idx1 = batch_size * (i + 1)
+        if idx1 > n:
+            idx1 = n
+        batch = data[idx0:idx1]
+        batches.append(batch)
+    return batches
+
+
+def generate_sequences(z_depth, z_k):
+    data = np.array(list(itertools.product(list(range(z_k)), repeat=z_depth+1))).astype(np.int32)
+    return data
 
 
 def array_string(array, fmt="{:.3f}", cat=", "):
