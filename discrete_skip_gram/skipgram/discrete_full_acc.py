@@ -28,6 +28,7 @@ class DiscreteFullAccModel(object):
         self.z_k = z_k
         self.z_depth = z_depth
         self.eps = T.constant(1e-9, dtype=type_t)
+        self.opt=opt
         scale = 1e-2
         x_k = cooccurrence.shape[0]
         schedule = T.constant(schedule.astype(type_np), dtype=type_t, name="schedule")  # (z_depth,)
@@ -110,7 +111,7 @@ class DiscreteFullAccModel(object):
 
     def calc_depth_full(self, pz, cooccurrence_n):
         """
-        If buckets are < ~16
+        If buckets are < ~8
         :param pz:
         :param co_n:
         :return:
@@ -127,7 +128,7 @@ class DiscreteFullAccModel(object):
 
     def calc_depth_part(self, pz, cooccurrence_n, idx):
         """
-        If buckets are > ~16
+        If buckets are > ~8
         :param pz:
         :param co_n:
         :return:
@@ -178,6 +179,7 @@ class DiscreteFullAccModel(object):
         reg_loss = 0.
         if self.regularizer_fun:
             reg_loss = self.regularizer_fun()
+        self.opt.apply()
         loss += reg_loss
         return nll, reg_loss, loss
 
