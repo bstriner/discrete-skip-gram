@@ -15,7 +15,7 @@ descent performed over full covariance matrix
 
 def main():
     batch_size = 8
-    opt = AdamOptimizer(3e-4)
+    opt = AdamOptimizer(1e-3)
     regularizer = L1L2(1e-12, 1e-12)
     outputpath = "output/skipgram_discrete_full_acc"
     z_depth = 10
@@ -27,7 +27,8 @@ def main():
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
-    schedule = np.power(1.5, np.arange(z_depth))
+    schedule = np.power(1.8, np.arange(z_depth))
+    schedule = schedule / np.max(schedule)
     model = DiscreteFullAccModel(cooccurrence=cooccurrence,
                                  z_k=z_k,
                                  opt=opt,

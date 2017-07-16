@@ -39,14 +39,14 @@ class DiscreteFullAccModel(object):
         cooccurrence_n = T.constant((cooccurrence / np.sum(cooccurrence, axis=None)).astype(type_np))
 
         # marginal probability
-        n = np.sum(cooccurrence, axis=None)
-        _margin = np.sum(cooccurrence, axis=1) / n  # (x_k,)
-        marg_p = T.constant(_margin, dtype=type_t)
-        log_marg_p = T.constant(np.log(_margin) - np.max(np.log(_margin)), dtype=type_t)  # (x_k,)
+        #n = np.sum(cooccurrence, axis=None)
+        #_margin = np.sum(cooccurrence, axis=1) / n  # (x_k,)
+        #marg_p = T.constant(_margin, dtype=type_t)
+        #log_marg_p = T.constant(np.log(_margin) - np.max(np.log(_margin)), dtype=type_t)  # (x_k,)
 
         # conditional probability
-        _cond_p = cooccurrence / np.sum(cooccurrence, axis=1, keepdims=True)
-        cond_p = T.constant(_cond_p, dtype=type_t)  # (x_k,)
+        #_cond_p = cooccurrence / np.sum(cooccurrence, axis=1, keepdims=True)
+        #cond_p = T.constant(_cond_p, dtype=type_t)  # (x_k,)
 
         # parameters
         # p(z|x) weights
