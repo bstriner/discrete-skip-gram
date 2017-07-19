@@ -6,8 +6,8 @@ import theano
 import theano.tensor as T
 from tqdm import tqdm
 
-from discrete_skip_gram.skipgram.tensor_util import softmax_nd
 from .tensor_util import save_weights, load_latest_weights
+from .tree_parameterization import ParameterizationFull
 from .util import array_string, generate_sequences, generate_batches
 
 
@@ -18,6 +18,7 @@ class DiscreteFullAccModel(object):
                  z_k,
                  opt,
                  schedule,
+                 param_class=ParameterizationFull,
                  type_np=np.float32,
                  type_t='float32',
                  regularizer=None):
@@ -28,8 +29,7 @@ class DiscreteFullAccModel(object):
         self.z_k = z_k
         self.z_depth = z_depth
         self.eps = T.constant(1e-9, dtype=type_t)
-        self.opt=opt
-        scale = 1e-2
+        self.opt = opt
         x_k = cooccurrence.shape[0]
         schedule = T.constant(schedule.astype(type_np), dtype=type_t, name="schedule")  # (z_depth,)
 
@@ -38,75 +38,43 @@ class DiscreteFullAccModel(object):
         # cooccurrence
         cooccurrence_n = T.constant((cooccurrence / np.sum(cooccurrence, axis=None)).astype(type_np))
 
-        # marginal probability
-        #n = np.sum(cooccurrence, axis=None)
-        #_margin = np.sum(cooccurrence, axis=1) / n  # (x_k,)
-        #marg_p = T.constant(_margin, dtype=type_t)
-        #log_marg_p = T.constant(np.log(_margin) - np.max(np.log(_margin)), dtype=type_t)  # (x_k,)
-
-        # conditional probability
-        #_cond_p = cooccurrence / np.sum(cooccurrence, axis=1, keepdims=True)
-        #cond_p = T.constant(_cond_p, dtype=type_t)  # (x_k,)
-
         # parameters
         # p(z|x) weights
-        pz_weights = []
-        for depth in range(z_depth):
-            buckets = int(z_k ** depth)
-            initial_weight = np.random.uniform(-scale, scale, (x_k, buckets, z_k)).astype(type_np)
-            pz_weight = theano.shared(initial_weight, name="pz_{}".format(depth))  # (x_k, buckets, z_k)
-            pz_weights.append(pz_weight)
-        params = pz_weights
+        parameterization = param_class(z_k=z_k, x_k=x_k, z_depth=z_depth, type_np=type_np, type_t=type_t)
+        params = parameterization.params
 
-        opt.make_apply(pz_weights)
+        opt.make_apply(params)
 
         # regularization
         self.regularizer_fun = None
-        if regularizer:
+        if regularizer or parameterization.loss:
             reg_loss = T.constant(0., dtype=type_t)
-            for p in params:
-                reg_loss += regularizer(p)
+            if regularizer:
+                for p in params:
+                    reg_loss += regularizer(p)
+            if parameterization.loss:
+                reg_loss += parameterization.loss
             self.regularizer_fun = opt.make_train([], reg_loss, reg_loss)
 
         # indices
         idx = T.imatrix()  # (n, z_depth)
 
-        # calculate p(z|x)
-        p0 = T.ones((x_k, 1), dtype=type_t)  # (n, b0)
-        pzs = []
-        for depth in range(z_depth):
-            p = softmax_nd(pz_weights[depth])  # (x_k, b0, z_k)
-            h = (p0.dimshuffle((0, 1, 'x'))) * p  # (x_k, b0, z_k)
-            p1 = T.reshape(h, (h.shape[0], h.shape[1] * h.shape[2]))  # (x_k, b1)
-            p0 = p1
-            pzs.append(p1)
-
         self.train_funs = []
         for depth in range(self.z_depth):
+            pz = parameterization.pzs[depth]
             weight = schedule[depth]
             # f0
-            nll0 = self.calc_depth_full(pz=pzs[depth], cooccurrence_n=cooccurrence_n)
+            nll0 = self.calc_depth_full(pz=pz, cooccurrence_n=cooccurrence_n)
             loss0 = nll0 * weight
             fun0 = opt.make_train(inputs=[], outputs=[nll0, loss0], loss=loss0, disconnected_inputs='ignore')
             # f1
-            nll1 = self.calc_depth_part(pz=pzs[depth], cooccurrence_n=cooccurrence_n, idx=idx)
+            nll1 = self.calc_depth_part(pz=pz, cooccurrence_n=cooccurrence_n, idx=idx)
             loss1 = nll1 * weight
             fun1 = opt.make_train(inputs=[idx], outputs=[nll1, loss1], loss=loss1, disconnected_inputs='ignore')
             self.train_funs.append([fun0, fun1])
 
-        # Discrete encoding
-        e0 = T.zeros((x_k,), dtype='int32')  # (x_k,)
-        encs = []
-        for depth in range(z_depth):
-            p = softmax_nd(pz_weights[depth])  # (x_k, buckets, z_k)
-            enc = T.argmax(p[T.arange(p.shape[0]), e0, :], axis=1)  # (x_k,) [int 0-z_k]
-            assert enc.ndim == 1
-            e1 = (e0 * z_k) + enc  # (x_k,) [int 0-b1] todo: double-check order
-            e0 = e1
-            encs.append(enc)
-        encoding = T.stack(encs, axis=1)  # (x_k, z_depth)
-        encodings = theano.function([], encoding)
-        self.encodings_fun = encodings
+        self.encodings_fun = theano.function([], parameterization.encoding)
+        self.probs_fun = theano.function([], parameterization.pzs)
         self.all_weights = params + opt.weights
 
     def calc_depth_full(self, pz, cooccurrence_n):
@@ -184,7 +152,7 @@ class DiscreteFullAccModel(object):
         return nll, reg_loss, loss
 
     def train(self, outputpath, epochs, batches, batch_size):
-        modes = [0 if 2 ** (i+1) <= batch_size else 1 for i in range(self.z_depth)]
+        modes = [0 if 2 ** (i + 1) <= batch_size else 1 for i in range(self.z_depth)]
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.all_weights)
         train_data = [generate_batches(generate_sequences(i, self.z_k), batch_size=batch_size)
                       for i in range(self.z_depth)]
@@ -205,3 +173,5 @@ class DiscreteFullAccModel(object):
                 enc = self.encodings_fun()  # (n, z_depth) [int 0-z_k]
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
                 save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.all_weights)
+                pzs = self.probs_fun()
+                np.savez(os.path.join(outputpath, 'pz-{:08d}.npz'.format(epoch)), *pzs)

@@ -1,3 +1,4 @@
+import csv
 import itertools
 import math
 import os
@@ -45,9 +46,26 @@ def generate_batches(data, batch_size):
 
 
 def generate_sequences(z_depth, z_k):
-    data = np.array(list(itertools.product(list(range(z_k)), repeat=z_depth+1))).astype(np.int32)
+    data = np.array(list(itertools.product(list(range(z_k)), repeat=z_depth + 1))).astype(np.int32)
     return data
 
 
 def array_string(array, fmt="{:.3f}", cat=", "):
     return cat.join(fmt.format(np.asscalar(d)) for d in array)
+
+
+def write_encodings(path, vocab, encodings):
+    x_k = encodings.shape[0]
+    z_k = encodings.shape[1]
+    make_path(path)
+    with open(path, 'wb') as f:
+        w = csv.writer(f)
+        w.writerow(["Id", "Word", "Encoding"])
+        for i in range(x_k):
+            if i == 0:
+                word = "_UNK_"
+            else:
+                word = vocab[i - 1]
+            enc = encodings[i, :]
+            encs = "".join(chr(ord('a') + enc[j]) for j in range(enc.shape[0]))
+            w.writerow([i, word, encs])
