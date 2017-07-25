@@ -142,7 +142,7 @@ class ParameterizationBU(TreeParameterization):
             p0 = p1
         pzs.reverse()
         self.pzs = pzs
-        self.encoding = self.calc_encoding()
+        self.encoding = None
 
     def calc_encoding(self):
         raise NotImplementedError()

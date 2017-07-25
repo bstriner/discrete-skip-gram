@@ -73,7 +73,9 @@ class DiscreteFullAccModel(object):
             fun1 = opt.make_train(inputs=[idx], outputs=[nll1, loss1], loss=loss1, disconnected_inputs='ignore')
             self.train_funs.append([fun0, fun1])
 
-        self.encodings_fun = theano.function([], parameterization.encoding)
+        self.encodings_fun=None
+        if parameterization.encoding:
+            self.encodings_fun = theano.function([], parameterization.encoding)
         self.probs_fun = theano.function([], parameterization.pzs)
         self.all_weights = params + opt.weights
 
@@ -170,8 +172,9 @@ class DiscreteFullAccModel(object):
                                                                                      array_string(nll))
                 w.writerow([epoch, reg_loss, loss] + [np.asscalar(nll[i]) for i in range(self.z_depth)])
                 f.flush()
-                enc = self.encodings_fun()  # (n, z_depth) [int 0-z_k]
-                np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
+                if self.encodings_fun:
+                    enc = self.encodings_fun()  # (n, z_depth) [int 0-z_k]
+                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
+                    pzs = self.probs_fun()
+                    np.savez(os.path.join(outputpath, 'pz-{:08d}.npz'.format(epoch)), *pzs)
                 save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.all_weights)
-                pzs = self.probs_fun()
-                np.savez(os.path.join(outputpath, 'pz-{:08d}.npz'.format(epoch)), *pzs)

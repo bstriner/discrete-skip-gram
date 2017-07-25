@@ -35,3 +35,10 @@ def cluster_gmm(z, depth):
     encodings = [np.array(_x[0]) for _x in coded]
     enc = np.stack(encodings)
     return enc
+
+def cluster_gmm_flat(z, k):
+    gmm = GaussianMixture(n_components=k, n_init=5)
+    gmm.fit(z)
+    p = gmm.predict_proba(z)
+    print z.shape
+    print p.shape

@@ -8,7 +8,7 @@ def makepath(path):
         makedirs(dirname(path))
 
 
-def latest_model(path, fmt):
+def latest_model(path, fmt, fail=False):
     prog = re.compile(fmt)
     latest_epoch = -1
     latest_m = None
@@ -22,7 +22,10 @@ def latest_model(path, fmt):
     if latest_m:
         return join(path, latest_m), latest_epoch
     else:
-        return None
+        if fail:
+            raise ValueError("File not found: {}".format(path))
+        else:
+            return None
 
 
 #if __name__ == "__main__":

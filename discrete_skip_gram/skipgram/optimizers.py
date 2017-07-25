@@ -3,7 +3,7 @@ import theano
 import theano.tensor as T
 
 import keras.backend as K
-
+import keras
 
 class Optimizer(object):
     def __init__(self):
@@ -73,3 +73,19 @@ class AdamOptimizer(Optimizer):
         w_updates = [(a, b) for a, b in zip(self.params, params1)]
         updates = m_updates + v_updates + w_updates
         return updates
+
+class KerasOptimizer(Optimizer):
+    def __init__(self, opt):
+        assert isinstance(opt, keras.optimizers.Optimizer)
+        self.opt=opt
+        super(KerasOptimizer, self).__init__()
+
+    def make_apply(self, params):
+        assert self.params is None
+        self.params = params
+
+    def make_train(self, inputs, outputs, loss, disconnected_inputs='raise'):
+        updates = self.opt.get_updates(self.params, {}, loss)
+        train_fun = theano.function(inputs, outputs=outputs, updates=updates)
+        return train_fun
+    
