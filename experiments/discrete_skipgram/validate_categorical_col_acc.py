@@ -9,3 +9,4 @@ if __name__ == '__main__':
         raise ValueError("No file found")
     print("Epoch {}: {}".format(epoch, encoding_path))
     validate_flat('output/validate_categorical_col_acc.csv', 'output/cooccurrence.npy', encoding_path, z_k=1024)
+

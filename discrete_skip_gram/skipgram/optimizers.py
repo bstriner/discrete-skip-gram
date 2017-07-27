@@ -2,8 +2,9 @@ import numpy as np
 import theano
 import theano.tensor as T
 
-import keras.backend as K
 import keras
+import keras.backend as K
+
 
 class Optimizer(object):
     def __init__(self):
@@ -74,10 +75,11 @@ class AdamOptimizer(Optimizer):
         updates = m_updates + v_updates + w_updates
         return updates
 
+
 class KerasOptimizer(Optimizer):
     def __init__(self, opt):
         assert isinstance(opt, keras.optimizers.Optimizer)
-        self.opt=opt
+        self.opt = opt
         super(KerasOptimizer, self).__init__()
 
     def make_apply(self, params):
@@ -88,4 +90,6 @@ class KerasOptimizer(Optimizer):
         updates = self.opt.get_updates(self.params, {}, loss)
         train_fun = theano.function(inputs, outputs=outputs, updates=updates)
         return train_fun
-    
+
+    def apply(self):
+        pass
