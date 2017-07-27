@@ -2,7 +2,6 @@ import os
 
 from discrete_skip_gram.skipgram.baseline import BaselineModel
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
-from discrete_skip_gram.skipgram.optimizers import KerasOptimizer
 from keras.optimizers import Adam
 from keras.regularizers import L1L2
 
@@ -11,14 +10,12 @@ from keras.regularizers import L1L2
 
 
 def main():
-    outputpath = "output/skipgram_baseline_co"
-    inner_opt = Adam(1e-3)
+    outputpath = "output/skipgram_baseline"
+    opt = Adam(1e-3)
     z_units = 256
     regularizer = L1L2(1e-8, 1e-8)
     epochs = 1000
-    batches = 1024
-
-    opt = KerasOptimizer(opt=inner_opt)
+    batches = 5000
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)
     cooccurrence = load_cooccurrence('output/cooccurrence.npy')

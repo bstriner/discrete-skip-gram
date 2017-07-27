@@ -16,7 +16,8 @@ class BaselineModel(object):
                  z_units,
                  opt,
                  regularizer=None,
-                 scale=1e-1):
+                 scale=1e-1,
+                 eps=1e-9):
         x_k = cooccurrence.shape[0]
         assert isinstance(opt, Optimizer)
         self.opt = opt
@@ -32,17 +33,12 @@ class BaselineModel(object):
         # normalize
         _co = cooccurrence.astype(np.float32)
         _co = _co / np.sum(_co, axis=None)
-        _marg_p = np.sum(_co, axis=1, keepdims=True)  # (x_k, 1)
-        _cond_p = _co / _marg_p  # (x_k, n)
-
-        cond_p = T.constant(_cond_p)
-        marg_p = T.constant(_marg_p)
+        co = T.constant(_co)
 
         # p
         h = T.dot(self.embedding, self.weight) + self.bias
         p = T.nnet.softmax(h)  # (x_k, x_k)
-        nll_part = T.sum(cond_p * -T.log(p), axis=1, keepdims=True)  # (x_k,1)
-        nll = T.sum(marg_p * nll_part, axis=None)  # scalar
+        nll = T.sum(co * -T.log(eps + p), axis=None)  # scalar
         loss = nll
         if regularizer:
             reg = regularizer(self.weight) + regularizer(self.embedding)
