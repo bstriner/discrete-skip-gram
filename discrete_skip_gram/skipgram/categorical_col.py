@@ -92,8 +92,14 @@ class CategoricalColModel(object):
         self.train_fun = train
         self.val_fun = val
         self.encodings_fun = encodings
+        self.z_fun = theano.function([], T.argmax(p_z, axis=1))  # (x_k,)
 
         self.weights = params + opt.weights
+
+    def calc_usage(self):
+        z = self.z_fun()
+        s = set(z[i] for i in range(z.shape[0]))
+        return len(s)
 
     def validate(self, batch_size=32):
         nll = 0.
@@ -123,7 +129,7 @@ class CategoricalColModel(object):
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
-            w.writerow(['Epoch', 'NLL', 'Reg loss', 'Loss'])
+            w.writerow(['Epoch', 'NLL', 'Reg loss', 'Loss', 'Utilization'])
             f.flush()
             for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                 it = tqdm(range(batches), desc="Epoch {}".format(epoch))
@@ -133,11 +139,11 @@ class CategoricalColModel(object):
                                                                                        np.asscalar(nll),
                                                                                        np.asscalar(reg_loss),
                                                                                        np.asscalar(loss))
-                w.writerow([epoch, nll, reg_loss, loss])
+                w.writerow([epoch, nll, reg_loss, loss, self.calc_usage()])
                 f.flush()
                 enc = self.encodings_fun()  # (n, x_k)
                 np.save(os.path.join(outputpath, 'probabilities-{:08d}.npy'.format(epoch)), enc)
-                z = np.argmax(enc, axis=1)  # (n,)
+                z = self.z_fun()  # (n,)
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
                 save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
 
