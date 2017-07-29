@@ -16,20 +16,18 @@ from .tensor_util import save_weights, load_latest_weights
 
 class CategoricalColModel(object):
     def __init__(self, cooccurrence, z_k, opt,
-                 type_np=np.float32,
-                 type_t='float32',
                  eps=1e-9,
                  mode=1,
                  pz_weight_regularizer=None,
                  pz_regularizer=None):
-        cooccurrence = cooccurrence.astype(type_np)
+        cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
-        self.type_np = type_np
-        self.type_t = type_t
         self.z_k = z_k
         scale = 1e-1
         x_k = cooccurrence.shape[0]
         self.x_k = x_k
+        self.pz_weight_regularizer = pz_weight_regularizer
+        self.pz_regularizer = pz_regularizer
 
         # cooccurrence matrix
         n = np.sum(cooccurrence, axis=None)
@@ -38,13 +36,13 @@ class CategoricalColModel(object):
 
         # parameters
         # P(z|x)
-        initial_pz = np.random.uniform(-scale, scale, (x_k, z_k)).astype(type_np)
+        initial_pz = np.random.uniform(-scale, scale, (x_k, z_k)).astype(np.float32)
         pz_weight = theano.shared(initial_pz, name="pz_weight")  # (x_k, z_k)
         params = [pz_weight]
 
         py = None
         if mode == 2:
-            initial_py = np.random.uniform(-scale, scale, (z_k, x_k)).astype(type_np)
+            initial_py = np.random.uniform(-scale, scale, (z_k, x_k)).astype(np.float32)
             m = np.sum(_co, axis=1)
             lm = np.log(m)
             lmax = np.max(lm)
@@ -117,6 +115,11 @@ class CategoricalColModel(object):
         return nll, reg_loss, loss
 
     def train(self, outputpath, epochs, batches):
+        if not os.path.exists(outputpath):
+            os.makedirs(outputpath)
+        with open(os.path.join(outputpath, 'summary.txt'), 'w') as f:
+            f.write("pz_weight_regularizer: {}\n".format(self.pz_weight_regularizer))
+            f.write("pz_regularizer: {}\n".format(self.pz_regularizer))
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
@@ -137,3 +140,19 @@ class CategoricalColModel(object):
                 z = np.argmax(enc, axis=1)  # (n,)
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
                 save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
+
+
+def train_model(outputpath,
+                epochs,
+                batches,
+                cooccurrence,
+                z_k,
+                opt,
+                pz_regularizer=None,
+                pz_weight_regularizer=None):
+    model = CategoricalColModel(cooccurrence=cooccurrence,
+                                z_k=z_k,
+                                opt=opt,
+                                pz_regularizer=pz_regularizer,
+                                pz_weight_regularizer=pz_weight_regularizer)
+    model.train(outputpath, epochs=epochs, batches=batches)
