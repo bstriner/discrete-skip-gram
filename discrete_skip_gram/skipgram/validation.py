@@ -4,6 +4,7 @@ import numpy as np
 
 from .cooccurrence import load_cooccurrence
 
+from discrete_skip_gram.skipgram.util import latest_file
 
 def validate_depth(depth, encoding, co, z_k):
     count = z_k ** (depth + 1)
@@ -88,3 +89,18 @@ def validate_empty(enc, z_k):
     assert len(enc.shape) == 1
     used = set(enc[i] for i in range(enc.shape[0]))
     print "Used: {}/{}".format(len(used), z_k)
+
+def run_flat_validation(input_path, output_path):
+    cooccurrence = load_cooccurrence('output/cooccurrence.npy')
+    z_k = 1024
+    val = validate_encoding_flat(cooccurrence=cooccurrence)
+    encoding_path, epoch = latest_file(input_path, "encodings-(\d+).npy")
+    if not epoch:
+        raise ValueError("No file found at {}".format(input_path))
+    print("Epoch {}: {}".format(epoch, encoding_path))
+    enc = np.load(encoding_path)
+    nll = val(enc, z_k)
+    with open(output_path, 'w') as f:
+        f.write("NLL: {}".format(nll))
+    print("NLL: {}".format(nll))
+    validate_empty(enc, z_k)

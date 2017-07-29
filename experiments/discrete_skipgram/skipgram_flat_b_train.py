@@ -4,8 +4,9 @@ import numpy as np
 
 from discrete_skip_gram.skipgram.categorical_col import CategoricalColModel
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
-from keras.optimizers import Adam
 from discrete_skip_gram.skipgram.regularizers import BalanceRegularizer
+from keras.optimizers import Adam
+
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
@@ -25,7 +26,8 @@ def main():
                                 z_k=z_k,
                                 opt=opt,
                                 pz_regularizer=regularizer,
-                                type_np=type_np, type_t=type_t)
+                                type_np=type_np,
+                                type_t=type_t)
     model.train(outputpath, epochs=epochs, batches=batches)
 
 
