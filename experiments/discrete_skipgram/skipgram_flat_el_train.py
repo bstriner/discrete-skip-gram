@@ -5,8 +5,7 @@ import numpy as np
 from discrete_skip_gram.skipgram.categorical_col import CategoricalColModel
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
 from keras.optimizers import Adam
-from keras.regularizers import L1L2
-
+from discrete_skip_gram.skipgram.regularizers import ExclusiveLasso
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
@@ -15,8 +14,8 @@ def main():
     epochs = 1000
     batches = 1024
     z_k = 1024
-    regularizer = L1L2(1e-10, 1e-10)
-    outputpath = "output/skipgram_categorical_col"
+    regularizer = ExclusiveLasso(1e-2)
+    outputpath = "output/skipgram_flat-el"
     type_t = 'float32'
     type_np = np.float32
     if not os.path.exists(outputpath):
@@ -25,7 +24,7 @@ def main():
     model = CategoricalColModel(cooccurrence=cooccurrence,
                                 z_k=z_k,
                                 opt=opt,
-                                regularizer=regularizer,
+                                pz_weight_regularizer=regularizer,
                                 type_np=type_np, type_t=type_t)
     model.train(outputpath, epochs=epochs, batches=batches)
 

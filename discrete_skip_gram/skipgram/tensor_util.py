@@ -8,11 +8,12 @@ from .util import make_path
 
 def softmax_nd(x, axis=-1):
     e_x = T.exp(x - x.max(axis=axis, keepdims=True))
-    #    eps = 1e-7
-    #    out = e_x / (e_x.sum(axis=axis, keepdims=True) + eps)
-    out = e_x / e_x.sum(axis=axis, keepdims=True)
+    out = e_x / T.sum(e_x, axis=axis, keepdims=True)
     return out
 
+def smoothmax_nd(x, axis=-1, keepdims=True):
+    sm = softmax_nd(x, axis=axis)
+    return T.sum(sm*x, axis=axis, keepdims=keepdims)
 
 def weight_name(i, weight):
     return "param_{}".format(i)

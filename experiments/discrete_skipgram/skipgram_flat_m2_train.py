@@ -11,12 +11,12 @@ from keras.regularizers import L1L2
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
 def main():
-    opt = Adam(1e-3)
+    opt = Adam(3e-4)
     epochs = 1000
     batches = 1024
     z_k = 1024
-    regularizer = L1L2(1e-10, 1e-10)
-    outputpath = "output/skipgram_categorical_col"
+    regularizer = L1L2(1e-12, 1e-12)
+    outputpath = "output/skipgram_flat_m2"
     type_t = 'float32'
     type_np = np.float32
     if not os.path.exists(outputpath):
@@ -25,6 +25,7 @@ def main():
     model = CategoricalColModel(cooccurrence=cooccurrence,
                                 z_k=z_k,
                                 opt=opt,
+                                mode=2,
                                 regularizer=regularizer,
                                 type_np=type_np, type_t=type_t)
     model.train(outputpath, epochs=epochs, batches=batches)

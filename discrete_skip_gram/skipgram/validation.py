@@ -16,7 +16,7 @@ def validate_depth(depth, encoding, co, z_k):
     for bucket in range(count):
         ind = np.nonzero(np.equal(buckets, bucket))[0]
         if ind.shape[0] == 0:
-            #pass
+            # pass
             print "Empty tree: {}".format(bucket)
         else:
             rows = co[ind, :]
@@ -64,3 +64,27 @@ def validate_flat(output_path, cooccurrence_path, encoding_path, z_k):
     encoding = np.expand_dims(encoding, axis=1)  # (x_k, 1)
     print "Encoding {}".format(encoding.shape)
     write_validation(output_path=output_path, encoding=encoding, co=x, z_k=z_k)
+
+
+def validate_encoding_flat(cooccurrence, eps=1e-9):
+    _co = cooccurrence.astype(np.float32)
+    _co = _co / np.sum(_co, axis=None)
+
+    def fun(enc, z_k):
+        x_k = _co.shape[0]
+        m = np.zeros((z_k, x_k))  # zk, xk
+        m[enc, np.arange(x_k)] = 1
+        p = np.dot(m, _co)  # (z_k, x_k) * (x_k, x_k) = z_k, x_k
+        marg = np.sum(p, axis=1, keepdims=True)
+        cond = p / (marg + eps)
+        nll = np.sum(cond * -np.log(eps + cond), axis=1, keepdims=True)  # (z_k, 1)
+        loss = np.asscalar(np.sum(nll * marg, axis=None))
+        return loss
+
+    return fun
+
+
+def validate_empty(enc, z_k):
+    assert len(enc.shape) == 1
+    used = set(enc[i] for i in range(enc.shape[0]))
+    print "Used: {}/{}".format(len(used), z_k)

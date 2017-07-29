@@ -36,9 +36,9 @@ def cluster_gmm(z, depth):
     enc = np.stack(encodings)
     return enc
 
-def cluster_gmm_flat(z, k):
-    gmm = GaussianMixture(n_components=k, n_init=5)
+def cluster_gmm_flat(z, z_k, n_init=1):
+    gmm = GaussianMixture(n_components=z_k, n_init=n_init)
     gmm.fit(z)
-    p = gmm.predict_proba(z)
-    print z.shape
-    print p.shape
+    p = gmm.predict_proba(z) # (x_k, z_k)
+    enc = np.argmax(p, axis=1) # (x_k,)
+    return enc

@@ -12,9 +12,9 @@ from keras.regularizers import L1L2
 def main():
     outputpath = "output/skipgram_baseline"
     opt = Adam(1e-3)
-    z_units = 256
-    regularizer = L1L2(1e-8, 1e-8)
-    epochs = 1000
+    z_units = 128
+    regularizer = L1L2(1e-10, 1e-10)
+    epochs = 50
     batches = 5000
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)

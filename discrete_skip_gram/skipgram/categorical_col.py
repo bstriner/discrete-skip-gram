@@ -10,7 +10,7 @@ import theano
 import theano.tensor as T
 from tqdm import tqdm
 
-from discrete_skip_gram.skipgram.tensor_util import softmax_nd
+from discrete_skip_gram.skipgram.tensor_util import softmax_nd, smoothmax_nd
 from .tensor_util import save_weights, load_latest_weights
 
 
@@ -18,7 +18,10 @@ class CategoricalColModel(object):
     def __init__(self, cooccurrence, z_k, opt,
                  type_np=np.float32,
                  type_t='float32',
-                 regularizer=None):
+                 eps=1e-9,
+                 mode=1,
+                 pz_weight_regularizer=None,
+                 pz_regularizer=None):
         cooccurrence = cooccurrence.astype(type_np)
         self.cooccurrence = cooccurrence
         self.type_np = type_np
@@ -26,84 +29,75 @@ class CategoricalColModel(object):
         self.z_k = z_k
         scale = 1e-1
         x_k = cooccurrence.shape[0]
-        self.x_k=x_k
+        self.x_k = x_k
 
-        n = np.sum(cooccurrence, axis=None)
         # cooccurrence matrix
-        co_n = T.constant(cooccurrence / n, name="co_n")
-
-        # marginal probability
-        _margin = np.sum(cooccurrence, axis=1) / n  # (x_k,)
-        marg_p = T.constant(_margin)
-
-        # conditional probability
-        # _cond_p = cooccurrence / np.sum(cooccurrence, axis=1, keepdims=True)
-        # cond_p = T.constant(_cond_p)  # (x_k,)
+        n = np.sum(cooccurrence, axis=None)
+        _co = cooccurrence / n
+        co_n = T.constant(_co, name="co_n")
 
         # parameters
         # P(z|x)
-        initial_weight = np.random.uniform(-scale, scale, (x_k, z_k)).astype(type_np)
-        pz_weight = theano.shared(initial_weight, name="weight")  # (x_k, z_k)
+        initial_pz = np.random.uniform(-scale, scale, (x_k, z_k)).astype(type_np)
+        pz_weight = theano.shared(initial_pz, name="pz_weight")  # (x_k, z_k)
         params = [pz_weight]
 
-        # indices of columns
-        idx = T.ivector()  # (n,) [0-z_k]
+        py = None
+        if mode == 2:
+            initial_py = np.random.uniform(-scale, scale, (z_k, x_k)).astype(type_np)
+            m = np.sum(_co, axis=1)
+            lm = np.log(m)
+            lmax = np.max(lm)
+            initial_py = initial_py + lm - lmax
+            py_weight = theano.shared(initial_py, name="py_weight")
+            params.append(py_weight)
+            py = softmax_nd(py_weight)
 
         # p_z
-        p_z = softmax_nd(pz_weight)  # (x_k, z_k)
-        p_zt = p_z[:, idx]  # (x_k, bn)
+        if mode == 1 or mode == 2:
+            p_z = softmax_nd(pz_weight)  # (x_k, z_k)
+        elif mode == 3:
+            # todo: smooth maximum
+            # p_z = softmax_nd(pz_weight - T.max(pz_weight, axis=0, keepdims=True))
+            p_z = softmax_nd(pz_weight - smoothmax_nd(pz_weight, axis=0, keepdims=True))
+        elif mode == 4:
+            p_z = softmax_nd(pz_weight - T.mean(pz_weight, axis=0, keepdims=True))
+        else:
+            raise ValueError()
+        pzr = T.transpose(p_z, (1, 0))  # (z_k, x_k)
 
         # p(bucket)
-        p_b = T.sum(p_zt * (marg_p.dimshuffle((0, 'x'))), axis=0)  # (bn,)
-
-        h = T.sum(p_zt.dimshuffle((0, 1, 'x')) * (co_n.dimshuffle((0, 'x', 1))), axis=0)  # (bn, x_k)
-        p_cond = h / T.sum(h, axis=1, keepdims=True)  # (bn, x_k)
-        eps = T.constant(1e-7, dtype=type_t)
-        nllpart = T.sum(p_cond * -T.log(eps+p_cond), axis=1)  # (bn,)
-        nll = T.sum(p_b * nllpart)  # scalar
-        #nll = T.sum(nllpart) / float(z_k) #* T.cast(idx.shape[0],type_t)
+        p_b = T.dot(pzr, co_n)  # (z_k, x_k)
+        if mode == 1 or mode == 3 or mode == 4:
+            marg = T.sum(p_b, axis=1, keepdims=True)  # (z_k, 1)
+            cond = p_b / marg  # (z_k, x_k)
+            nll = T.sum(p_b * -T.log(eps + cond), axis=None)  # scalar
+        elif mode == 2:
+            nll = T.sum(p_b * -T.log(eps + py), axis=None)  # scalar
+        else:
+            raise ValueError("unknown mode: {}".format(mode))
         loss = nll
+
         reg_loss = T.constant(0.)
-        reg_weight = T.sum(p_b)
-        if regularizer:
-            for p in params:
-                reg_loss += regularizer(p)
-            reg_loss *= reg_weight
-            loss += reg_loss
+        if pz_weight_regularizer:
+            reg_loss += pz_weight_regularizer(pz_weight)
+        if pz_regularizer:
+            reg_loss += pz_regularizer(p_z)
+        loss += reg_loss
+
         updates = opt.get_updates(params, {}, loss)
-        train = theano.function([idx], [nll, reg_loss, loss], updates=updates)
 
-        val = theano.function([idx], [nll, reg_loss, loss])
+        train = theano.function([], [nll, reg_loss, loss], updates=updates)
+        val = theano.function([], [nll, reg_loss, loss])
+        encodings = theano.function([], p_z)
 
-        encs = softmax_nd(pz_weight)
-        # z = T.argmax(encs, axis=1)  #(x_k,)
-        encodings = theano.function([], encs)
         self.train_fun = train
-        self.encodings_fun = encodings
         self.val_fun = val
-        self.all_weights = params + opt.weights
+        self.encodings_fun = encodings
 
-    def train_batch(self, idx, batch_size=32):
-        nll = 0.
-        loss = 0.
-        reg_loss = 0.
-        np.random.shuffle(idx)
-        n = idx.shape[0]
-        batch_count = int(np.ceil(float(n) / float(batch_size)))
-        for batch in range(batch_count):
-            i1 = batch * batch_size
-            i2 = (batch + 1) * batch_size
-            if i2 > n:
-                i2 = n
-            b = idx[i1:i2]
-            _nll, _reg_loss, _loss = self.train_fun(b)
-            nll += _nll
-            reg_loss += _reg_loss
-            loss += _loss
-        return nll, reg_loss, loss
+        self.weights = params + opt.weights
 
-
-    def validate(self,  batch_size=32):
+    def validate(self, batch_size=32):
         nll = 0.
         loss = 0.
         reg_loss = 0.
@@ -122,26 +116,24 @@ class CategoricalColModel(object):
             loss += _loss
         return nll, reg_loss, loss
 
-    def train(self, outputpath, epochs, batches, batch_size):
-        initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.all_weights)
+    def train(self, outputpath, epochs, batches):
+        initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
-            w.writerow(['Epoch', 'Reg loss', 'Loss', 'NLL'])
+            w.writerow(['Epoch', 'NLL', 'Reg loss', 'Loss'])
             f.flush()
-            idx = np.arange(self.z_k).astype(np.int32)
             for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                 it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                 for batch in it:
-                    nll, reg_loss, loss = self.train_batch(idx=idx, batch_size=batch_size)
-                    it.desc = "Epoch {} Reg Loss {:.4f} Loss {:.4f} NLL {:.4f}".format(epoch,
+                    nll, reg_loss, loss = self.train_fun()
+                    it.desc = "Epoch {} NLL {:.4f} Reg Loss {:.4f} Loss {:.4f}".format(epoch,
+                                                                                       np.asscalar(nll),
                                                                                        np.asscalar(reg_loss),
-                                                                                       np.asscalar(loss),
-                                                                                       np.asscalar(nll))
-                w.writerow([epoch, reg_loss, loss, nll])
+                                                                                       np.asscalar(loss))
+                w.writerow([epoch, nll, reg_loss, loss])
                 f.flush()
                 enc = self.encodings_fun()  # (n, x_k)
                 np.save(os.path.join(outputpath, 'probabilities-{:08d}.npy'.format(epoch)), enc)
-                #np.savetxt(os.path.join(outputpath, 'probabilities-{:08d}.txt'.format(epoch)), enc)
                 z = np.argmax(enc, axis=1)  # (n,)
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
-                save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.all_weights)
+                save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
