@@ -2,9 +2,9 @@ import csv
 
 import numpy as np
 
+from discrete_skip_gram.skipgram.util import latest_file
 from .cooccurrence import load_cooccurrence
 
-from discrete_skip_gram.skipgram.util import latest_file
 
 def validate_depth(depth, encoding, co, z_k):
     count = z_k ** (depth + 1)
@@ -85,14 +85,14 @@ def validate_encoding_flat(cooccurrence, eps=1e-9):
     return fun
 
 
-def validate_empty(enc, z_k):
+def validate_empty(enc):
     assert len(enc.shape) == 1
     used = set(enc[i] for i in range(enc.shape[0]))
-    print "Used: {}/{}".format(len(used), z_k)
+    return len(used)
 
-def run_flat_validation(input_path, output_path):
+
+def run_flat_validation(input_path, output_path, z_k=1024):
     cooccurrence = load_cooccurrence('output/cooccurrence.npy')
-    z_k = 1024
     val = validate_encoding_flat(cooccurrence=cooccurrence)
     encoding_path, epoch = latest_file(input_path, "encodings-(\d+).npy")
     if not epoch:
@@ -100,7 +100,9 @@ def run_flat_validation(input_path, output_path):
     print("Epoch {}: {}".format(epoch, encoding_path))
     enc = np.load(encoding_path)
     nll = val(enc, z_k)
+    utilization = validate_empty(enc)
     with open(output_path, 'w') as f:
-        f.write("NLL: {}".format(nll))
+        f.write("NLL: {}\n".format(nll))
+        f.write("Utilization: {}\n".format(utilization))
     print("NLL: {}".format(nll))
-    validate_empty(enc, z_k)
+    print("Utilization: {}".format(utilization))

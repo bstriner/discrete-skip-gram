@@ -11,6 +11,7 @@ import theano.tensor as T
 from tqdm import tqdm
 
 from discrete_skip_gram.skipgram.tensor_util import softmax_nd, smoothmax_nd
+from discrete_skip_gram.skipgram.validation import run_flat_validation
 from .tensor_util import save_weights, load_latest_weights
 
 
@@ -127,25 +128,26 @@ class CategoricalColModel(object):
             f.write("pz_weight_regularizer: {}\n".format(self.pz_weight_regularizer))
             f.write("pz_regularizer: {}\n".format(self.pz_regularizer))
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
-        with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
-            w = csv.writer(f)
-            w.writerow(['Epoch', 'NLL', 'Reg loss', 'Loss', 'Utilization'])
-            f.flush()
-            for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
-                it = tqdm(range(batches), desc="Epoch {}".format(epoch))
-                for batch in it:
-                    nll, reg_loss, loss = self.train_fun()
-                    it.desc = "Epoch {} NLL {:.4f} Reg Loss {:.4f} Loss {:.4f}".format(epoch,
-                                                                                       np.asscalar(nll),
-                                                                                       np.asscalar(reg_loss),
-                                                                                       np.asscalar(loss))
-                w.writerow([epoch, nll, reg_loss, loss, self.calc_usage()])
+        if initial_epoch < epochs:
+            with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
+                w = csv.writer(f)
+                w.writerow(['Epoch', 'NLL', 'Reg loss', 'Loss', 'Utilization'])
                 f.flush()
-                enc = self.encodings_fun()  # (n, x_k)
-                np.save(os.path.join(outputpath, 'probabilities-{:08d}.npy'.format(epoch)), enc)
-                z = self.z_fun()  # (n,)
-                np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
-                save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
+                for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
+                    it = tqdm(range(batches), desc="Epoch {}".format(epoch))
+                    for batch in it:
+                        nll, reg_loss, loss = self.train_fun()
+                        it.desc = "Epoch {} NLL {:.4f} Reg Loss {:.4f} Loss {:.4f}".format(epoch,
+                                                                                           np.asscalar(nll),
+                                                                                           np.asscalar(reg_loss),
+                                                                                           np.asscalar(loss))
+                    w.writerow([epoch, nll, reg_loss, loss, self.calc_usage()])
+                    f.flush()
+                    enc = self.encodings_fun()  # (n, x_k)
+                    np.save(os.path.join(outputpath, 'probabilities-{:08d}.npy'.format(epoch)), enc)
+                    z = self.z_fun()  # (n,)
+                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
+                    save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
 
 
 def train_model(outputpath,
@@ -162,3 +164,6 @@ def train_model(outputpath,
                                 pz_regularizer=pz_regularizer,
                                 pz_weight_regularizer=pz_weight_regularizer)
     model.train(outputpath, epochs=epochs, batches=batches)
+    run_flat_validation(input_path=outputpath,
+                        output_path=os.path.join(outputpath, "validate.txt"),
+                        z_k=z_k)
