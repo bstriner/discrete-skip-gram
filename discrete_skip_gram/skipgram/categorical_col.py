@@ -164,6 +164,6 @@ def train_model(outputpath,
                                 pz_regularizer=pz_regularizer,
                                 pz_weight_regularizer=pz_weight_regularizer)
     model.train(outputpath, epochs=epochs, batches=batches)
-    run_flat_validation(input_path=outputpath,
+    return run_flat_validation(input_path=outputpath,
                         output_path=os.path.join(outputpath, "validate.txt"),
                         z_k=z_k)

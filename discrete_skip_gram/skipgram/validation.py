@@ -18,7 +18,7 @@ def validate_depth(depth, encoding, co, z_k):
         ind = np.nonzero(np.equal(buckets, bucket))[0]
         if ind.shape[0] == 0:
             # pass
-            print "Empty tree: {}".format(bucket)
+            print("Empty tree: {}".format(bucket))
         else:
             rows = co[ind, :]
             d = np.sum(rows, axis=0)
@@ -35,7 +35,7 @@ def calc_validation(encoding, co, z_k):
     for depth in range(z_depth):
         nll = validate_depth(depth=depth, encoding=encoding, co=co, z_k=z_k)
         nlls.append(nll)
-        print "NLL {}: {}".format(depth, nll)
+        print("NLL {}: {}".format(depth, nll))
     return nlls
 
 
@@ -63,7 +63,7 @@ def validate_flat(output_path, cooccurrence_path, encoding_path, z_k):
     x = load_cooccurrence(cooccurrence_path)
     encoding = np.load(encoding_path)
     encoding = np.expand_dims(encoding, axis=1)  # (x_k, 1)
-    print "Encoding {}".format(encoding.shape)
+    print("Encoding {}".format(encoding.shape))
     write_validation(output_path=output_path, encoding=encoding, co=x, z_k=z_k)
 
 
@@ -105,4 +105,5 @@ def run_flat_validation(input_path, output_path, z_k=1024):
         f.write("NLL: {}\n".format(nll))
         f.write("Utilization: {}\n".format(utilization))
     print("NLL: {}".format(nll))
-    print("Utilization: {}".format(utilization))
+    print("Utilization: {}".format(utilization))d
+    return [nll, utilization]

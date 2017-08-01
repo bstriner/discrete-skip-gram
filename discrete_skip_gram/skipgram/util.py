@@ -69,3 +69,12 @@ def write_encodings(path, vocab, encodings):
             enc = encodings[i, :]
             encs = "".join(chr(ord('a') + enc[j]) for j in range(enc.shape[0]))
             w.writerow([i, word, encs])
+
+def write_csv(path, rows, header=None):
+    make_path(path)
+    with open(path, 'wb') as f:
+        w= csv.writer(f)
+        if header:
+            w.writerow(header)
+        for r in rows:
+            w.writerow(r)
