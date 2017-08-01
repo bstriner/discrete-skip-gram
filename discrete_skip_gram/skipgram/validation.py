@@ -105,5 +105,5 @@ def run_flat_validation(input_path, output_path, z_k=1024):
         f.write("NLL: {}\n".format(nll))
         f.write("Utilization: {}\n".format(utilization))
     print("NLL: {}".format(nll))
-    print("Utilization: {}".format(utilization))d
+    print("Utilization: {}".format(utilization))
     return [nll, utilization]
