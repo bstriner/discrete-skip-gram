@@ -6,7 +6,7 @@ from discrete_skip_gram.skipgram.categorical_col import train_model
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
 from keras.optimizers import Adam
 from discrete_skip_gram.skipgram.util import write_csv
-
+from tqdm import tqdm
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
@@ -18,7 +18,7 @@ def main():
     outputpath = "output/skipgram_flat"
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
     data = []
-    for i in range(iters):
+    for i in tqdm(range(iters), 'Training iterations'):
         datum = train_model(outputpath="{}/iter-{}".format(outputpath, i),
                             epochs=epochs,
                             batches=batches,
