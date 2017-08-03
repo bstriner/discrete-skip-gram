@@ -17,14 +17,14 @@ def main():
     outputpath = "output/skipgram_flat-b"
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
     data = []
-    for name, weight in tqdm([("1e2", 1e-2),
-                              ("1e3", 1e-3),
-                              ("5e4", 5e-4),
-                              ("1e4", 1e-4),
-                              ("5e5", 5e-5),
-                              ("1e5", 1e-5),
-                              ("1e6", 1e-6),
-                              ("1e7", 1e-7)], desc='Meta-iteration'):
+    for name, weight in tqdm([("1e-2", 1e-2),
+                              ("1e-3", 1e-3),
+                              ("5e-4", 5e-4),
+                              ("1e-4", 1e-4),
+                              ("5e-5", 5e-5),
+                              ("1e-5", 1e-5),
+                              ("1e-6", 1e-6),
+                              ("1e-7", 1e-7)], desc='Meta-iteration'):
         datum = train_model(
             outputpath="{}/{}".format(outputpath, name),
             pz_regularizer=BalanceRegularizer(weight),
