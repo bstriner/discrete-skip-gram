@@ -2,28 +2,39 @@ import os
 
 import numpy as np
 
-from discrete_skip_gram.skipgram.categorical_col import CategoricalColModel
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
-from keras.optimizers import Adam
 from discrete_skip_gram.skipgram.regularizers import ExclusiveLassoSqrt
+from discrete_skip_gram.skipgram.util import write_csv
+from keras.optimizers import Adam
+from tqdm import tqdm
+from discrete_skip_gram.skipgram.categorical_col import train_model
+
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
 def main():
-    opt = Adam(1e-3)
-    epochs = 1000
-    batches = 1024
+    epochs = 10
+    batches = 4096
     z_k = 1024
-    regularizer = ExclusiveLassoSqrt(1e-6)
     outputpath = "output/skipgram_flat-els"
-    if not os.path.exists(outputpath):
-        os.makedirs(outputpath)
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
-    model = CategoricalColModel(cooccurrence=cooccurrence,
-                                z_k=z_k,
-                                opt=opt,
-                                pz_weight_regularizer=regularizer)
-    model.train(outputpath, epochs=epochs, batches=batches)
+    data = []
+    for name, weight in tqdm([
+        ("1e-4", 1e-4),
+        ("1e-5", 1e-5),
+        ("1e-6", 1e-6),
+        ("1e-7", 1e-7),
+        ("1e-8", 1e-8),
+    ]):
+        datum = train_model(outputpath="{}/{}".format(outputpath, name),
+                            cooccurrence=cooccurrence,
+                            z_k=z_k,
+                            opt=Adam(1e-3),
+                            epochs=epochs,
+                            batches=batches,
+                            pz_weight_regularizer=ExclusiveLassoSqrt(weight))
+        data.append([weight] + datum)
+    write_csv("{}.csv".format(outputpath), rows=data, header=["Weight", "NLL", 'Utilization'])
 
 
 if __name__ == "__main__":
