@@ -14,7 +14,7 @@ def main():
     opt = Adam(1e-3)
     z_units = 128
     regularizer = L1L2(1e-10, 1e-10)
-    epochs = 50
+    epochs = 20
     batches = 5000
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)
