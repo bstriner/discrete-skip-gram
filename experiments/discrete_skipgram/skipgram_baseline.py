@@ -13,7 +13,7 @@ def main():
     outputpath = "output/skipgram_baseline"
     opt = Adam(1e-3)
     z_units = 128
-    regularizer = L1L2(1e-10, 1e-10)
+    regularizer = L1L2(1e-12, 1e-12)
     epochs = 20
     batches = 5000
     if not os.path.exists(outputpath):
