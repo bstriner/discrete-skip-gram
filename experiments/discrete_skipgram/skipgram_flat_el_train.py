@@ -20,8 +20,12 @@ def main():
         ("1e-7", 1e-7),
         ("1e-8", 1e-8),
         ("1e-9", 1e-9),
+        ("5e-10", 5e-10),
         ("1e-10", 1e-10),
-        ("1e-11", 1e-11)], desc="Meta-iteration"):
+        ("5e-11", 5e-11),
+        ("1e-11", 1e-11),
+        ("1e-12", 1e-12),
+        ("1e-13", 1e-13)], desc="Meta-iteration"):
         datum = train_model(
             outputpath="{}/{}".format(outputpath, name),
             pz_weight_regularizer=ExclusiveLasso(weight),

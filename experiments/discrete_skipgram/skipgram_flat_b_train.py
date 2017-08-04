@@ -17,7 +17,9 @@ def main():
     outputpath = "output/skipgram_flat-b"
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
     data = []
-    for name, weight in tqdm([("1e-2", 1e-2),
+    for name, weight in tqdm([("1e1", 1e1),
+                              ("1e-1", 1e-1),
+                              ("1e-2", 1e-2),
                               ("1e-3", 1e-3),
                               ("5e-4", 5e-4),
                               ("1e-4", 1e-4),
