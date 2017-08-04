@@ -7,7 +7,7 @@ from discrete_skip_gram.skipgram.util import write_csv
 from keras.optimizers import Adam
 from tqdm import tqdm
 from discrete_skip_gram.skipgram.categorical_col import train_model
-from keras.regularizers import l1
+from keras.regularizers import l2
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
@@ -15,7 +15,7 @@ def main():
     epochs = 10
     batches = 4096
     z_k = 1024
-    outputpath = "output/skipgram_flat-l1"
+    outputpath = "output/skipgram_flat-l2"
     cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
     data = []
     for name, weight in tqdm([
@@ -32,7 +32,7 @@ def main():
                             opt=Adam(1e-3),
                             epochs=epochs,
                             batches=batches,
-                            pz_weight_regularizer=l1(weight))
+                            pz_weight_regularizer=l2(weight))
         data.append([weight] + datum)
     write_csv("{}.csv".format(outputpath), rows=data, header=["Weight", "NLL", 'Utilization'])
 
