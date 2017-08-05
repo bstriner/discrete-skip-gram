@@ -10,22 +10,21 @@ from keras.regularizers import L1L2
 
 
 def main():
-    outputpath = "output/skipgram_baseline"
-    opt = Adam(1e-3)
-    z_units = 128
-    regularizer = L1L2(1e-12, 1e-12)
+    op = "output/skipgram_baseline"
     epochs = 20
     batches = 5000
-    if not os.path.exists(outputpath):
-        os.makedirs(outputpath)
     cooccurrence = load_cooccurrence('output/cooccurrence.npy')
-    model = BaselineModel(
-        cooccurrence=cooccurrence,
-        z_units=z_units,
-        opt=opt,
-        regularizer=regularizer,
-    )
-    model.train(outputpath=outputpath,
+    for z_units in [512, 256, 128, 64, 32]:
+        outputpath="{}/{}".format(op, z_units)
+        if not os.path.exists(outputpath):
+            os.makedirs(outputpath)
+        model = BaselineModel(
+            cooccurrence=cooccurrence,
+            z_units=z_units,
+            opt=Adam(1e-3),
+            regularizer=L1L2(1e-10, 1e-10),
+        )
+        model.train(outputpath=outputpath,
                 epochs=epochs,
                 batches=batches)
 
