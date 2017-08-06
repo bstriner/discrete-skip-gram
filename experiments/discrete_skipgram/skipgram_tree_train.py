@@ -1,33 +1,22 @@
-import os
+from discrete_skip_gram.skipgram.tree_model import train_battery
 
-import numpy as np
-
-from discrete_skip_gram.skipgram.categorical_col import train_model
-from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
-from keras.optimizers import Adam
-from discrete_skip_gram.skipgram.util import write_csv
-from tqdm import tqdm
-
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
 def main():
     epochs = 10
-    iters = 10
+    iters = 5
     batches = 4096
-    z_k = 1024
-    outputpath = "output/skipgram_flat"
-    cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
-    data = []
-    for i in tqdm(range(iters), 'Training iterations'):
-        datum = train_model(outputpath="{}/iter-{}".format(outputpath, i),
-                            epochs=epochs,
-                            batches=batches,
-                            cooccurrence=cooccurrence,
-                            z_k=z_k,
-                            opt=Adam(1e-3))
-        data.append([i] + datum)
-    header = ['Iter', 'Nll', 'Utilization']
-    write_csv("{}.csv".format(outputpath), data, header=header)
+    z_k = 2
+    z_depth = 10
+    outputpath = "output/skipgram_tree"
+    betas = [0.9, 1.2]
+    train_battery(
+        betas=betas,
+        epochs=epochs,
+        iters=iters,
+        batches=batches,
+        z_k=z_k,
+        z_depth=z_depth,
+        outputpath=outputpath)
 
 
 if __name__ == "__main__":

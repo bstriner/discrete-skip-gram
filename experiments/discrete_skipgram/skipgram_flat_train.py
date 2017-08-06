@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from discrete_skip_gram.skipgram.categorical_col import train_model
+from discrete_skip_gram.skipgram.flat_model import train_model
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
 from keras.optimizers import Adam
 from discrete_skip_gram.skipgram.util import write_csv

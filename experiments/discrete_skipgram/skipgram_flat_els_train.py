@@ -7,7 +7,7 @@ from discrete_skip_gram.skipgram.regularizers import ExclusiveLassoSqrt
 from discrete_skip_gram.skipgram.util import write_csv
 from keras.optimizers import Adam
 from tqdm import tqdm
-from discrete_skip_gram.skipgram.categorical_col import train_model
+from discrete_skip_gram.skipgram.flat_model import train_model
 
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"

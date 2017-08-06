@@ -15,10 +15,9 @@ from discrete_skip_gram.skipgram.validation import run_flat_validation
 from .tensor_util import save_weights, load_latest_weights
 
 
-class CategoricalColModel(object):
+class FlatModel(object):
     def __init__(self, cooccurrence, z_k, opt,
                  eps=1e-9,
-                 mode=1,
                  pz_weight_regularizer=None,
                  pz_regularizer=None):
         cooccurrence = cooccurrence.astype(np.float32)
@@ -41,40 +40,15 @@ class CategoricalColModel(object):
         pz_weight = theano.shared(initial_pz, name="pz_weight")  # (x_k, z_k)
         params = [pz_weight]
 
-        py = None
-        if mode == 2:
-            initial_py = np.random.uniform(-scale, scale, (z_k, x_k)).astype(np.float32)
-            m = np.sum(_co, axis=1)
-            lm = np.log(m)
-            lmax = np.max(lm)
-            initial_py = initial_py + lm - lmax
-            py_weight = theano.shared(initial_py, name="py_weight")
-            params.append(py_weight)
-            py = softmax_nd(py_weight)
-
         # p_z
-        if mode == 1 or mode == 2:
-            p_z = softmax_nd(pz_weight)  # (x_k, z_k)
-        elif mode == 3:
-            # todo: smooth maximum
-            # p_z = softmax_nd(pz_weight - T.max(pz_weight, axis=0, keepdims=True))
-            p_z = softmax_nd(pz_weight - smoothmax_nd(pz_weight, axis=0, keepdims=True))
-        elif mode == 4:
-            p_z = softmax_nd(pz_weight - T.mean(pz_weight, axis=0, keepdims=True))
-        else:
-            raise ValueError()
+        p_z = softmax_nd(pz_weight)  # (x_k, z_k)
         pzr = T.transpose(p_z, (1, 0))  # (z_k, x_k)
 
         # p(bucket)
         p_b = T.dot(pzr, co_n)  # (z_k, x_k)
-        if mode == 1 or mode == 3 or mode == 4:
-            marg = T.sum(p_b, axis=1, keepdims=True)  # (z_k, 1)
-            cond = p_b / marg  # (z_k, x_k)
-            nll = T.sum(p_b * -T.log(eps + cond), axis=None)  # scalar
-        elif mode == 2:
-            nll = T.sum(p_b * -T.log(eps + py), axis=None)  # scalar
-        else:
-            raise ValueError("unknown mode: {}".format(mode))
+        marg = T.sum(p_b, axis=1, keepdims=True)  # (z_k, 1)
+        cond = p_b / (marg + eps)  # (z_k, x_k)
+        nll = T.sum(p_b * -T.log(eps + cond), axis=None)  # scalar
         loss = nll
 
         reg_loss = T.constant(0.)
@@ -135,7 +109,7 @@ class CategoricalColModel(object):
                 f.flush()
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
-                    for batch in it:
+                    for _ in it:
                         nll, reg_loss, loss = self.train_fun()
                         it.desc = "Epoch {} NLL {:.4f} Reg Loss {:.4f} Loss {:.4f}".format(epoch,
                                                                                            np.asscalar(nll),
@@ -158,12 +132,12 @@ def train_model(outputpath,
                 opt,
                 pz_regularizer=None,
                 pz_weight_regularizer=None):
-    model = CategoricalColModel(cooccurrence=cooccurrence,
-                                z_k=z_k,
-                                opt=opt,
-                                pz_regularizer=pz_regularizer,
-                                pz_weight_regularizer=pz_weight_regularizer)
+    model = FlatModel(cooccurrence=cooccurrence,
+                      z_k=z_k,
+                      opt=opt,
+                      pz_regularizer=pz_regularizer,
+                      pz_weight_regularizer=pz_weight_regularizer)
     model.train(outputpath, epochs=epochs, batches=batches)
     return run_flat_validation(input_path=outputpath,
-                        output_path=os.path.join(outputpath, "validate.txt"),
-                        z_k=z_k)
+                               output_path=os.path.join(outputpath, "validate.txt"),
+                               z_k=z_k)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from discrete_skip_gram.skipgram.categorical_col import train_model
+from discrete_skip_gram.skipgram.flat_model import train_model
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
 from discrete_skip_gram.skipgram.regularizers import BalanceRegularizer
 from keras.optimizers import Adam
