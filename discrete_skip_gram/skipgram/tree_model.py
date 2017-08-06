@@ -171,6 +171,7 @@ def train_battery(
                                              batches=batches,
                                              cooccurrence=cooccurrence,
                                              z_k=z_k,
+                                             z_depth=z_depth,
                                              opt=Adam(1e-3),
                                              pz_regularizer=pz_regularizer,
                                              pz_weight_regularizer=pz_weight_regularizer)
