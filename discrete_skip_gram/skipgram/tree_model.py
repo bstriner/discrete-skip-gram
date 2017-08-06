@@ -33,7 +33,8 @@ class TreeModel(object):
         self.schedule = schedule
         self.pz_regularizer = pz_regularizer
         self.pz_weight_regularizer = pz_weight_regularizer
-
+        assert schedule.shape[0] == z_depth
+        assert schedule.ndim == 1
         x_k = cooccurrence.shape[0]
         schedule = T.constant(schedule.astype(np.float32), dtype='float32', name="schedule")  # (z_depth,)
 
@@ -132,12 +133,14 @@ def train_model(outputpath,
                 cooccurrence,
                 z_k,
                 z_depth,
+                schedule,
                 opt,
                 pz_regularizer=None,
                 pz_weight_regularizer=None):
     model = TreeModel(cooccurrence=cooccurrence,
                       z_k=z_k,
                       z_depth=z_depth,
+                      schedule=schedule,
                       opt=opt,
                       pz_regularizer=pz_regularizer,
                       pz_weight_regularizer=pz_weight_regularizer)
@@ -166,7 +169,10 @@ def train_battery(
         beta_nlls = []
         beta_utilizations = []
         for i in tqdm(range(iters), 'Training iterations'):
+            schedule = np.power(beta, np.arange(z_depth))
+            schedule /= np.sum(schedule)
             nlls, utilizations = train_model(outputpath="{}/beta-{}/iter-{}".format(outputpath, beta, i),
+                                             schedule=schedule,
                                              epochs=epochs,
                                              batches=batches,
                                              cooccurrence=cooccurrence,
