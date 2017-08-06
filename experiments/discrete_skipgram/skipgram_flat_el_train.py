@@ -22,7 +22,9 @@ def main():
         ("1e-9", 1e-9),
         ("5e-10", 5e-10),
         ("1e-10", 1e-10),
+        ("7.5e-11", 7.5e-11),
         ("5e-11", 5e-11),
+        ("2.5e-11", 2.5e-11),
         ("1e-11", 1e-11),
         ("1e-12", 1e-12),
         ("1e-13", 1e-13)], desc="Meta-iteration"):
@@ -36,6 +38,7 @@ def main():
             batches=batches)
         data.append([weight] + datum)
     write_csv('{}.csv'.format(outputpath), rows=data, header=['Weight', 'Nll', 'Utilization'])
+    np.save("{}.npy".format(outputpath), data)
 
 
 if __name__ == "__main__":

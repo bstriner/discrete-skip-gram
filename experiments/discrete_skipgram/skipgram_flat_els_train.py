@@ -24,7 +24,9 @@ def main():
         ("1e-5", 1e-5),
         ("5e-6", 5e-6),
         ("1e-6", 1e-6),
+        ("7.5e-7", 7.5e-7),
         ("5e-7", 5e-7),
+        ("2.5e-7", 2.5e-7),
         ("1e-7", 1e-7),
         ("5e-8", 5e-8),
         ("1e-8", 1e-8),
@@ -39,6 +41,7 @@ def main():
                             pz_weight_regularizer=ExclusiveLassoSqrt(weight))
         data.append([weight] + datum)
     write_csv("{}.csv".format(outputpath), rows=data, header=["Weight", "NLL", 'Utilization'])
+    np.save("{}.npy".format(outputpath), data)
 
 
 if __name__ == "__main__":

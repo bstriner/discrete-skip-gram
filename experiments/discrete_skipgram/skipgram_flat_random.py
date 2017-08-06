@@ -1,35 +1,21 @@
-# import os
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
-
 import csv
 
 import numpy as np
 from tqdm import tqdm
-
+from discrete_skip_gram.skipgram.validation import validate_encoding_flat
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
+from discrete_skip_gram.skipgram.util import make_path
 
 
-def validate_encoding_flat(enc, co, z_k, x_k, eps=1e-9):
-    m = np.zeros((z_k, x_k))  # zk, xk
-    m[enc, np.arange(x_k)] = 1
-    p = np.dot(m, co)  # (z_k, x_k) * (x_k, x_k) = z_k, x_k
-    marg = np.sum(p, axis=1, keepdims=True)
-    cond = p / (marg + eps)
-    nll = np.sum(cond * -np.log(eps + cond), axis=1, keepdims=True)  # (z_k, 1)
-    loss = np.asscalar(np.sum(nll * marg, axis=None))
-    return loss
-
-def flat_baseline(outputpath, iters, z_k):
-    cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
-    x_k = cooccurrence.shape[0]
-    co = cooccurrence / np.sum(cooccurrence, axis=None)
+def random_baseline(csv_path, iters, z_k, val, x_k):
     nlls = []
-    with open(outputpath, 'wb') as f:
+    make_path(csv_path)
+    with open(csv_path, 'wb') as f:
         w = csv.writer(f)
-        w.writerow(['Id', 'Loss'])
+        w.writerow(['Iteration', 'Loss'])
         for i in tqdm(range(iters), desc="Zk={}".format(z_k)):
             enc = np.random.random_integers(0, z_k - 1, (x_k,))
-            loss = validate_encoding_flat(enc=enc, co=co, z_k=z_k, x_k=x_k)
+            loss = val(enc=enc, z_k=z_k)
             nlls.append(loss)
             w.writerow([i, loss])
     return nlls
@@ -37,17 +23,21 @@ def flat_baseline(outputpath, iters, z_k):
 
 def main():
     iters = 100
-    vals = []
-    #zks = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
-    zks = [2**i for i in range(11)]
-    with open("output/skipgram_flat_random.csv", 'wb') as f:
+    z_ks = [2 ** i for i in range(11)]
+    cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
+    x_k = cooccurrence.shape[0]
+    output_path = "output/skipgram_flat_random"
+    val = validate_encoding_flat(cooccurrence)
+    kwargs = {}
+    with open("{}.csv".format(output_path), 'wb') as f:
         w = csv.writer(f)
         w.writerow(['Zk', 'Mean', 'Min', 'Max', 'Std'] + ["Iter {}".format(i) for i in range(iters)])
-        for z_k in tqdm(zks, desc="Testing"):
-            outputpath = "output/skipgram_flat_random-{}.csv".format(z_k)
-            val = flat_baseline(outputpath, iters, z_k)
-            vals.append(val)
-            w.writerow([z_k, np.mean(val), np.min(val), np.max(val), np.std(val)] + val)
+        for z_k in tqdm(z_ks, desc="Testing"):
+            csv_path = "{}/{}.csv".format(output_path, z_k)
+            nlls = random_baseline(csv_path, iters, z_k, val=val, x_k=x_k)
+            kwargs["z_{}".format(z_k)] = np.array(nlls)
+            w.writerow([z_k, np.mean(nlls), np.min(nlls), np.max(nlls), np.std(nlls)] + nlls)
+    np.savez("{}.npz", z_ks=np.array(z_ks), **kwargs)
 
 
 if __name__ == "__main__":

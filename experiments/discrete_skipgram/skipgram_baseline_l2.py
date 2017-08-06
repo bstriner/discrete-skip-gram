@@ -1,12 +1,13 @@
 from discrete_skip_gram.skipgram.baseline import run_baseline
 from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
+from keras.regularizers import l2
 
 
 # os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
 
 
 def main():
-    op = "output/skipgram_baseline"
+    op = "output/skipgram_baseline-l2"
     epochs = 50
     batches = 4096
     cooccurrence = load_cooccurrence('output/cooccurrence.npy')
@@ -17,7 +18,8 @@ def main():
                  iters=iters,
                  output_path=op,
                  epochs=epochs,
-                 batches=batches)
+                 batches=batches,
+                 regularizer=l2(1e-8))
 
 
 if __name__ == "__main__":

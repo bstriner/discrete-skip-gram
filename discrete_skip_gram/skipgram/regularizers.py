@@ -37,3 +37,13 @@ class BalanceRegularizer(Regularizer):
     def __call__(self, x):
         assert x.ndim == 2
         return -self.weight * T.sum(T.log(T.mean(x, axis=0)), axis=0)
+
+class BalanceWeightedRegularizer(Regularizer):
+    def __init__(self, weight, marginal):
+        self.marginal=marginal
+        super(BalanceRegularizer, self).__init__(weight)
+
+    def __call__(self, x):
+        assert x.ndim == 2
+        p = T.sum(x * (self.marginal.dimshuffle((0,'x'))), axis=0)
+        return -self.weight * T.sum(T.log(p), axis=0)

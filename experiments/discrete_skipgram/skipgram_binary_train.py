@@ -28,6 +28,7 @@ def main():
         data.append([i] + datum)
     header = ['Iter', 'Nll', 'Utilization']
     write_csv("{}.csv".format(outputpath), data, header=header)
+    np.save("{}.npy".format(outputpath), np.array(data))
 
 
 if __name__ == "__main__":

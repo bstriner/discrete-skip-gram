@@ -23,7 +23,9 @@ def main():
         ("1e-5", 1e-5),
         ("1e-6", 1e-6),
         ("1e-7", 1e-7),
+        ("5e-8", 5e-8),
         ("1e-8", 1e-8),
+        ("5e-9", 5e-9),
         ("1e-9", 1e-9)
     ]):
         datum = train_model(outputpath="{}/{}".format(outputpath, name),
@@ -35,6 +37,7 @@ def main():
                             pz_weight_regularizer=l2(weight))
         data.append([weight] + datum)
     write_csv("{}.csv".format(outputpath), rows=data, header=["Weight", "NLL", 'Utilization'])
+    np.save("{}.npy".format(outputpath), data)
 
 
 if __name__ == "__main__":
