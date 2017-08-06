@@ -22,10 +22,14 @@ class TreeModel(object):
                  pz_regularizer=None,
                  pz_weight_regularizer=None,
                  eps=1e-9,
-                 scale=1e-2):
+                 scale=1e-2,
+                 use_shared=True):
         cooccurrence = cooccurrence.astype(np.float32)
         cooccurrence = cooccurrence / np.sum(cooccurrence, axis=None)
-        co = T.constant(cooccurrence, dtype='float32', name='cooccurrence')
+        if use_shared:
+            co = theano.shared(cooccurrence, name='cooccurrence')
+        else:
+            co = T.constant(cooccurrence, dtype='float32', name='cooccurrence')
         self.cooccurrence = cooccurrence
         self.z_depth = z_depth
         self.z_k = z_k
@@ -110,6 +114,8 @@ class TreeModel(object):
         return self.train_fun()
 
     def train(self, outputpath, epochs, batches):
+        if not os.path.exists(outputpath):
+            os.makedirs(outputpath)
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
             w = csv.writer(f)
