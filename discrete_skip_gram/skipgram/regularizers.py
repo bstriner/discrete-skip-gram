@@ -41,7 +41,7 @@ class BalanceRegularizer(Regularizer):
 class BalanceWeightedRegularizer(Regularizer):
     def __init__(self, weight, marginal):
         self.marginal=marginal
-        super(BalanceRegularizer, self).__init__(weight)
+        super(BalanceWeightedRegularizer, self).__init__(weight)
 
     def __call__(self, x):
         assert x.ndim == 2
