@@ -6,9 +6,7 @@ from discrete_skip_gram.skipgram.tensor_util import softmax_nd
 
 
 class TreeParameterization(object):
-    def __init__(self, x_k, z_depth, z_k, type_np=np.float32, type_t='float32'):
-        self.type_t = type_t
-        self.type_np = type_np
+    def __init__(self, x_k, z_depth, z_k):
         self.x_k = x_k
         self.z_depth = z_depth
         self.z_k = z_k

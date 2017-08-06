@@ -31,7 +31,7 @@ def main():
                               ("1e-7", 1e-7)], desc='Meta-iteration'):
         datum = train_model(
             outputpath="{}/{}".format(outputpath, name),
-            pz_regularizer=BalanceWeightedRegularizer(weight, marginal),
+            pz_regularizer=BalanceWeightedRegularizer(weight, marginal=marginal),
             cooccurrence=cooccurrence,
             z_k=z_k,
             opt=Adam(1e-3),
