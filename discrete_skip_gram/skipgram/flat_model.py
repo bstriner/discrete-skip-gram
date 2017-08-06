@@ -16,14 +16,17 @@ from .tensor_util import save_weights, load_latest_weights
 
 
 class FlatModel(object):
-    def __init__(self, cooccurrence, z_k, opt,
-                 eps=1e-9,
+    def __init__(self,
+                 cooccurrence,
+                 z_k,
+                 opt,
                  pz_weight_regularizer=None,
-                 pz_regularizer=None):
+                 pz_regularizer=None,
+                 eps=1e-9,
+                 scale=1e-2):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
         self.z_k = z_k
-        scale = 1e-1
         x_k = cooccurrence.shape[0]
         self.x_k = x_k
         self.pz_weight_regularizer = pz_weight_regularizer

@@ -55,18 +55,19 @@ class TreeModel(object):
         self.pzs = pzs
 
         # calculate nlls
-        nlls = []
+        nll_array = []
+        loss = T.constant(0.)
         for depth in range(z_depth):
             pz = pzs[depth]  # (x_k, b0)
-            pzr = T.transpose(pz, (1, 0))  # (b0, x_k)
-            p = T.dot(pzr, co)  # (b0, x_k)
+            p = T.dot(co, pz)  # (x_k, b0)
 
-            marg = T.sum(p, axis=1, keepdims=True)  # (b0, 1)
-            cond = p / (marg + eps)  # (b0, x_k)
+            marg = T.sum(p, axis=0, keepdims=True)  # (1, b0)
+            cond = p / (marg + eps)  # (x_k, b0)
             nll = T.sum(p * - T.log(cond + eps), axis=None)  # scalar
-            nlls.append(nll)
-        nlls = T.stack(nlls)  # (z_depth,)
-        loss = T.sum(schedule * nlls, axis=0)  # scalar
+            nll_array.append(nll)
+            loss += schedule[depth] * nll
+        nlls = T.stack(nll_array)  # (z_depth,)
+        #loss = T.sum(schedule * nlls, axis=0)  # scalar
 
         # regularization
         reg_loss = T.constant(0.)
@@ -76,7 +77,7 @@ class TreeModel(object):
             pz_loss = []
             for pz in pzs:
                 pz_loss.append(pz_regularizer(pz))
-            reg_loss += T.sum(T.stack(pz_loss), schedule)
+            reg_loss += T.sum(T.stack(pz_loss) * schedule)
 
         # training
         loss += reg_loss
@@ -86,8 +87,9 @@ class TreeModel(object):
         z = T.argmax(pz0, axis=1)  # (x_k,) [int 0-buckets]
         encodings = []
         for depth in range(z_depth):
-            c = int(z_k ** (z_depth - depth))
-            enc = T.gt(z, c)
+            c = int(z_k ** (z_depth - depth - 1))
+            enc = T.ge(z, c)
+            z = z - (c * enc)
             encodings.append(enc)
         encodings = T.stack(encodings, axis=1)  # (x_k, z_depth)
 
@@ -104,6 +106,9 @@ class TreeModel(object):
         s = set(z[i] for i in range(z.shape[0]))
         return len(s)
 
+    def train_batch(self):
+        return self.train_fun()
+
     def train(self, outputpath, epochs, batches):
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
         with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
@@ -113,7 +118,7 @@ class TreeModel(object):
             for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                 it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                 for _ in it:
-                    nll, reg_loss, loss = self.train_fun()
+                    nll, reg_loss, loss = self.train_batch()
                     it.desc = "Epoch {} Reg Loss {:.4f} Loss {:.4f} NLL [{}]".format(epoch,
                                                                                      np.asscalar(reg_loss),
                                                                                      np.asscalar(loss),
