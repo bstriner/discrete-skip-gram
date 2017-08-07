@@ -123,10 +123,10 @@ def validate_encoding_tree(cooccurrence,
     utilizations = []
     for depth in range(z_depth):
         buckets = z_k ** (depth + 1)
-        mask = np.power(z_k, np.arange(z_k)).reshape((1, -1))
+        mask = np.power(z_k, np.arange(depth+1)).reshape((1, -1))
         e = encoding[:, :(depth + 1)]
         b = np.sum(mask * e, axis=1)  # (x_k,)
-
+        assert np.max(b) < buckets
         # nll
         m = np.zeros((buckets, x_k))  # zk, xk
         m[b, np.arange(x_k)] = 1
