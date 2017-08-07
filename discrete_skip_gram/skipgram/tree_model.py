@@ -5,11 +5,9 @@ import numpy as np
 import theano
 import theano.tensor as T
 from tqdm import tqdm
-from keras.optimizers import Adam
 from discrete_skip_gram.skipgram.tensor_util import softmax_nd
 from .tensor_util import save_weights, load_latest_weights
-from .util import array_string, write_csv
-from .validation import run_tree_validation
+from .util import array_string
 
 
 class TreeModel(object):
@@ -33,6 +31,7 @@ class TreeModel(object):
         self.cooccurrence = cooccurrence
         self.z_depth = z_depth
         self.z_k = z_k
+        self.x_k = cooccurrence.shape[0]
         self.opt = opt
         self.schedule = schedule
         self.pz_regularizer = pz_regularizer
@@ -60,7 +59,6 @@ class TreeModel(object):
 
         # calculate nlls
         nll_array = []
-        loss = T.constant(0.)
         for depth in range(z_depth):
             pz = pzs[depth]  # (x_k, b0)
             p = T.dot(co, pz)  # (x_k, b0)
@@ -69,9 +67,8 @@ class TreeModel(object):
             cond = p / (marg + eps)  # (x_k, b0)
             nll = T.sum(p * - T.log(cond + eps), axis=None)  # scalar
             nll_array.append(nll)
-            loss += schedule[depth] * nll
         nlls = T.stack(nll_array)  # (z_depth,)
-        #loss = T.sum(schedule * nlls, axis=0)  # scalar
+        loss = T.sum(schedule * nlls, axis=0)  # scalar
 
         # regularization
         reg_loss = T.constant(0.)
@@ -89,11 +86,12 @@ class TreeModel(object):
 
         # encoding
         z = T.argmax(pz0, axis=1)  # (x_k,) [int 0-buckets]
+        zt = z
         encodings = []
         for depth in range(z_depth):
             c = int(z_k ** (z_depth - depth - 1))
-            enc = T.ge(z, c)
-            z = z - (c * enc)
+            enc = T.ge(zt, c)
+            zt -= (c * enc)
             encodings.append(enc)
         encodings = T.stack(encodings, axis=1)  # (x_k, z_depth)
 
@@ -108,6 +106,7 @@ class TreeModel(object):
     def calc_usage(self):
         z = self.z_fun()
         s = set(z[i] for i in range(z.shape[0]))
+        assert z.shape[0] == self.x_k
         return len(s)
 
     def train_batch(self):
@@ -120,7 +119,8 @@ class TreeModel(object):
         if initial_epoch < epochs:
             with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
                 w = csv.writer(f)
-                w.writerow(['Epoch', 'Reg Loss', 'Loss', 'Utilization'] + ['NLL {}'.format(i) for i in range(self.z_depth)])
+                w.writerow(
+                    ['Epoch', 'Reg Loss', 'Loss', 'Utilization'] + ['NLL {}'.format(i) for i in range(self.z_depth)])
                 f.flush()
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
@@ -138,73 +138,3 @@ class TreeModel(object):
                     save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
         return self.val_fun()
 
-
-def train_model(outputpath,
-                epochs,
-                batches,
-                cooccurrence,
-                z_k,
-                z_depth,
-                schedule,
-                opt,
-                pz_regularizer=None,
-                pz_weight_regularizer=None):
-    model = TreeModel(cooccurrence=cooccurrence,
-                      z_k=z_k,
-                      z_depth=z_depth,
-                      schedule=schedule,
-                      opt=opt,
-                      pz_regularizer=pz_regularizer,
-                      pz_weight_regularizer=pz_weight_regularizer)
-    model.train(outputpath, epochs=epochs, batches=batches)
-    return run_tree_validation(
-        output_path=outputpath,
-        input_path=outputpath,
-        z_k=z_k)
-
-
-def train_battery(
-        betas,
-        epochs,
-        iters,
-        batches,
-        z_k,
-        z_depth,
-        outputpath,
-        pz_regularizer=None,
-        pz_weight_regularizer=None):
-    cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
-    all_nlls = []
-    all_utilizations = []
-    for beta in betas:
-        data = []
-        beta_nlls = []
-        beta_utilizations = []
-        for i in tqdm(range(iters), 'Training iterations'):
-            schedule = np.power(beta, np.arange(z_depth))
-            schedule /= np.sum(schedule)
-            nlls, utilizations = train_model(outputpath="{}/beta-{}/iter-{}".format(outputpath, beta, i),
-                                             schedule=schedule,
-                                             epochs=epochs,
-                                             batches=batches,
-                                             cooccurrence=cooccurrence,
-                                             z_k=z_k,
-                                             z_depth=z_depth,
-                                             opt=Adam(1e-3),
-                                             pz_regularizer=pz_regularizer,
-                                             pz_weight_regularizer=pz_weight_regularizer)
-            beta_nlls.append(nlls)
-            beta_utilizations.append(utilizations)
-            data.append([i] +
-                        [nlls[j] for j in range(z_depth)] +
-                        [utilizations[j] for j in range(z_depth)])
-        all_nlls.append(np.stack(beta_nlls))
-        all_utilizations.append(np.stack(beta_utilizations))
-        header = (['Iter'] +
-                  ['Nll {}'.format(i) for i in range(z_depth)] +
-                  ['Utilization {}'.format(i) for i in range(z_depth)])
-        write_csv("{}/beta-{}.csv".format(outputpath, beta), data, header=header)
-    np.savez("{}.npz",
-             betas=np.array(betas),
-             nlls=np.stack(all_nlls),  # (betas, iters, depth)
-             utilizations=np.stack(all_utilizations))  # (betas, iters, depth)

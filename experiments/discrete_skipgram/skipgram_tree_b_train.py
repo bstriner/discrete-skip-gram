@@ -1,5 +1,5 @@
 from discrete_skip_gram.skipgram.tree_train import train_regularizer_battery
-from discrete_skip_gram.skipgram.regularizers import ExclusiveLasso
+from discrete_skip_gram.skipgram.regularizers import BalanceRegularizer
 import numpy as np
 
 
@@ -9,14 +9,14 @@ def main():
     batches = 4096
     z_k = 2
     z_depth = 10
-    outputpath = "output/skipgram_tree_el"
+    outputpath = "output/skipgram_tree_b"
     betas = [0.85,
              1.2]
-    weights = [1e-11,
-               1e-10,
-               1e-9]
+    weights = [1e-3,
+               1e-4,
+               1e-5]
     labels = ["{:.01e}".format(w) for w in weights]
-    regularizers = [ExclusiveLasso(w) for w in weights]
+    regularizers = [BalanceRegularizer(w) for w in weights]
     train_regularizer_battery(
         betas=betas,
         epochs=epochs,
@@ -26,7 +26,7 @@ def main():
         z_depth=z_depth,
         outputpath=outputpath,
         labels=labels,
-        is_weight_regularizer=True,
+        is_weight_regularizer=False,
         kwdata={'weights': np.array(weights)},
         regularizers=regularizers)
 
