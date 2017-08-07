@@ -117,24 +117,25 @@ class TreeModel(object):
         if not os.path.exists(outputpath):
             os.makedirs(outputpath)
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
-        with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
-            w = csv.writer(f)
-            w.writerow(['Epoch', 'Reg Loss', 'Loss', 'Utilization'] + ['NLL {}'.format(i) for i in range(self.z_depth)])
-            f.flush()
-            for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
-                it = tqdm(range(batches), desc="Epoch {}".format(epoch))
-                for _ in it:
-                    nll, reg_loss, loss = self.train_batch()
-                    it.desc = "Epoch {} Reg Loss {:.4f} Loss {:.4f} NLL [{}]".format(epoch,
-                                                                                     np.asscalar(reg_loss),
-                                                                                     np.asscalar(loss),
-                                                                                     array_string(nll))
-                w.writerow([epoch, reg_loss, loss, self.calc_usage()] +
-                           [np.asscalar(nll[i]) for i in range(self.z_depth)])
+        if initial_epoch < epochs:
+            with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
+                w = csv.writer(f)
+                w.writerow(['Epoch', 'Reg Loss', 'Loss', 'Utilization'] + ['NLL {}'.format(i) for i in range(self.z_depth)])
                 f.flush()
-                enc = self.encodings_fun()  # (n, z_depth) [int 0-z_k]
-                np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
-                save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
+                for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
+                    it = tqdm(range(batches), desc="Epoch {}".format(epoch))
+                    for _ in it:
+                        nll, reg_loss, loss = self.train_batch()
+                        it.desc = "Epoch {} Reg Loss {:.4f} Loss {:.4f} NLL [{}]".format(epoch,
+                                                                                         np.asscalar(reg_loss),
+                                                                                         np.asscalar(loss),
+                                                                                         array_string(nll))
+                    w.writerow([epoch, reg_loss, loss, self.calc_usage()] +
+                               [np.asscalar(nll[i]) for i in range(self.z_depth)])
+                    f.flush()
+                    enc = self.encodings_fun()  # (n, z_depth) [int 0-z_k]
+                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
+                    save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
         return self.val_fun()
 
 
