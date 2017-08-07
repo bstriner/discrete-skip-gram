@@ -96,8 +96,8 @@ def train_regularizer_battery(
     assert len(labels) == len(regularizers)
     all_nlls = []
     all_utilizations = []
-    for reg in regularizers:
-        target_path = "{}/{}".format(outputpath, labels)
+    for label, reg in zip(labels, regularizers):
+        target_path = "{}/{}".format(outputpath, label)
         if is_weight_regularizer:
             pz_regularizer = None
             pz_weight_regularizer = reg
