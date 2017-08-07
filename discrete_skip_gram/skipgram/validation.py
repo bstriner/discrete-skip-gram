@@ -152,7 +152,7 @@ def write_encoding_tree(
     data = [[i, n, u] for i, (n, u) in enumerate(zip(nlls, utilizations))]
     write_csv("{}.csv".format(output_path), rows=data, header=['Depth', 'NLL', 'Utilization'])
     data = np.array(data)
-    np.savez("{}.npz", nlls=nlls, utilizations=utilizations)
+    np.savez("{}.npz".format(output_path), nlls=nlls, utilizations=utilizations)
     return nlls, utilizations
 
 
