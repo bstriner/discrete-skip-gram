@@ -2,20 +2,20 @@ import numpy as np
 from tqdm import tqdm
 from keras.optimizers import Adam
 from .util import write_csv
-from .validation import run_tree_validation
+from .tree_validation import run_tree_validation
 from .tree_model import TreeModel
 
 
-def train_model(outputpath,
-                epochs,
-                batches,
-                cooccurrence,
-                z_k,
-                z_depth,
-                schedule,
-                opt,
-                pz_regularizer=None,
-                pz_weight_regularizer=None):
+def train_tree_model(outputpath,
+                     epochs,
+                     batches,
+                     cooccurrence,
+                     z_k,
+                     z_depth,
+                     schedule,
+                     opt,
+                     pz_regularizer=None,
+                     pz_weight_regularizer=None):
     model = TreeModel(cooccurrence=cooccurrence,
                       z_k=z_k,
                       z_depth=z_depth,
@@ -27,10 +27,10 @@ def train_model(outputpath,
     return run_tree_validation(
         output_path=outputpath,
         input_path=outputpath,
-        z_k=z_k)
+        cooccurrence=cooccurrence)
 
 
-def train_battery(
+def train_tree_battery(
         betas,
         epochs,
         iters,
@@ -50,16 +50,16 @@ def train_battery(
         for i in tqdm(range(iters), 'Training iterations'):
             schedule = np.power(beta, np.arange(z_depth))
             schedule /= np.sum(schedule)
-            nlls, utilizations = train_model(outputpath="{}/beta-{}/iter-{}".format(outputpath, beta, i),
-                                             schedule=schedule,
-                                             epochs=epochs,
-                                             batches=batches,
-                                             cooccurrence=cooccurrence,
-                                             z_k=z_k,
-                                             z_depth=z_depth,
-                                             opt=Adam(1e-3),
-                                             pz_regularizer=pz_regularizer,
-                                             pz_weight_regularizer=pz_weight_regularizer)
+            nlls, utilizations = train_tree_model(outputpath="{}/beta-{}/iter-{}".format(outputpath, beta, i),
+                                                  schedule=schedule,
+                                                  epochs=epochs,
+                                                  batches=batches,
+                                                  cooccurrence=cooccurrence,
+                                                  z_k=z_k,
+                                                  z_depth=z_depth,
+                                                  opt=Adam(1e-3),
+                                                  pz_regularizer=pz_regularizer,
+                                                  pz_weight_regularizer=pz_weight_regularizer)
             beta_nlls.append(nlls)
             beta_utilizations.append(utilizations)
             data.append([i] +
@@ -81,7 +81,7 @@ def train_battery(
     return nlls, utilizations
 
 
-def train_regularizer_battery(
+def train_tree_regularizer_battery(
         betas,
         epochs,
         iters,
@@ -104,16 +104,16 @@ def train_regularizer_battery(
         else:
             pz_regularizer = reg
             pz_weight_regularizer = None
-        nlls, utilizations = train_battery(betas=betas,
-                                           epochs=epochs,
-                                           iters=iters,
-                                           batches=batches,
-                                           z_k=z_k,
-                                           z_depth=z_depth,
-                                           outputpath=target_path,
-                                           pz_regularizer=pz_regularizer,
-                                           pz_weight_regularizer=pz_weight_regularizer
-                                           )
+        nlls, utilizations = train_tree_battery(betas=betas,
+                                                epochs=epochs,
+                                                iters=iters,
+                                                batches=batches,
+                                                z_k=z_k,
+                                                z_depth=z_depth,
+                                                outputpath=target_path,
+                                                pz_regularizer=pz_regularizer,
+                                                pz_weight_regularizer=pz_weight_regularizer
+                                                )
         all_nlls.append(nlls)
         all_utilizations.append(utilizations)
     nlls = np.stack(all_nlls)  # (regularizers, betas, iters, depth)

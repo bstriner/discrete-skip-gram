@@ -8,10 +8,9 @@ import os
 import numpy as np
 import theano
 import theano.tensor as T
-from discrete_skip_gram.skipgram.tensor_util import softmax_nd
+from .tensor_util import softmax_nd
 from tqdm import tqdm
 
-from discrete_skip_gram.validation import run_flat_validation
 from .tensor_util import save_weights, load_latest_weights
 
 
@@ -125,22 +124,3 @@ class FlatModel(object):
                     z = self.z_fun()  # (n,)
                     np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
                     save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
-
-
-def train_model(outputpath,
-                epochs,
-                batches,
-                cooccurrence,
-                z_k,
-                opt,
-                pz_regularizer=None,
-                pz_weight_regularizer=None):
-    model = FlatModel(cooccurrence=cooccurrence,
-                      z_k=z_k,
-                      opt=opt,
-                      pz_regularizer=pz_regularizer,
-                      pz_weight_regularizer=pz_weight_regularizer)
-    model.train(outputpath, epochs=epochs, batches=batches)
-    return run_flat_validation(input_path=outputpath,
-                               output_path=os.path.join(outputpath, "validate.txt"),
-                               z_k=z_k)

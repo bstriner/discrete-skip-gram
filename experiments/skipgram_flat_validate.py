@@ -1,5 +1,5 @@
 
-from discrete_skip_gram.validation import run_flat_validation
+from discrete_skip_gram.flat_validation import run_flat_validation
 
 if __name__ == '__main__':
     output_path = "output/skipgram_flat_validate.txt"

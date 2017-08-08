@@ -95,3 +95,4 @@ ENV/
 /report/bstriner_report.synctex.gz
 /experiments/mnist/output
 /experiments/discrete_skipgram/output
+/experiments/output

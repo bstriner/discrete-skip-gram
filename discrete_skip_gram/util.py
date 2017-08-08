@@ -78,3 +78,8 @@ def write_csv(path, rows, header=None):
             w.writerow(header)
         for r in rows:
             w.writerow(r)
+
+def calc_utilization(enc):
+    assert len(enc.shape) == 1
+    used = set(enc[i] for i in range(enc.shape[0]))
+    return len(used)

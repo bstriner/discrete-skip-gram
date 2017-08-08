@@ -4,7 +4,7 @@ from discrete_skip_gram.skipgram.cooccurrence import load_cooccurrence
 from discrete_skip_gram.clustering.gmm import cluster_gmm_flat
 from discrete_skip_gram.clustering.validate_clusters import validate_clusters
 from discrete_skip_gram.models.util import latest_model
-from discrete_skip_gram.validation import validate_encoding_flat
+from discrete_skip_gram.flat_validation import validate_encoding_flat
 
 
 def main():
