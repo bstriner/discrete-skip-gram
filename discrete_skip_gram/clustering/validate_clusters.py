@@ -2,7 +2,8 @@ import csv
 
 import numpy as np
 from tqdm import tqdm
-from discrete_skip_gram.skipgram.util import make_path
+
+from discrete_skip_gram.util import make_path
 
 
 def stats(nlls):
