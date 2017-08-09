@@ -57,8 +57,8 @@ def train_flat_battery(
         utilizations.append(utilization)
         data.append([iter, nll, utilization])
     write_csv("{}.csv".format(outputpath), rows=data, header=["Iteration", "NLL", 'Utilization'])
-    nlls = np.array(nlls)
-    utilizations = np.array(utilizations)
+    nlls = np.array(nlls) #(iters,)
+    utilizations = np.array(utilizations) #(iters,)
     np.savez("{}.npz".format(outputpath),
              nlls=nlls,
              utilizations=utilizations)
