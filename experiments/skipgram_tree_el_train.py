@@ -1,6 +1,5 @@
 import numpy as np
-from discrete_skip_gram.skipgram.tree_train import train_regularizer_battery
-
+from discrete_skip_gram.tree_train import train_tree_regularizer_battery
 from discrete_skip_gram.regularizers import ExclusiveLasso
 
 
@@ -16,9 +15,9 @@ def main():
     weights = [1e-11,
                1e-10,
                1e-9]
-    labels = ["{:.01e}".format(w) for w in weights]
+    labels = ["el-{:.01e}".format(w) for w in weights]
     regularizers = [ExclusiveLasso(w) for w in weights]
-    train_regularizer_battery(
+    train_tree_regularizer_battery(
         betas=betas,
         epochs=epochs,
         iters=iters,

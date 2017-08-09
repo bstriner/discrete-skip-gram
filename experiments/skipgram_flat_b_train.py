@@ -35,7 +35,7 @@ def main():
         z_k=z_k,
         labels=labels,
         regularizers=regularizers,
-        is_weight_regularizer=True,
+        is_weight_regularizer=False,
         kwdata={weights: np.array(weights)}
     )
 

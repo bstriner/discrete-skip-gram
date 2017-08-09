@@ -1,16 +1,10 @@
 import numpy as np
 from discrete_skip_gram.flat_train import train_flat_battery
-from keras.optimizers import Adam
-from tqdm import tqdm
 
-from discrete_skip_gram.util import write_csv
-
-
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
 def main():
     epochs = 10
-    iters = 10
+    iters = 5
     batches = 4096
     z_k = 1024
     outputpath = "output/skipgram_flat"

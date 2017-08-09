@@ -1,10 +1,6 @@
 import numpy as np
-from keras.optimizers import Adam
 from keras.regularizers import l1
 from discrete_skip_gram.flat_train import train_flat_regularizer_battery
-from tqdm import tqdm
-
-from discrete_skip_gram.util import write_csv
 
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"

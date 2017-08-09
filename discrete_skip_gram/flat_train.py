@@ -11,6 +11,7 @@ from .flat_model import FlatModel
 from .util import write_csv
 from .flat_validation import run_flat_validation
 
+
 def train_flat_model(outputpath,
                      epochs,
                      batches,

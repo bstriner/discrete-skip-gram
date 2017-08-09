@@ -1,4 +1,4 @@
-from discrete_skip_gram.tree_model import train_battery
+from discrete_skip_gram.tree_train import train_tree_battery
 
 
 def main():
@@ -9,7 +9,7 @@ def main():
     z_depth = 10
     outputpath = "output/skipgram_tree"
     betas = [0.85, 1.2]
-    train_battery(
+    train_tree_battery(
         betas=betas,
         epochs=epochs,
         iters=iters,
