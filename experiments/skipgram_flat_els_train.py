@@ -3,8 +3,6 @@ from discrete_skip_gram.flat_train import train_flat_regularizer_battery
 from discrete_skip_gram.regularizers import ExclusiveLassoSqrt
 
 
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
-
 def main():
     epochs = 10
     batches = 4096
