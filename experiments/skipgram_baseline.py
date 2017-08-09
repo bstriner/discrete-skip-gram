@@ -1,16 +1,12 @@
-from discrete_skip_gram.skipgram.baseline import run_baseline
-
-from discrete_skip_gram.cooccurrence import load_cooccurrence
-
-
-# os.environ["THEANO_FLAGS"] = "optimizer=None,device=cpu"
+from discrete_skip_gram.baseline_train import run_baseline
+import numpy as np
 
 
 def main():
     op = "output/skipgram_baseline"
-    epochs = 50
+    epochs = 20
     batches = 4096
-    cooccurrence = load_cooccurrence('output/cooccurrence.npy')
+    cooccurrence = np.load('output/cooccurrence.npy')
     z_ks = [512, 256, 128, 64, 32]
     iters = 5
     run_baseline(cooccurrence=cooccurrence,

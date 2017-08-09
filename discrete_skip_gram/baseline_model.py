@@ -11,6 +11,7 @@ from .tensor_util import save_weights, load_latest_weights
 from keras.optimizers import Adam
 from .util import make_path
 
+
 class BaselineModel(object):
     def __init__(self,
                  cooccurrence,
@@ -80,27 +81,3 @@ class BaselineModel(object):
                 np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
                 save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
         return self.val_fun()
-
-
-def run_baseline(z_ks, iters, output_path, cooccurrence, epochs, batches, regularizer=None):
-    nlls = []
-    losses = []
-    for z_units in z_ks:
-        _nlls = []
-        _losses = []
-        for i in range(iters):
-            iter_path = "{}/z-{}/iter-{}".format(output_path, z_units, iters)
-            model = BaselineModel(
-                cooccurrence=cooccurrence,
-                z_units=z_units,
-                opt=Adam(1e-3),
-                regularizer=regularizer
-            )
-            nll, loss = model.train(outputpath=iter_path,
-                                    epochs=epochs,
-                                    batches=batches)
-            _nlls.append(nll)
-            _losses.append(loss)
-        nlls.append(_nlls)
-        losses.append(_losses)
-    np.savez("{}.npz".format(output_path), z_ks=np.array(z_ks), nlls=np.array(nlls), losses=np.array(losses))
