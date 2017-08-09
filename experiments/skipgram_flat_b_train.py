@@ -36,7 +36,7 @@ def main():
         labels=labels,
         regularizers=regularizers,
         is_weight_regularizer=False,
-        kwdata={weights: np.array(weights)}
+        kwdata={'weights': np.array(weights)}
     )
 
 
