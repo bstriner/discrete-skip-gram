@@ -57,27 +57,28 @@ class BaselineModel(object):
         if not os.path.exists(outputpath):
             os.makedirs(outputpath)
         initial_epoch = load_latest_weights(outputpath, r'model-(\d+).h5', self.weights)
-        with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
-            w = csv.writer(f)
-            w.writerow(['Epoch', 'NLL', 'Loss'])
-            f.flush()
-            beta = 1e-2
-            loss = None
-            nll = None
-            for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
-                it = tqdm(range(batches), desc="Epoch {}".format(epoch))
-                for batch in it:
-                    _nll, _loss = self.train_fun()
-                    if not loss:
-                        loss = _loss
-                    if not nll:
-                        nll = _nll
-                    loss = (beta * _loss) + ((1. - beta) * loss)
-                    nll = (beta * _nll) + ((1. - beta) * nll)
-                    it.desc = "Epoch {} NLL {:.04f} Loss {:.04f}".format(epoch, np.asscalar(nll), np.asscalar(loss))
-                w.writerow([epoch, np.asscalar(nll), np.asscalar(loss)])
+        if initial_epoch < epochs:
+            with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
+                w = csv.writer(f)
+                w.writerow(['Epoch', 'NLL', 'Loss'])
                 f.flush()
-                z = self.encodings_fun()  # (n, z_units)
-                np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
-                save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
+                beta = 1e-2
+                loss = None
+                nll = None
+                for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
+                    it = tqdm(range(batches), desc="Epoch {}".format(epoch))
+                    for batch in it:
+                        _nll, _loss = self.train_fun()
+                        if not loss:
+                            loss = _loss
+                        if not nll:
+                            nll = _nll
+                        loss = (beta * _loss) + ((1. - beta) * loss)
+                        nll = (beta * _nll) + ((1. - beta) * nll)
+                        it.desc = "Epoch {} NLL {:.04f} Loss {:.04f}".format(epoch, np.asscalar(nll), np.asscalar(loss))
+                    w.writerow([epoch, np.asscalar(nll), np.asscalar(loss)])
+                    f.flush()
+                    z = self.encodings_fun()  # (n, z_units)
+                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), z)
+                    save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
         return self.val_fun()

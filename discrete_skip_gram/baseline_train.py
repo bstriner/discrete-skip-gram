@@ -15,7 +15,7 @@ from .baseline_model import BaselineModel
 
 def run_baseline_iterations(z_units,
                             iters,
-                            output_path,
+                            z_path,
                             cooccurrence,
                             epochs,
                             batches,
@@ -23,7 +23,7 @@ def run_baseline_iterations(z_units,
     nlls = []
     losses = []
     for i in range(iters):
-        iter_path = "{}/iter-{}".format(output_path, z_units, iters)
+        iter_path = "{}/iter-{}".format(z_path, iters)
         model = BaselineModel(
             cooccurrence=cooccurrence,
             z_units=z_units,
@@ -51,7 +51,7 @@ def run_baseline(z_ks,
         z_path = "{}/z-{}".format(output_path, z_units)
         nll, loss = run_baseline_iterations(z_units=z_units,
                                             iters=iters,
-                                            output_path=z_path,
+                                            z_path=z_path,
                                             cooccurrence=cooccurrence,
                                             epochs=epochs,
                                             batches=batches,
