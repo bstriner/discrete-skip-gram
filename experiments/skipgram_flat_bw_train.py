@@ -1,7 +1,7 @@
 import numpy as np
 from discrete_skip_gram.flat_train import train_flat_regularizer_battery
 from discrete_skip_gram.regularizers import BalanceWeightedRegularizer
-
+import theano.tensor as T
 
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 
@@ -22,6 +22,7 @@ def main():
         1e-7
     ]
     marginal = np.sum(cooccurrence, axis=1) / np.sum(cooccurrence, axis=None)
+    marginal = T.constant(marginal, name='marginal')
     regularizers = [BalanceWeightedRegularizer(w, marginal) for w in weights]
     labels = ["bw-{:.01e}".format(w) for w in weights]
     train_flat_regularizer_battery(
