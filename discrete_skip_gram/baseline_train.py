@@ -22,6 +22,7 @@ def run_baseline_iterations(z_units,
                             regularizer=None):
     nlls = []
     losses = []
+    embeddings = []
     for i in range(iters):
         iter_path = "{}/iter-{}".format(z_path, i)
         model = BaselineModel(
@@ -30,11 +31,12 @@ def run_baseline_iterations(z_units,
             opt=Adam(1e-3),
             regularizer=regularizer
         )
-        nll, loss = model.train(outputpath=iter_path,
-                                epochs=epochs,
-                                batches=batches)
+        nll, loss, embedding = model.train(outputpath=iter_path,
+                                           epochs=epochs,
+                                           batches=batches)
         nlls.append(nll)
         losses.append(loss)
+    np.save("{}-embeddings.npy".format(z_path), np.stack(embeddings))
     return np.array(nlls), np.array(losses)
 
 

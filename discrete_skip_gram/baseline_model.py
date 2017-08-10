@@ -50,7 +50,7 @@ class BaselineModel(object):
         updates = self.opt.get_updates(self.params, {}, loss)
         self.train_fun = theano.function([], [nll, loss], updates=updates)
         self.encodings_fun = theano.function([], self.embedding)
-        self.val_fun = theano.function([], [nll, loss])
+        self.val_fun = theano.function([], [nll, loss, self.embedding])
         self.weights = self.params + self.opt.weights
 
     def train(self, outputpath, epochs, batches):
@@ -62,19 +62,10 @@ class BaselineModel(object):
                 w = csv.writer(f)
                 w.writerow(['Epoch', 'NLL', 'Loss'])
                 f.flush()
-                beta = 1e-2
-                loss = None
-                nll = None
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
-                    for batch in it:
-                        _nll, _loss = self.train_fun()
-                        if not loss:
-                            loss = _loss
-                        if not nll:
-                            nll = _nll
-                        loss = (beta * _loss) + ((1. - beta) * loss)
-                        nll = (beta * _nll) + ((1. - beta) * nll)
+                    for _ in it:
+                        nll, loss = self.train_fun()
                         it.desc = "Epoch {} NLL {:.04f} Loss {:.04f}".format(epoch, np.asscalar(nll), np.asscalar(loss))
                     w.writerow([epoch, np.asscalar(nll), np.asscalar(loss)])
                     f.flush()
