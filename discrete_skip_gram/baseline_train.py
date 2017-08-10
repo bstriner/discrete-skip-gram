@@ -36,6 +36,7 @@ def run_baseline_iterations(z_units,
                                            batches=batches)
         nlls.append(nll)
         losses.append(loss)
+        embeddings.append(embedding)
     np.save("{}-embeddings.npy".format(z_path), np.stack(embeddings))
     return np.array(nlls), np.array(losses)
 
