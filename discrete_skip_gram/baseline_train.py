@@ -23,7 +23,7 @@ def run_baseline_iterations(z_units,
     nlls = []
     losses = []
     for i in range(iters):
-        iter_path = "{}/iter-{}".format(z_path, iters)
+        iter_path = "{}/iter-{}".format(z_path, i)
         model = BaselineModel(
             cooccurrence=cooccurrence,
             z_units=z_units,
