@@ -1,9 +1,10 @@
 import numpy as np
+from tqdm import tqdm
 
 
 def cluster_iters(z, iters, val_fun, z_k, cooccurrence):
     nlls = []
-    for _ in range(iters):
+    for _ in tqdm(range(iters), desc='Clustering'):
         nll = val_fun(z=z, z_k=z_k, cooccurrence=cooccurrence)
         nlls.append(nll)
     return np.stack(nlls)
@@ -11,7 +12,7 @@ def cluster_iters(z, iters, val_fun, z_k, cooccurrence):
 
 def cluster_dir(input_path, bzks, iters, z_k, cooccurrence, val_fun):
     all_nlls = []
-    for bzk in bzks:
+    for bzk in tqdm(bzks, desc="BZKs"):
         z_path = "{}/z-{}-embeddings.npy".format(input_path, bzk)
         z = np.load(z_path)  # (iters, n, z_units)
         biters = z.shape[0]

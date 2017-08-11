@@ -51,3 +51,22 @@ def validate_cluster_gmm(z, z_k, cooccurrence):
     enc = cluster_gmm_flat(z, z_k)
     nll = validate_encoding_flat(cooccurrence=cooccurrence, enc=enc)
     return nll
+
+
+def cluster_balanced_gmm(z, z_k, n_init=1):
+    assert z_k == 2
+    gmm = GaussianMixture(n_components=2, n_init=n_init)
+    gmm.fit(z)
+    p = gmm.predict_proba(z)  # (x_k, 2)
+    h = np.log(p[:,0])-np.log(p[:,1]) # (x_k,)
+    order = np.argsort(h) # (x_k,)
+    mid = int(order.shape[0]/2)
+    top = order[:mid]
+    enc = np.zeros((z.shape[0],))
+    enc[top] = 1
+    return enc
+
+def validate_balanced_gmm(z, z_k, cooccurrence):
+    enc = cluster_balanced_gmm(z, z_k)
+    nll = validate_encoding_flat(cooccurrence=cooccurrence, enc=enc)
+    return nll

@@ -6,8 +6,8 @@ from discrete_skip_gram.clustering.gmm import validate_cluster_gmm
 def main():
     bzks = [512, 256, 128, 64, 32]
     iters = 5
-    z_k = 1024
-    output_path = "output/skipgram_baseline_flat_gmm.npz"
+    z_k = 2
+    output_path = "output/skipgram_baseline_binary_gmm.npz"
     cooccurrence = np.load('output/cooccurrence.npy')
     kwdata = {'bzks': np.array(bzks)}
     kwdata['baseline'] = cluster_dir(input_path='output/skipgram_baseline',
