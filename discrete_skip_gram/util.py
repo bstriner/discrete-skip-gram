@@ -88,7 +88,7 @@ def calc_utilization(enc):
 
 
 def calc_stats(x, axis=None):
-    return np.mean(x, axis=axis), np.std(x, axis=axis), np.min(x, axis=axis), np.max(x, axis=axis), np.prod(x.shape)
+    return [np.mean(x, axis=axis), np.std(x, axis=axis), np.min(x, axis=axis), np.max(x, axis=axis), np.prod(x.shape)]
 
 
 def stats_string(x, axis=None):
