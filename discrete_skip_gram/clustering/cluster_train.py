@@ -3,7 +3,7 @@ import numpy as np
 
 def cluster_iters(z, iters, val_fun, z_k, cooccurrence):
     nlls = []
-    for _ in iters:
+    for _ in range(iters):
         nll = val_fun(z=z, z_k=z_k, cooccurrence=cooccurrence)
         nlls.append(nll)
     return np.stack(nlls)
