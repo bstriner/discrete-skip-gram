@@ -1,25 +1,34 @@
 import numpy as np
-from discrete_skip_gram.skipgram.validation import validate_encoding_flat
-
-from discrete_skip_gram.clustering.kmeans import cluster_km
-from discrete_skip_gram.clustering.validate_clusters import validate_clusters
-from discrete_skip_gram.cooccurrence import load_cooccurrence
-from discrete_skip_gram.models.util import latest_model
+from discrete_skip_gram.clustering.cluster_train import cluster_dir
+from discrete_skip_gram.clustering.kmeans import validate_cluster_km
 
 
 def main():
-    output_path = "output/skipgram_flat_kmeans.csv"
-    inputpath = "output/skipgram_baseline"
-
-    file, epoch = latest_model(inputpath, "encodings-(\\d+).npy", fail=True)
-    print "Loading epoch {}: {}".format(epoch, file)
-    z = np.load(file)
-    cooccurrence = load_cooccurrence('output/cooccurrence.npy').astype(np.float32)
-    zks = [(2 ** i) for i in range(1, 11)]
-    iters = 2
-    validate_clusters(output_path=output_path, z=z, cooccurrence=cooccurrence,
-                      zks=zks, iters=iters, clustering=cluster_km,
-                      validation=validate_encoding_flat(cooccurrence=cooccurrence))
+    bzks = [512, 256, 128, 64, 32]
+    iters = 5
+    z_k = 1024
+    output_path = "output/skipgram_baseline_flat_kmeans.npz"
+    cooccurrence = np.load('output/cooccurrence.npy')
+    baseline = cluster_dir(input_path='output/skipgram_baseline',
+                           bzks=bzks,
+                           iters=iters,
+                           z_k=z_k,
+                           cooccurrence=cooccurrence,
+                           val_fun=validate_cluster_km)
+    l1 = cluster_dir(input_path='output/skipgram_baseline-l1',
+                     bzks=bzks,
+                     iters=iters,
+                     z_k=z_k,
+                     cooccurrence=cooccurrence,
+                     val_fun=validate_cluster_km)
+    l2 = cluster_dir(input_path='output/skipgram_baseline-l2',
+                     bzks=bzks,
+                     iters=iters,
+                     z_k=z_k,
+                     cooccurrence=cooccurrence,
+                     val_fun=validate_cluster_km)
+    # (bzks, biters, iters)
+    np.savez(output_path, baseline=baseline, l1=l1, l2=l2)
 
 
 if __name__ == "__main__":

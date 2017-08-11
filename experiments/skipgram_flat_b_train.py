@@ -14,6 +14,7 @@ def main():
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     weights = [
         1e1,
+        1,
         1e-1,
         1e-2,
         1e-3,
