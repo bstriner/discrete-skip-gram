@@ -58,13 +58,15 @@ def cluster_balanced_gmm(z, z_k, n_init=1):
     gmm = GaussianMixture(n_components=2, n_init=n_init)
     gmm.fit(z)
     p = gmm.predict_proba(z)  # (x_k, 2)
-    h = np.log(p[:,0])-np.log(p[:,1]) # (x_k,)
-    order = np.argsort(h) # (x_k,)
-    mid = int(order.shape[0]/2)
+    eps = 1e-9
+    h = np.log(eps + p[:, 0]) - np.log(eps + p[:, 1])  # (x_k,)
+    order = np.argsort(h)  # (x_k,)
+    mid = int(order.shape[0] / 2)
     top = order[:mid]
     enc = np.zeros((z.shape[0],), dtype='int32')
     enc[top] = 1
     return enc
+
 
 def validate_balanced_gmm(z, z_k, cooccurrence):
     enc = cluster_balanced_gmm(z, z_k)
