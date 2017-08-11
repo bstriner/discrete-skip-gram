@@ -62,7 +62,7 @@ def cluster_balanced_gmm(z, z_k, n_init=1):
     order = np.argsort(h) # (x_k,)
     mid = int(order.shape[0]/2)
     top = order[:mid]
-    enc = np.zeros((z.shape[0],))
+    enc = np.zeros((z.shape[0],), dtype='int32')
     enc[top] = 1
     return enc
 
