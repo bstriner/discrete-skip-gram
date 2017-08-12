@@ -22,7 +22,7 @@ class TreeModel(object):
                  pz_weight_regularizer=None,
                  eps=1e-9,
                  scale=1e-2,
-                 use_shared=True):
+                 use_shared=False):
         cooccurrence = cooccurrence.astype(np.float32)
         cooccurrence = cooccurrence / np.sum(cooccurrence, axis=None)
         if use_shared:
