@@ -21,14 +21,11 @@ class TreeModel(object):
                  pz_regularizer=None,
                  pz_weight_regularizer=None,
                  eps=1e-9,
-                 scale=1e-2,
-                 use_shared=False):
+                 scale=1e-2):
         cooccurrence = cooccurrence.astype(np.float32)
         cooccurrence = cooccurrence / np.sum(cooccurrence, axis=None)
-        if use_shared:
-            co = theano.shared(cooccurrence, name='cooccurrence')
-        else:
-            co = T.constant(cooccurrence, dtype='float32', name='cooccurrence')
+        co = theano.shared(cooccurrence, name='cooccurrence')
+        #co = T.constant(cooccurrence, dtype='float32', name='cooccurrence')
         self.cooccurrence = cooccurrence
         self.z_depth = z_depth
         self.z_k = z_k
