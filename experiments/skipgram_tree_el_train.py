@@ -12,7 +12,9 @@ def main():
     outputpath = "output/skipgram_tree_el"
     betas = [0.85,
              1.2]
-    weights = [1e-11,
+    weights = [1e-13,
+               1e-12,
+               1e-11,
                1e-10,
                1e-9]
     labels = ["el-{:.01e}".format(w) for w in weights]
