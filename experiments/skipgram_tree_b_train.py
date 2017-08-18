@@ -1,6 +1,7 @@
 import numpy as np
-from discrete_skip_gram.tree_train import train_tree_regularizer_battery
+
 from discrete_skip_gram.regularizers import BalanceRegularizer
+from discrete_skip_gram.tree_train import train_tree_regularizer_battery
 
 
 def main():
@@ -10,9 +11,12 @@ def main():
     z_k = 2
     z_depth = 10
     outputpath = "output/skipgram_tree_b"
-    betas = [0.85,
-             1.2]
-    weights = [1e-1,
+    betas = [0.5,
+             0.85,
+             1.2,
+             2.0]
+    weights = [1,
+               1e-1,
                1e-2,
                1e-3,
                1e-4,

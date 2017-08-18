@@ -8,7 +8,10 @@ def main():
     z_k = 2
     z_depth = 10
     outputpath = "output/skipgram_tree"
-    betas = [0.5, 0.85, 1.2, 2.0]
+    betas = [0.5,
+             0.85,
+             1.2,
+             2.0]
     train_tree_battery(
         betas=betas,
         epochs=epochs,

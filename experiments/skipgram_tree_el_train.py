@@ -1,6 +1,7 @@
 import numpy as np
-from discrete_skip_gram.tree_train import train_tree_regularizer_battery
+
 from discrete_skip_gram.regularizers import ExclusiveLasso
+from discrete_skip_gram.tree_train import train_tree_regularizer_battery
 
 
 def main():
@@ -10,13 +11,16 @@ def main():
     z_k = 2
     z_depth = 10
     outputpath = "output/skipgram_tree_el"
-    betas = [0.85,
-             1.2]
+    betas = [0.5,
+             0.85,
+             1.2,
+             2.0]
     weights = [1e-13,
                1e-12,
                1e-11,
                1e-10,
-               1e-9]
+               1e-9,
+               1e-8]
     labels = ["el-{:.01e}".format(w) for w in weights]
     regularizers = [ExclusiveLasso(w) for w in weights]
     train_tree_regularizer_battery(

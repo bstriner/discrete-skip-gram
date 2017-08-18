@@ -27,61 +27,50 @@
 \DeclareMathOperator*{\argmax}{arg\,max}
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
 
-\title{Instructions for TACL Submissions}
+\title{Discrete Structured Representation Learning}
 
-\author{First Author \\
-  Affiliation / Address line 1 \\
-  Affiliation / Address line 2 \\
-  Affiliation / Address line 3 \\
-  {\tt email@domain} \\\And
-  Second Author \\
-  Affiliation / Address line 1 \\
-  Affiliation / Address line 2 \\
-  Affiliation / Address line 3 \\
-  {\tt email@domain} \\}
+\author{Benjamin Striner \\
+  {\tt bstriner@andrew.cmu.edu} \\}
 
 \date{}
 
 \begin{document}
 \maketitle
 \begin{abstract}
-  This document contains the instructions for preparing a manuscript for submission to TACL. The document itself conforms to its own specifications, and is therefore an example of what your manuscript should look like. These instructions should be used for both papers submitted for review and for final versions of accepted papers. Authors are asked to conform to all the directions reported in this document.
+  Placeholder
 \end{abstract}
-
-\section{Credits}
-
-This document has been adapted from the instructions for ACL proceedings, including those for ACL-2008 by Johanna D. Moore, Simone Teufel, James Allan, and Sadaoki Furui, those for ACL-2005 by Hwee Tou Ng and Kemal Oflazer, those for ACL-2002 by Eugene Charniak and Dekang Lin, and earlier ACL and EACL formats. Those versions were written by several people, including John Chen, Henry S. Thompson and Donald Walker. Additional elements were taken from the formatting instructions of the {\em International Joint Conference on Artificial Intelligence}.
 
 \section{Introduction}
 
 placeholder
+
 \section{Factoring a joint distribution}
 
 Let $A$ be a joint distribution matrix of two discrete variables $X$ and $Y$.
 
 $$A_{i,j}=P(X=i, Y=j)$$
 
-The entropy of the marginal distribution ($H(Y)$) is the best performance of a model that has no information regarding $X$. In the case of a skipgram covariance matrix, this is the entropy of the unigram distribution.
+The entropy of the marginal distribution, $H(Y)$, measures the complexity of the data if only $Y$ is considered. In the case of a skipgram matrix, this is roughly the entropy of the unigram distribution.
 
 \begin{align*}
 f(x) &= -x \log(x) \\
-P(Y=j) &= \sum^i A_{i, j} \\
-H(Y) &=  \sum^j f(P(Y=j))
+P(Y=j) &= \sum_i A_{i, j} \\
+H(Y) &=  \sum_j f(P(Y=j))
 \end{align*}
 
-The conditional entropy ($H(Y \mid X)$) is the best performance of a model that is unconstrained, for instance, a skipgram model with a large number of hidden units. The conditional probability is the joint probability times the log of the conditional probability, or alternatively the marginal probability times the entropy of the conditional distribution.
+The conditional entropy, $H(Y \mid X)$, measures the complexity of $Y$ if $X$ is known. A neural network trained given $X$ to predict $Y$ using cross-entropy loss will at best achieve this value. The conditional entropy is the joint probability times the log of the conditional probability, or alternatively the marginal probability times the entropy of the conditional distribution.
 
 \setlength{\thinmuskip}{0mu}
 \setlength{\medmuskip}{0mu}
 \setlength{\thickmuskip}{0mu} 
-$$H(Y \mid X)=\sum^{i,j} - P(X=i, Y=j) \log(P(Y=j \mid X=i)) $$
-$$H(Y \mid X)= \sum^{i,j}  P(X=i) f(P(Y=j \mid X=i))$$
+$$H(Y \mid X)=\sum_{i,j} - P(X=i, Y=j) \log(P(Y=j \mid X=i)) $$
+$$H(Y \mid X)= \sum_{i,j}  P(X=i) f(P(Y=j \mid X=i))$$
 
-The function $f(x)=-x \log(x)$ is convex, therefore the entropy of a linear combination of distributions is greater than or equal to the linear combination of the entropy of the distributions. The entropy of the marginal distribution is greater than or equal to the conditional entropy.
+The function $f(x)=-x \log(x)$ is concave, therefore the entropy of a linear combination of distributions is greater than or equal to the linear combination of the entropy of the distributions. The entropy of the marginal distribution is greater than or equal to the conditional entropy.
 
-\subsection{Continuous factoring of a conditional distribution}
+\subsection{Continuous factoring}
 
-The most common method of continuous factoring is to embed each word into some continuous representation. The actual conditional distribution is approximated ($\tilde{P}$) by the output of a neural network. The loss ($L$) is the expected negative log conditional likelihood. See, for example, \cite{DBLP:journals/corr/MikolovSCCD13} and \cite{DBLP:journals/corr/abs-1301-3781}. 
+The most common method of continuous factoring is to embed each input into some continuous representation. A neural network is used to parameterize an approximation ($\tilde{P}$) to the actual conditional distribution. The loss ($L$) is the expected negative log conditional likelihood. See, for example, \cite{DBLP:journals/corr/MikolovSCCD13} and \cite{DBLP:journals/corr/abs-1301-3781}. 
 
 A simple version of this model is parameterized by embeddings ($x$), weights ($W$) and bias ($b$) and uses a softmax to squash the outputs.
 
@@ -91,18 +80,25 @@ $$ L(x,W,b) = -\mathbb{E}_{[i \sim X, j \sim Y]} \log \tilde{P}(Y=j \mid X=i) $$
 
 \subsection{Discrete factoring or clustering}
 
-A common and relatively efficient practice for producing discrete clusters is to train a neural network and then apply clustering techniques to the learned embeddings. In this paper, we examine how much information is actually retained by applying clustering to learned embeddings. We also examine methods to directly cluster with respect to a given loss function.
+A common practice for producing discrete clusters is to train a neural network and then apply clustering techniques to the learned embeddings. In this paper, we examine how much information is actually retained by applying clustering to learned embeddings. We also examine methods to directly cluster with respect to a given loss function.
 
-If examples in a dataset are clustered, the output that minimizes the loss for those examples may be calculated analytically or iteratively. In the case of a conditional distribution, the output that minimizes the loss for a cluster of examples is the combined distribution. The expected negative log conditional likelihood is the conditional entropy of the combined distributions. Similar approaches could be applied to more complicated neural networks, but discrete factorization of a conditional distribution is highly efficient and works well for analysis of the core optimization problem.
+If examples in a dataset are clustered, the single output that minimizes the loss for a given cluster may be calculated analytically or iteratively. In the case of minimizing entropy, the analytic solution is straightforward.
 
-Let $C$ be an indicator matrix where $C_{j,i}$ indicates that $X=i$ should be encoded as $Z=j$. The joint distribution matrix $B_{i,j}=P(Y=j,Z=i)$ is efficiently calculated using the dot product. $C$ is constrained to all $0$ except one and only one $1$ per column.
+$$\min_{\tilde{x}}\sum_i-x_i \log(\tilde{x_i}) = x$$
 
-$$B = C \cdot A $$ 
+The expected negative log conditional likelihood is the conditional entropy of the combined distributions, analogous to the cross entropy loss in above discussion of continuous factoring. Similar approaches could be applied to more complicated neural networks, but discrete factorization of a conditional distribution is highly efficient and works well for analysis of the core optimization problem.
+
+Let $C$ be an indicator matrix where $C_{j,i}$ indicates that $X=i$ should be encoded as $Z=j$. $C$ encodes the distribution $P(Z=z \mid X=x)$. $C$ is constrained to all $0$ except one and only one $1$ per column. The joint distribution matrix $B_{i,j}=P(Y=j,Z=i)$ is efficiently calculated using the dot product. 
+
+$$P(Y=y,Z=z) = \sum_x P(Y=y,X=x) P(Z=z \mid X=x)$$
+$$B = C A $$ 
 
 If the inputs $X$ are encoded discretely into $Z$ where $Z$ is overfull, some information is lost.  The covariance matrix $B$ is a linear combination of rows of the matrix $A$ and therefore $H(Y|Z) \ge H(Y|X)$. 
 
-By relaxing the constraints on $C$, we can create a parameterization that allows for gradient descent using the conditional entropy of $B$ as the loss. A simple parameterization
-is $C=\operatorname{softmax}(W)$. If the softmax is fully saturated, each row will be assigned to one and only one cluster. At initialization, each row is assigned to a random mixture of clusters. By the convexity of $f$, we predict that the model will tend towards saturation. A mixture of distributions will have a higher entropy than the component distributions.
+By relaxing the constraints on $C$, we can create a parameterization that allows for gradient descent using the conditional entropy $H(Y\mid Z)$ as the loss. A simple parameterization
+is $C=\operatorname{softmax}(W)$. If the softmax is fully saturated, each row will be assigned to one and only one cluster. At initialization, each row is assigned to a random mixture of clusters. The softmax ensures that $C$ may be vallidly interpreted as $P(Z \mid X)$. By the concavity of $f$, we predict that the model will tend towards saturation. A mixture of distributions will have a higher entropy than the component distributions.
+
+$$ L(W) = - \sum_{x,y} P(X=x, Y=y) \log( P(Y=y \mid Z=z)) $$
 
 \subsection{Hierarchical clustering}
 
