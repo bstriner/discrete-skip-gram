@@ -1,10 +1,6 @@
-import os
-import csv
-import itertools
-
 import numpy as np
-from sklearn.cluster import AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
+
 from ..flat_validation import validate_encoding_flat
 
 
@@ -20,7 +16,7 @@ def cluster_hgmm_recursive(words, code, depth):
             gmm.fit(z)
             p = gmm.predict_proba(z)
             eps = 1e-9
-            score = np.log(eps+p[:, 0]) - np.log(eps+p[:, 1])
+            score = np.log(eps + p[:, 0]) - np.log(eps + p[:, 1])
             order = np.argsort(score)
             orderedwords = [words[order[j]] for j in range(order.shape[0])]
             half = int(len(words) / 2)
@@ -40,12 +36,15 @@ def cluster_hgmm(z, depth):
     return enc
 
 
-def validate_cluster_hmm(z, z_k, cooccurrence):
+def validate_cluster_hgmm(z, z_k, cooccurrence):
     depth = int(np.log2(z_k))
-    assert 2**depth == z_k
+    assert 2 ** depth == z_k
     enc = cluster_hgmm(z, depth)
-    nll = validate_encoding_flat(cooccurrence=cooccurrence, enc=enc)
+    m = np.power(2, np.arange(depth)).reshape((1, -1))
+    encf = np.sum(enc * m, axis=1)
+    nll = validate_encoding_flat(cooccurrence=cooccurrence, enc=encf)
     return nll
+
 
 def cluster_gmm_flat(z, z_k, n_init=1):
     gmm = GaussianMixture(n_components=z_k, n_init=n_init)
