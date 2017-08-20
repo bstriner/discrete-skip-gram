@@ -27,44 +27,39 @@
 \usepackage[hidelinks]{hyperref}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
+\setlength{\thinmuskip}{0mu}
+\setlength{\medmuskip}{0mu}
+\setlength{\thickmuskip}{0mu} 
 
 \title{Discrete Structured Representation Learning}
 
 \author{Benjamin Striner \\
   {\tt bstriner@andrew.cmu.edu} \\}
 
-\date{}
+\date{October 19, 2017}
 
 \begin{document}
 \maketitle
 \begin{abstract}
-  Placeholder
+Discrete structured representation learning allows the compression of information into a finite space and the representation of information in a manner that is understandable and explainable. Continuous neural networks are efficient to optimize but do not allow for easy interpretation. We present experiments optimizing over discrete hidden representations that can be interpreted as ontologies or decision trees. We also examine conventional post-mortem clustering and find that it frequently underperforms random assignments.
 \end{abstract}
-
-\setlength{\thinmuskip}{0mu}
-\setlength{\medmuskip}{0mu}
-\setlength{\thickmuskip}{0mu} 
-
 
 \section{Introduction}
 
-Hidden representations inferred by neural networks are most frequently dense and continuous. Discrete representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are applied to make the hidden representation understandable. These analyses are typically applied to the hidden representations "post-mortem" (after training).
+Hidden representations inferred by neural networks are most frequently dense and continuous. Discrete representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are applied to make the hidden representation understandable. These analyses are typically applied to hidden representations ``post-mortem'' (after training).
 
-Conventional linguistic ontologies attempt to organize words, concepts, or other objects into a discrete structure, typically a hierarchical tree. This type of representation is more understandable to 
+Conventional linguistic ontologies attempt to organize words, concepts, or other objects into a discrete structure, typically a hierarchical tree (e.g., WordNet, PropBank). This type of representation tends to be more understandable than a dense matrix multiplication. Human knowledge is commonly and traditionally represented as facts, nodes, networks, or other types of discrete structures.
 
-The ability to learn discrete representations allows for extreme reduction in the number of bits required to encode each input.
-
-Attempt to learn discrete representations \cite{Hu17}
+The ability to learn discrete representations allows for reduction in the number of bits required to encode each input \cite{Hu17}.
+Structured discrete representations may have other advantages when used by higher-level models, such as better enabling logic and tree searching.
 
 \section{Method}
 
 We provide a method for expanding existing neural networks to learn a discrete hidden representation. To focus on the core optimization problems, we focus on one of the simplest models, learning a skipgram model as discussed in \cite{Mikolov1301} \cite{MikolovSCCD13}.
 
-Let $X$ and $Y$ be two discrete variables. We will discuss methods for factoring the distribution $P(X,Y)$.
+Let $X$ and $Y$ be two discrete variables. We will discuss methods for factoring the distribution $P(X,Y)$. Let the matrix $A$ represent the joint distribution.
 
-%Let $A$ be a matrix representing the joint distribution of two discrete variables $X$ and $Y$.
-
-%$$A_{x,y}=P(X=x, Y=y)$$
+$$A_{x,y}=P(X=x, Y=y)$$
 
 The entropy of the marginal distribution, $H(Y)$, measures the complexity of the data if only $Y$ is considered. In the case of a skipgram matrix, this is roughly the entropy of the unigram distribution.
 
@@ -292,6 +287,8 @@ Adding regularization to our binary tree model improved performance at the botto
 \section{Discussion}
 
 Optimizing the conditional entropy of $P(Y\mid Z)$ was an effective method of forming clusters. Clusters contained more information regarding $Y$ than clusters created using post-mortem methods.
+
+Although clustering hidden representations should intuitively capture information related to the objective, we found that this was frequently not the case. In many situations, post-mortem clustering of hidden representations produced worse clusters than random clustering. Regularization and the size of the hidden space have strong effects on the result of the clustering, which can be avoided by using our proposed models.
 
 Regularization prevented underutilization caused by death of some clusters. Barrier and exclusive lasso regularizers prevented underutilization. It is critical to fully understand the dynamics of the optimization problem in such a simple environment, so it can be applied to more complicated networks.
 
