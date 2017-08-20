@@ -97,3 +97,9 @@ ENV/
 /experiments/discrete_skipgram/output
 /experiments/output
 /notebook/images
+/experiments/web/treant-js-master
+/experiments/web/vendor
+/experiments/web/examples
+/experiments/web/treant-js-master.zip
+/experiments/web/Treant.css
+/experiments/web/Treant.js
