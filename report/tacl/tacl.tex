@@ -41,21 +41,20 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-Discrete structured representation learning allows the compression of information into a finite space and the representation of information in a manner that is understandable and explainable. Continuous neural networks are efficient to optimize but do not allow for easy interpretation. We present experiments optimizing over discrete hidden representations that can be interpreted as ontologies or decision trees. We also examine conventional post-mortem clustering and find that it frequently underperforms random assignments.
+Discrete structured representations are more understandable and explainable than continuous dense representations. Neural networks are efficient to optimize but do not allow for easy interpretation. We adapt a simple network to learn  discrete hidden representations that can be interpreted as ontologies or decision trees. We also examine conventional postmortem clustering and find that it frequently under performs a random baseline.
 \end{abstract}
 
 \section{Introduction}
 
-Hidden representations inferred by neural networks are most frequently dense and continuous. Discrete representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are applied to make the hidden representation understandable. These analyses are typically applied to hidden representations ``post-mortem'' (after training).
+Hidden representations inferred by neural networks are commonly dense and continuous. Continuous dense representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are applied to make hidden representations understandable. These analyses are commonly applied ``postmortem'' (after training).
 
-Conventional linguistic ontologies attempt to organize words, concepts, or other objects into a discrete structure, typically a hierarchical tree (e.g., WordNet, PropBank). This type of representation tends to be more understandable than a dense matrix multiplication. Human knowledge is commonly and traditionally represented as facts, nodes, networks, or other types of discrete structures.
+Conventional linguistic ontologies attempt to organize words, concepts, or other objects into discrete structures, such as a hierarchical tree (\textit{e.g.}, WordNet, PropBank). This type of representation tends to be more understandable than dense matrix multiplication. Human knowledge is commonly and traditionally represented as facts, nodes, networks, or other types of discrete structures (\textit{e.g.}, Wikipedia is an structured network).
 
-The ability to learn discrete representations allows for reduction in the number of bits required to encode each input \cite{Hu17}.
-Structured discrete representations may have other advantages when used by higher-level models, such as better enabling logic and tree searching.
+Models that learn discrete structured representations should allow for knowledge respresentation that is more understandable and explainable. It may be that discrete structured representations provide hidden benefits or advantages that explain why structured networks tend to be the natural human way to represent knowledge. Discrete structured representations may be required for certain types of abstract logic. Even aside from such lofty goals, discrete representations allow for radical reduction in the number of bits required to encode each input \cite{Hu17}.
 
 \section{Method}
 
-We provide a method for expanding existing neural networks to learn a discrete hidden representation. To focus on the core optimization problems, we focus on one of the simplest models, learning a skipgram model as discussed in \cite{Mikolov1301} \cite{MikolovSCCD13}.
+We provide a method for expanding existing neural networks to learn a discrete hidden representation. To focus on the core optimization problems, we experimented with on one of the simplest models, learning a skipgram model as discussed in \cite{Mikolov1301} \cite{MikolovSCCD13}.
 
 Let $X$ and $Y$ be two discrete variables. We will discuss methods for factoring the distribution $P(X,Y)$. Let the matrix $A$ represent the joint distribution.
 
@@ -69,7 +68,7 @@ P(Y=y) &= \sum_x P(X=x, Y=y) \\
 H(Y) &=  \sum_y h(P(Y=y))
 \end{align*}
 
-The conditional entropy, $H(Y \mid X)$, measures the complexity of $Y$ if $X$ is known. A neural network trained given $X$ to predict $Y$ using cross-entropy loss will at best achieve this value. The conditional entropy is the joint probability times the log of the conditional probability, or alternatively the marginal probability times the entropy of the conditional distribution.
+The conditional entropy, $H(Y \mid X)$, measures the complexity of $Y$ if $X$ is known. A neural network trained given $X$ to predict $Y$ using cross-entropy loss will at best achieve this value. The conditional entropy is the joint probability times the negative log of the conditional probability, or alternatively the marginal probability times the entropy of the conditional distribution.
 
 $$H(Y \mid X)=-\sum_{x,y} P(X, Y) \log(P(Y \mid X)) $$
 $$P(X,Y) = P(X) P(Y \mid X)$$
@@ -79,7 +78,7 @@ The function $f(x)=-x \log(x)$ is concave. The entropy of a linear combination o
 
 \subsection{Continuous factoring}
 
-A common method of continuous factoring is to embed each input into a continuous representation. A neural network is used to parameterize an approximation ($\tilde{P}$) to the actual conditional distribution. The loss ($J$) is the expected negative log conditional likelihood. See, for example, \cite{MikolovSCCD13} and \cite{Mikolov1301}. 
+A common method of continuous factoring is to embed each input into a continuous representation. A neural network is used to parameterize an approximation to the conditional distribution, $\tilde{P}(Y \mid X)$. The loss, $J$, is the expected negative log conditional likelihood. See, for example, \cite{MikolovSCCD13} and \cite{Mikolov1301}. 
 
 A simple version of this model is parameterized by embeddings ($U$), weights ($W$) and bias ($b$) and uses a softmax to squash the outputs.
 
@@ -89,7 +88,7 @@ $$ J = -\mathbb{E}_{[x,y \sim X, Y]} \log \tilde{P}(Y \mid X) $$
 
 \subsection{Discrete factoring or clustering}
 
-A common practice for producing discrete clusters is to train a neural network and then apply clustering techniques (e.g., GMM, K-means) to the learned continuous hidden space. We examine how much information is actually retained by applying clustering to learned embeddings. We also examine methods to directly cluster with respect to a given loss function.
+A common practice for producing discrete clusters is to train a neural network and then apply clustering techniques (\textit{e.g.}, GMM, $k$-means) to the learned continuous hidden space. We examine how much information is actually retained by applying clustering to learned embeddings. We also examine methods to directly cluster with respect to a given loss function.
 
 If examples in a dataset are clustered, the single output that minimizes the loss for a given cluster may be calculated analytically or iteratively. In the case of minimizing entropy, constrained by the space of valid distributions, the analytic solution is straightforward.
 
@@ -103,10 +102,10 @@ $$P(Z \mid X,Y) = P(Z \mid X)$$
 $$P(Y,Z) = \sum_x P(Y,X) P(Z \mid X)$$
 $$B = C A $$ 
 
-If the inputs $X$ are encoded discretely into $Z$ where $Z$ is overfull, some information is lost.  The matrix $B$, $P(Y,Z)$, is a linear combination of rows of the matrix $A$, $P(Y,X)$. Therefore $H(Y \mid Z) \ge H(Y \mid X)$. 
+If the inputs $X$ are encoded discretely into $Z$ where $Z$ is overfull, some information is lost.  The matrix $B$, $P(Y,Z)$, is a linear combination of rows of the matrix $A$, $P(Y,X)$. Therefore $H(Y \mid Z) \ge H(Y \mid X)$ due to the concavity of $h$. 
 
 By relaxing the constraints on $C$, we can create a parameterization of $P(Z \mid X)$ that allows for gradient descent on the conditional entropy $H(Y\mid Z)$. A simple parameterization
-is $C=\operatorname{softmax}(W)$. If the softmax is fully saturated, each input, $X$, will be assigned to one and only one cluster, $Z$. At initialization, each row is assigned to a random mixture of clusters. The softmax ensures that $C$ may be vallidly interpreted as $P(Z \mid X)$. By the concavity of $h$, we predict that the model will tend towards saturation. A mixture of distributions will have a higher entropy than the component distributions.
+is $C=\operatorname{softmax}(W)$. If the softmax is fully saturated, each input, $X$, will be assigned to one and only one cluster, $Z$. At initialization, each row is assigned to a random mixture of clusters. The softmax ensures that $C$ may be validly interpreted as $P(Z \mid X)$. By the concavity of $h$, we predict that the model will tend towards saturation. A mixture of distributions will have a higher entropy than the component distributions.
 
 $$ J = H(Y \mid X) $$
 $$ J = - \sum_{y,z} P(Y, Z) \log( P(Y \mid Z)) $$
@@ -118,15 +117,15 @@ $$ J = - \mathbb{E}_{x,y \sim X, Y} \sum_{z} P(Z \mid X) \log( \tilde{P}(Y \mid 
 
 \subsection{Hierarchical clustering}
 
-The simplest discrete structured encoding is a binary tree. The address of a node in a binary tree of depth $d$ may be represented as a vector of length $d$ containing only zeros and ones. A complete binary tree will contain $2^d$ leaves at the base of the tree and will ideally achieve similar performance to models using $2^d$ flat clusters.
+The simplest discrete structured encoding is a binary tree. The address of a node in a binary tree of depth $d$ may be represented as a vector $d$ bits. A complete binary tree will contain $2^d$ leaves at the base of the tree and will ideally achieve similar performance to models using $2^d$ flat clusters.
 
-A reasonable loss for hierarchical clusters is the weighted sum of the conditional entropy of the clusters at each depth in the tree. In the spirit of the Bellman equation, an exponential series is a reasonable choice of weighting. Let $Z_d$ be the address of $X$ in the tree starting with $Z_0$ at the root.
+A reasonable objective for hierarchical clustering is the weighted sum of the conditional entropy of the clusters at each depth in the tree. In the spirit of the Bellman equation, an exponential series is a reasonable choice of weighting. Let $Z_0,...,Z_d$ be the binary address of $X$ in the tree starting with $Z_0$ at the root.
 
 $$ J = \sum_d \beta ^ d  H(Y \mid Z_0,\ldots, Z_d) $$
 
-Intuitively, one is optimizing a weighted sum of how much information is available given the depth ($d$) of the tree or how many bits of the representation are provided. The parameter $\beta$ controls the balance of having more information available early or better accuracy given more of the tree. This model attempts to pack more information into the early bits and remaining differentiation into the later bits. The meaning of the later bits is dependent on the earlier bits but the converse is not true.
+Intuitively, one is optimizing a weighted sum of how much information is available given the depth ($d$) of the tree or how many bits of the representation are provided. The parameter $\beta$ controls the balance of having more information available early versus better accuracy given more of the tree. This model attempts to pack more information into the early bits and remaining differentiation into the later bits. The meaning of the later bits is dependent on the earlier bits but the converse is not true.
 
-We parameterize clusters at at the bottom layer of the tree $C_d$. We calculate the membership of clusters at previous layers $C_0,...,C_{d-1}$ by summing leaves into parent nodes. We calculate the weighted loss over tree depth as described above.
+We parameterize leaves at at the bottom layer of the tree $C_d$. We calculate the membership of nodes at previous layers $C_0,...,C_{d-1}$ by summing component leaves into parent nodes. We calculate the weighted loss over tree depth as described above.
 
 \subsection{Regularization}
 
@@ -147,20 +146,24 @@ The exclusive lasso regularizer models the scenario when variables in the same g
 
 $$V(W) = \sum_i (\sum_j \lvert W_{i,j} \rvert)^2$$ 
 
-We also experimented with activity regularization. We want to ensure that the model fully utilizes all of the available clusters, so would like a regularizer that prevents the marginal probability of any cluster from going to zero. We chose a logistic barrier regularizer applied to the marginal cluster probability. This regularizer approaches infinity as the expexted probability of any cluster approaches zero.
+We also experimented with activity regularization. We want to ensure that the model fully utilizes all of the available clusters, so would like a regularizer that prevents the marginal probability of any cluster from going to zero. We chose a logistic barrier regularizer applied to the marginal cluster probability. This regularizer approaches infinity as the expected probability of any cluster approaches zero.
 
 $$ R(P) = -\sum_z \log[ \mathbb{E}_{x \sim \operatorname{unif}(X)} P(Z=z \mid X=x)]$$ 
 
-We performed experiments using $\mathbb{E}_{x \sim X}$, $R_0(P)=\sum_z \log P(Z)$ but this performed poorly in comparison to the expectation drawing from a uniform distribution.
+We performed experiments using $\mathbb{E}_{x \sim X}$, but this performed poorly in comparison to the expectation drawing from a uniform distribution.
 
 $$R_0(P) =  -\sum_z \log [ \mathbb{E}_{x \sim X} P(Z=z \mid X=x) ]$$ 
 $$R_0(P) =  -\sum_z \log P(Z=z )$$ 
 
 \section{Experiments and Results}
 
-We built a skipgram matrix from the Brown corpus as a simple distribution so we could focus on aspects of the optimization problem. We removed all non-alphabetic characters and capitalization. We replaced all words that appeared less than 20 times with an unknown symbol, resulting in a set of $n=4,946$ symbols (including the unknown symbol). We then enumerated all words within a $k$ word window around each word to produce a list of skipgrams ($k$=3). We calculated the joint distribution by tabulating these skipgrams into a $n$ by $n$ matrix.
+We describe experiments and results regarding factoring a skipgram distribution. All source code is available online and graphs may be reproduced using accompanying Jupyter notebook.\footnote{[Insert link to github]}
 
-The entropy of the marginal distribution created from our matrix is 5.913 and the conditional entropy of the matrix is 5.326. Any reasonable factorization of the matrix should result in performance somewhere between those two values.
+\subsection{Data preparation}
+
+We built a skipgram matrix from the Brown corpus as a simple distribution so we could focus on aspects of the optimization problem. We removed all non-alphabetic characters and capitalization. We replaced all words that appeared less than 20 times with a special symbol, resulting in a set of $n=4,946$ symbols (including the unknown symbol). We then enumerated all words within a $k$ word window around each word to produce a list of skipgrams ($k$=3). We calculated the joint distribution by tabulating these skipgrams into a $n$ by $n$ matrix.
+
+The entropy of the marginal distribution created from our matrix is 5.913 and the conditional entropy of the matrix is 5.326. Any reasonable factorization of the matrix should result in performance somewhere between those two values. These two values bound the results of all other experiments.
 
 \subsection{Random clustering}
 
@@ -188,9 +191,9 @@ We additionally trained models with $L_1$ and $L_2$ regularization. We used thes
 
 \subsection{Vocabulary clustering ($k=2$)}
 
-We trained our model to discretely factor the matrix into 2 clusters of words. The mean conditional entropy of the resulting matrix was 5.8856 ($\sigma=4.4e-08$). This outperforms both the random baseline and any iteration of post-mortem clustering. Additionally, the standard deviation of this model is roughly five orders of magnitude below most of the post-mortem clusterings.
+We trained our model to discretely factor the matrix into 2 clusters of words. The mean conditional entropy of the resulting matrix was 5.8856 ($\sigma=4.4e-08$). This outperforms both the random baseline and any iteration of postmortem clustering. Additionally, the standard deviation of this model is roughly five orders of magnitude below most of the postmortem clusterings.
 
-We clustered the hidden representations learned by each of our continuous skipgram models into 1024 groups using GMM clustering (Figure \ref{f:bgmm}) and k-means clustering (Figure \ref{f:km}). The best performance of any post-mortem binary clustering trial was 5.89231. Many trials performed at or worse than random. GMM only performed better than random when a large number of hidden units were used. KMeans clustering performed better than random and GMM when a small number of hidden units were used.
+We clustered the hidden representations learned by each of our continuous skipgram models into 2 groups using GMM clustering (Figure \ref{f:bgmm}) and k-means clustering (Figure \ref{f:bkm}). The best performance of any postmortem binary clustering trial was 5.89231. Many trials performed at or worse than random. GMM only performed better than random when a large number of hidden units were used. $k$-means clustering performed better than random and GMM when a small number of hidden units were used.
 
 \begin{figure}
   \caption{Binary GMM clustering}
@@ -208,9 +211,9 @@ We clustered the hidden representations learned by each of our continuous skipgr
 
 \subsection{Vocabulary clustering ($k=1024$)}
 
-We trained our model to cluster the vocabulary into 1024 groups. The mean conditional entropy of the resulting clusters was 5.5480 ($\sigma=0.00078$), outperforming random clustering and post-mortem clustering. The model accomplished this performance without utilizing all clusters, so we knew that improvements were possible. The average utilization (out of 1024 clusters) was 809.4 ($\sigma=4.8$). We experimented with using regularization to increase the average utilization.
+We trained our model to cluster the vocabulary into 1024 groups. The mean conditional entropy of the resulting clusters was 5.5480 ($\sigma=0.00078$), outperforming random clustering and postmortem clustering. The model accomplished this performance without utilizing all clusters; some clusters did not have any vocabulary assigned. The average utilization (out of 1024 clusters) was 809.4 ($\sigma=4.8$). We experimented with using regularization to increase the average utilization.
 
-We trained models with varying regularizer weights to determine the effect regularizer choice and weight has on conditional entropy and utilization. We experimented with the discussed barrier (Figure \ref{f:fb}), exclusive lasso (Figure \ref{f:fel}), $L_1$ (Figure \ref{f:fl1}), and $L_2$ (Figure \ref{f:fl2}) regularizers. The barrier and exclusive lasso regularizers achieve similar performance, 5.5175 and 5.5166 respectively. The L1 regularizer was effective at increasing utilization but caused poor clustering. The L2 regularizer causes decreased clustering performance.
+We experimented with the discussed barrier (Figure \ref{f:fb}), exclusive lasso (Figure \ref{f:fel}), $L_1$ (Figure \ref{f:fl1}), and $L_2$ (Figure \ref{f:fl2}) regularizers to determine the effect regularizer choice and weight has on conditional entropy and utilization. The barrier and exclusive lasso regularizers achieve similar performance, 5.5175 and 5.5166 respectively. Both appear effective at increasing utilization. The L1 regularizer was effective at increasing utilization but caused poor clustering. The L2 regularizer causes overall decreased clustering performance.
 
 \begin{figure}
   \caption{Uniform Prior Regularization ($k=1024$)}
@@ -237,9 +240,11 @@ We trained models with varying regularizer weights to determine the effect regul
     \includegraphics[width=0.5\textwidth]{skipgram_flat_l2.png}
 \end{figure}
 
-We clustered the hidden representations learned by each of our continuous skipgram models into 1024 groups using GMM clustering (Figure \ref{f:fgmm}) and k-means clustering (Figure \ref{f:fkm}). The best performance of any post-mortem clustering with $k=1024$ was 5.59504.
+We clustered the hidden representations learned by each of our continuous skipgram models into 1024 groups using GMM clustering (Figure \ref{f:fgmm}), $k$-means clustering (Figure \ref{f:fkm}) and balanced hierarchical GMM clustering (Figure \ref{f:fbgmm}.\footnote{Balanced HGMM was implemented by fitting a binary GMM, sorting by $\log(P(A))-\log(P(B))$, splitting the vocabulary in half, and then recursively applying the same steps.} The best performance of any postmortem clustering with $k=1024$ using GMM or $k$-means was 5.59504.
 
 Both GMM and $k$-means show clearer trends with $k=1024$ than $k=2$. Without regularization, small numbers of hidden dimensions cluster better than large numbers of hidden dimensions. With regularization, small and large numbers of hidden dimensions cluster better than a medium number of hidden dimensions.
+
+Both GMM and $k$-means reliably perform worse than random uniform clustering. Balanced HGMM is able to perform as well as random under some hyperparameter settings.
 
 \begin{figure}
   \caption{GMM clustering ($k=1024$)}
@@ -248,19 +253,25 @@ Both GMM and $k$-means show clearer trends with $k=1024$ than $k=2$. Without reg
     \includegraphics[width=0.5\textwidth]{flat_gmm.png}
 \end{figure}
 
-
 \begin{figure}
-  \caption{K-means clustering ($k=1024$)}
+  \caption{$k$-means clustering ($k=1024$)}
 \label{f:fkm}
   \centering
     \includegraphics[width=0.5\textwidth]{flat_km.png}
+\end{figure}
+
+\begin{figure}
+  \caption{Balanced HGMM clustering ($k=1024$)}
+\label{f:fbgmm}
+  \centering
+    \includegraphics[width=0.5\textwidth]{flat_bgmm.png}
 \end{figure}
 
 \subsection{Binary tree clustering}
 
 We trained binary trees of depth 10 so as to compare to our flat models of 1024 ($2^{10}$) clusters.
 
-We trained our binary tree model varying $\beta$ to analyze the effect of the Bellman decay parameter (Figure \ref{f:beta}). Increasiing $\beta$ produces better performance at deeper levels of the tree but worse performance near the root of the tree, and vice versa.
+We varied $\beta$ to analyze the effect of the Bellman decay parameter (Figure \ref{f:beta}). Increasing $\beta$ produces better performance at deeper levels of the tree but worse performance near the root of the tree, and vice versa.
 
 \begin{figure}
   \caption{Effect of Beta Hyperparameter}
@@ -269,7 +280,7 @@ We trained our binary tree model varying $\beta$ to analyze the effect of the Be
     \includegraphics[width=0.5\textwidth]{skipgram_tree.png}
 \end{figure}
 
-Adding regularization to our binary tree model improved performance at the bottom of the tree while only slighlty impacting performance at the top of the tree. For example, see Figure \ref{f:btb} and \ref{f:btel} for the effect of barrier and exclusive lasso regularization weight given $\beta=0.85$. It is impossible to identify a single ``best'' model, as the choice of $\beta$ depends on application.
+Adding regularization to our binary tree model improved performance at the bottom of the tree while only slightly impacting performance at the top of the tree. For example, see Figure \ref{f:btb} and \ref{f:btel} for the effect of barrier and exclusive lasso regularization weight given $\beta=0.85$. It is impossible to identify a single ``best'' model, as the best choice of $\beta$ depends on the intended application.
 
 \begin{figure}
   \caption{Binary tree with barrier regularizer ($\beta=0.85$)}
@@ -286,14 +297,16 @@ Adding regularization to our binary tree model improved performance at the botto
 
 \section{Discussion}
 
-Optimizing the conditional entropy of $P(Y\mid Z)$ was an effective method of forming clusters. Clusters contained more information regarding $Y$ than clusters created using post-mortem methods.
+Optimizing the conditional entropy of $P(Y\mid Z)$ was an effective method of forming clusters. Clusters contained more information regarding $Y$ than clusters created using postmortem methods.
 
-Although clustering hidden representations should intuitively capture information related to the objective, we found that this was frequently not the case. In many situations, post-mortem clustering of hidden representations produced worse clusters than random clustering. Regularization and the size of the hidden space have strong effects on the result of the clustering, which can be avoided by using our proposed models.
+Regularization prevented under-utilization caused by death of some clusters. Barrier and exclusive lasso regularizers most effectively prevented under-utilization. It is critical to fully understand the dynamics of the optimization problem in such a simple environment, so it can be applied to more complicated networks.
 
-Regularization prevented underutilization caused by death of some clusters. Barrier and exclusive lasso regularizers prevented underutilization. It is critical to fully understand the dynamics of the optimization problem in such a simple environment, so it can be applied to more complicated networks.
+Although clustering hidden representations should intuitively capture information related to the objective, we found that this was frequently not the case. In many situations, postmortem clustering of hidden representations produced worse clusters than random clustering. Regularization and the size of the hidden space have strong effects on the result of the clustering, which can be avoided by using our proposed models.
 
-\section{Conclustion}
-Discrete structured representations are natural and understandable. There are many challenges involved in learning discrete representations of a given model, above and beyond the challenges of the model itself. Learning a knowledge representation comparabile to a traditional semantic ontology like WordNet or PropBank requires both datasets and models for extracting semantic content, and a data structure capable of representing an ontology. 
+For large numbers of clusters, postmortem methods actually reliably performed worse than random clustering. This unexpected result should caution against using postmortem clustering to help visualize continuous representation.
+
+\section{Conclusion}
+Discrete structured representations are natural and understandable. There are many challenges involved in adapting a model to learn discrete representations, above and beyond challenges intrinsic to the model. Learning a knowledge representation comparable to a traditional semantic ontology like WordNet or PropBank will require both datasets containing semantic content and a data structure and model capable of representing the complexities of semantic relationships.
 
 These experiments address the simplest possible ontology, a binary tree. Even such a simple model can be interpreted as a decision tree, and is more explainable and understandable than a dense calculation. Further systems for discrete optimization should enable a higher class of structures, potentially able to represent discrete logic.
 
