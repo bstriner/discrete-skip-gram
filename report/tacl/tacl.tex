@@ -29,7 +29,7 @@
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
 \setlength{\thinmuskip}{0mu}
 \setlength{\medmuskip}{0mu}
-\setlength{\thickmuskip}{0mu} 
+\setlength{\thickmuskip}{0mu}
 
 \title{Discrete Structured Representation Learning}
 
@@ -48,23 +48,25 @@ Discrete structured representations are more understandable and explainable than
 
 Hidden representations inferred by neural networks are commonly dense and continuous. Continuous dense representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are applied to make hidden representations understandable \cite{Montavon}. These analyses are commonly applied `postmortem' (after training).
 
-Traditional knowledge representations are structured and discrete, such as tables, trees, or networks. For example, knowledge can be represented by a network such as Wikipedia (which also contains tabular data), sentences can be diagrammed as networks, and logical proofs can be represented as trees. Conventional linguistic ontologies attempt to organize words, concepts, or other objects into discrete structures, such as hierarchical trees (\textit{e.g.}, WordNet, PropBank) \cite{Miller:1995:WLD:219717.219748}. These types of representation tend to be more understandable than neural networks.
+Traditional knowledge representations are structured and discrete, such as tables, trees, or networks. For example, knowledge can be represented by a network such as Wikipedia (which also contains tabular data), sentences can be diagrammed as networks, and logical proofs can be represented as trees. Conventional linguistic ontologies attempt to organize words, concepts, or other objects into discrete structures, such as WordNet \cite{Miller:1995:WLD:219717.219748} or PropBank \cite{Kingsbury02fromtreebank}. These types of representations tend to be more understandable than neural networks.
 
 We provide a method for expanding existing neural networks to learn discrete hidden representations. These models attempt to imitate naturally generated representations, which should be more interpretable and explainable.
 
 Discrete representations are advantageous for formal higher-level logic and coding efficiency. For instance, a discrete symbol set may be required to implement a discrete logic system. This may explain why human knowledge is naturally represented as structured networks. In addition, discrete representations allow for radical reduction in the number of bits required to encode each input \cite{Hu17}.
 
+However, discrete representations are difficult to optimize. For example, the self-organized hierarchical softmax uses EM-style optimization with a greedy clustering step \cite{2017arXiv170708588S}.
+
 First, this paper describes methods for learning a discrete representation, using a skipgram model as an example. Second, this paper describes a series of experiments comparing postmortem clustering to proposed methods. Finally, this paper discusses results, finding that proposed models effectively cluster the vocabulary, and that postmortem clustering frequently performs worse than random clustering.
 
 \section{Method}
 
-To focus on the core optimization problem, we experimented with one of the simplest models, a skipgram model as discussed in \cite{Mikolov1301} and \cite{MikolovSCCD13}.
+To focus on the core optimization problem, we experimented with one of the simplest models, a skipgram model \cite{Mikolov1301} \cite{MikolovSCCD13}.
 
-We first examine properties of the distribution. Second, we explain common methods for continuous factoring. Third, we discuss methods for discrete and hierarchical factoring. Finally, we discuss forms of regularization that may be useful in training our models.
+We first examine the marginal and conditional entropy of the distribution. Second, we explain common methods for continuous factoring. Third, we discuss methods for discrete and hierarchical factoring. Finally, we discuss forms of regularization that may be useful in training our models.
 
 \subsection{Marginal and conditional entropy}
 
-We examine the marginal and conditional entropy of a discrete distribution to determine the bounds on performance of factoring or clustering. We discuss methods for factoring the distribution $P(X,Y)$.
+We examine the marginal and conditional entropy of a discrete distribution to determine bounds on performance of factoring or clustering. We discuss methods for factoring the distribution $P(X,Y)$.
 
 Let $X$ and $Y$ be discrete variables and let the matrix $A$ represent the joint distribution.
 
@@ -78,7 +80,7 @@ P(Y=y) &= \sum_x P(X=x, Y=y) \\
 H(Y) &=  \sum_y h(P(Y=y))
 \end{align*}
 
-The conditional entropy, $H(Y \mid X)$, measures the complexity of $Y$ if $X$ is known. A neural network trained given $X$ to predict $Y$ using cross-entropy loss will at best achieve this value. The conditional entropy is the joint probability times the negative log of the conditional probability, or alternatively the marginal probability times the entropy of the conditional distribution.
+The conditional entropy, $H(Y \mid X)$, measures the complexity of $Y$ if $X$ is considered. A neural network trained given $X$ to predict $Y$ using cross-entropy loss will at best achieve this value. The conditional entropy is the joint probability times the conditional negative log likelihood, or alternatively the marginal probability times the entropy of the conditional distribution.
 
 $$H(Y \mid X)=-\sum_{x,y} P(X, Y) \log(P(Y \mid X)) $$
 $$P(X,Y) = P(X) P(Y \mid X)$$
@@ -98,7 +100,7 @@ $$ J = -\mathbb{E}_{[x,y \sim X, Y]} \log \tilde{P}(Y \mid X) $$
 
 \subsection{Discrete factoring or clustering}
 
-A common practice for producing discrete clusters is to train a neural network and then apply clustering techniques to the learned continuous hidden space. Common clustering techniques include GMM and $k$-means \cite{Lloyd:2006:LSQ:2263356.2269955}. We examine how much information is actually retained by applying clustering to learned embeddings. We also examine methods to directly cluster inputs with respect to a given loss function.% Add more citations for clustering
+A common practice for producing discrete clusters is to train a neural network and then apply clustering techniques to the learned continuous hidden space. Common clustering techniques include GMM, $k$-means \cite{Lloyd:2006:LSQ:2263356.2269955}, and balanced hierarchical GMM \cite{NIPS2008_3583}. We examine how much information is actually retained by applying clustering to learned embeddings. We also examine methods to directly cluster inputs with respect to a given loss function.
 
 If inputs in a dataset are clustered, the single output that minimizes the loss for a given cluster may be calculated analytically or iteratively. In the case of minimizing entropy, constrained by the space of valid distributions, the analytic solution is straightforward.
 
@@ -169,7 +171,7 @@ $$R_0(P) =  -\sum_z \log P(Z=z )$$
 
 \section{Experiments and Results}
 
-We describe experiments and results factoring vocabulary from the Brown corpus. All source code and results are available online.\footnote{[Insert link to github]}
+We describe experiments and results factoring vocabulary from the Brown corpus. We found that clusters learned by our models outperformed random clustering and postmortem clustering. All source code and results are available online.\footnote{[Insert link to github]}
 
 \subsection{Data preparation}
 
@@ -179,7 +181,7 @@ The entropy of the marginal distribution created from our matrix is 5.913 and th
 
 \subsection{Random clustering}
 
-We assessed an initial baseline by randomly and uniformly assigning words to clusters. As expected, as the number of clusters increased, the conditional entropy of the output given the cluster decreased (Figure \ref{f:random}). Given two clusters, the mean conditional entropy is 5.9109 ($\sigma=0.0004$). Given 1024 clusters, the mean conditional entropy is 5.5664 ($\sigma=0.0018$).
+We assessed an initial baseline by randomly and uniformly assigning words to clusters. As expected, as the number of clusters increased, the conditional entropy of the output given the clusters decreased (Figure \ref{f:random}). Given two clusters, the mean conditional entropy is 5.9109 ($\sigma=0.0004$). Given 1024 clusters, the mean conditional entropy is 5.5664 ($\sigma=0.0018$).
 
 \begin{figure}
   \caption{Random uniform clustering}
@@ -190,7 +192,7 @@ We assessed an initial baseline by randomly and uniformly assigning words to clu
 
 \subsection{Skipgram models}
 
-We trained unregularized continuous skipgram models varying the number of hidden units and found that performance asymptotically approached the analytically calculated conditional entropy (Figure \ref{f:baseline}). 
+We trained unregularized continuous skipgram models varying the number of hidden units. As the number of hidden units increased, model loss asymptotically approached the analytically calculated conditional entropy (Figure \ref{f:baseline}). 
 
 \begin{figure}
   \caption{Continuous skipgram model}
@@ -199,13 +201,17 @@ We trained unregularized continuous skipgram models varying the number of hidden
     \includegraphics[width=0.5\textwidth]{baseline.png}
 \end{figure}
 
-We additionally trained models with $L_1$ and $L_2$ regularization. We used these models to examine how regularization and the number of hidden units affect the quality of post-mortem clustering. 
+We additionally trained models with $L_1$ and $L_2$ regularization. We used these models to examine how regularization and the number of hidden units affect the quality of postmortem clustering. 
 
 \subsection{Single-bit encoding}
 
-We trained our model to discretely factor the matrix into 2 clusters of words. The mean conditional entropy of the resulting matrix was 5.8856 ($\sigma=4.4e-08$). This outperforms both the random baseline and any iteration of postmortem clustering. Additionally, the standard deviation of this model is roughly five orders of magnitude below most of the postmortem clusterings.
+We compared single-bit encodings (\textit{i.e.}, two clusters) created by postmortem methods to clusters created by our model.
 
-We clustered the hidden representations learned by each of our continuous skipgram models into 2 groups using Gaussian Mixture Model (GMM) clustering (Figure \ref{f:bgmm}) and k-means clustering (Figure \ref{f:bkm}). The best performance of any postmortem binary clustering trial was 5.8923. Many trials performed at or worse than random. GMM only performed better than random when a large number of hidden units were used. $k$-means clustering performed better than random and GMM when a small number of hidden units were used.
+\subsubsection{Single-bit postmortem clustering}
+We performed postmortem clustering on each of our continuous skipgram models using Gaussian Mixture Model (GMM) clustering (Figure \ref{f:bgmm}) and $k$-means clustering (Figure \ref{f:bkm}). The best performance of any postmortem single-bit trial was 5.8923. Many trials performed at or worse than random. GMM only performed better than random when a large number of hidden units were used. $k$-means clustering performed better than random and GMM when a small number of hidden units were used.
+
+\subsubsection{Single-bit discrete factoring}
+We trained our model to discretely factor the matrix into 2 clusters of words. The mean conditional entropy of the resulting matrix was 5.8856 ($\sigma=4.4e-08$), outperforming both the random baseline and any iteration of postmortem clustering. Additionally, the standard deviation of this model was roughly five orders of magnitude below most of the postmortem experiments.
 
 \begin{figure}
   \caption{Binary GMM clustering}
@@ -223,9 +229,40 @@ We clustered the hidden representations learned by each of our continuous skipgr
 
 \subsection{Ten-bit encoding}
 
-We trained our model to cluster the vocabulary into 1024 groups. The mean conditional entropy of the resulting clusters was 5.5480 ($\sigma=0.0008$), outperforming random clustering and postmortem clustering. The model accomplished this performance without utilizing all clusters; some clusters did not have any vocabulary assigned. The average utilization (out of 1024 clusters) was 809.4 ($\sigma=4.8$). We experimented with using regularization to increase the average utilization.
+We compared ten-bit encodings ( (\textit{i.e.}, 1024 clusters) created by postmortem methods to clusters created by our model.
 
-We experimented with the discussed barrier (Figure \ref{f:fb}), exclusive lasso (Figure \ref{f:fel}), $L_1$ (Figure \ref{f:fl1}), and $L_2$ (Figure \ref{f:fl2}) regularizers to determine the effect regularizer choice and weight has on conditional entropy and utilization. The barrier and exclusive lasso regularizers achieve similar performance, 5.5175 and 5.5166 respectively. Both appear effective at increasing utilization. The L1 regularizer was effective at increasing utilization but caused poor clustering. The L2 regularizer causes overall decreased clustering performance.
+\subsubsection{Ten-bit postmortem clustering}
+We clustered the hidden representations learned by each of our continuous skipgram models into 1,024 groups using GMM clustering (Figure \ref{f:fgmm}), $k$-means clustering (Figure \ref{f:fkm}) and balanced hierarchical GMM (HGMM) clustering (Figure \ref{f:fbgmm}).\footnote{Balanced HGMM was implemented by fitting a binary GMM, sorting by $\log(P(A))-\log(P(B))$, splitting the vocabulary in half, and then recursively applying the same steps.} The best performance of any postmortem ten-bit encoding using GMM or $k$-means was 5.59504.
+
+Both GMM and $k$-means show clearer trends with $k=1024$ than $k=2$. Without regularization, small numbers of hidden dimensions cluster better than large numbers of hidden dimensions. With regularization, small and large numbers of hidden dimensions cluster better than a medium number of hidden dimensions.
+
+Both GMM and $k$-means reliably perform worse than random uniform clustering. Balanced HGMM is able to perform as well as random under some hyperparameter settings.
+
+\subsubsection{Ten-bit discrete factoring}
+We trained our model to cluster the vocabulary into 1,024 groups. The mean conditional entropy of the resulting clusters was 5.5480 ($\sigma=0.0008$), outperforming random clustering and postmortem clustering. The model accomplished this performance without utilizing all clusters; some clusters did not have any vocabulary assigned. The average utilization (out of 1,024 clusters) was 809.4 ($\sigma=4.8$).
+
+In order to increase the average utilization we experimented with several forms of regularization. We experimented with the discussed barrier (Figure \ref{f:fb}), exclusive lasso (Figure \ref{f:fel}), $L_1$ (Figure \ref{f:fl1}), and $L_2$ (Figure \ref{f:fl2}) regularizers to determine the effect regularizer choice and weight has on conditional entropy and utilization. The barrier and exclusive lasso regularizers achieved similar performance, 5.5175 and 5.5166 respectively. Both appear effective at increasing utilization. The $L_1$ regularizer was effective at increasing utilization, but caused poor clustering. The $L_2$ regularizer caused overall decreased clustering performance.
+
+\begin{figure}
+  \caption{GMM clustering ($k=1024$)}
+\label{f:fgmm}
+  \centering
+    \includegraphics[width=0.5\textwidth]{flat_gmm.png}
+\end{figure}
+
+\begin{figure}
+  \caption{$k$-means clustering ($k=1024$)}
+\label{f:fkm}
+  \centering
+    \includegraphics[width=0.5\textwidth]{flat_km.png}
+\end{figure}
+
+\begin{figure}
+  \caption{Balanced HGMM clustering ($k=1024$)}
+\label{f:fbgmm}
+  \centering
+    \includegraphics[width=0.5\textwidth]{flat_bgmm.png}
+\end{figure}
 
 \begin{figure}
   \caption{Uniform Prior Regularization ($k=1024$)}
@@ -252,36 +289,10 @@ We experimented with the discussed barrier (Figure \ref{f:fb}), exclusive lasso 
     \includegraphics[width=0.5\textwidth]{skipgram_flat_l2.png}
 \end{figure}
 
-We clustered the hidden representations learned by each of our continuous skipgram models into 1024 groups using GMM clustering (Figure \ref{f:fgmm}), $k$-means clustering (Figure \ref{f:fkm}) and balanced hierarchical GMM (HGMM) clustering (Figure \ref{f:fbgmm}.\footnote{Balanced HGMM was implemented by fitting a binary GMM, sorting by $\log(P(A))-\log(P(B))$, splitting the vocabulary in half, and then recursively applying the same steps.} The best performance of any postmortem clustering with $k=1024$ using GMM or $k$-means was 5.59504.
-
-Both GMM and $k$-means show clearer trends with $k=1024$ than $k=2$. Without regularization, small numbers of hidden dimensions cluster better than large numbers of hidden dimensions. With regularization, small and large numbers of hidden dimensions cluster better than a medium number of hidden dimensions.
-
-Both GMM and $k$-means reliably perform worse than random uniform clustering. Balanced HGMM is able to perform as well as random under some hyperparameter settings.
-
-\begin{figure}
-  \caption{GMM clustering ($k=1024$)}
-\label{f:fgmm}
-  \centering
-    \includegraphics[width=0.5\textwidth]{flat_gmm.png}
-\end{figure}
-
-\begin{figure}
-  \caption{$k$-means clustering ($k=1024$)}
-\label{f:fkm}
-  \centering
-    \includegraphics[width=0.5\textwidth]{flat_km.png}
-\end{figure}
-
-\begin{figure}
-  \caption{Balanced HGMM clustering ($k=1024$)}
-\label{f:fbgmm}
-  \centering
-    \includegraphics[width=0.5\textwidth]{flat_bgmm.png}
-\end{figure}
 
 \subsection{Binary tree clustering}
 
-We trained binary trees of depth 10 so as to compare to our flat models of 1024 ($2^{10}$) clusters.
+We trained binary trees of depth 10 so as to compare to our flat models of 1,024 ($2^{10}$) clusters.
 
 We varied $\beta$ to analyze the effect of the Bellman decay parameter (Figure \ref{f:beta}). Increasing $\beta$ produces better performance at deeper levels of the tree but worse performance near the root of the tree, and vice versa.
 
@@ -292,7 +303,7 @@ We varied $\beta$ to analyze the effect of the Bellman decay parameter (Figure \
     \includegraphics[width=0.5\textwidth]{skipgram_tree.png}
 \end{figure}
 
-Adding regularization to our binary tree model improved performance at the bottom of the tree while only slightly impacting performance at the top of the tree. For example, see Figure \ref{f:btb} and \ref{f:btel} for the effect of barrier and exclusive lasso regularization weight given $\beta=0.85$. It is impossible to identify a single `best' model, as the best choice of $\beta$ depends on the intended application.
+Adding regularization to our binary tree model improved performance at the bottom of the tree while only slightly impacting performance at the top of the tree. For example, Figures \ref{f:btb} and \ref{f:btel} show the effect of barrier and exclusive lasso regularization weight given $\beta=0.85$. It is impossible to identify a single `best' model, as the best choice of $\beta$ depends on the intended application.
 
 \begin{figure}
   \caption{Binary tree with barrier regularizer ($\beta=0.85$)}
@@ -309,18 +320,18 @@ Adding regularization to our binary tree model improved performance at the botto
 
 \section{Discussion}
 
-Optimizing the conditional entropy of $P(Y\mid Z)$ was an effective method of forming clusters. Clusters contained more information regarding $Y$ than clusters created using postmortem methods.
+We compared our model to postmortem clustering and random clustering. We found that proposed methods for optimizing the conditional entropy of $P(Y\mid Z)$ were an effective method of forming clusters. Clusters contained more information regarding $Y$ than clusters created using postmortem methods or random clustering.
 
 Regularization prevented under-utilization caused by death of some clusters. Barrier and exclusive lasso regularizers most effectively prevented under-utilization. It is critical to fully understand the dynamics of the optimization problem in such a simple environment, so it can be applied to more complicated networks.
 
-Although clustering hidden representations should intuitively capture information related to the objective, we found that this was frequently not the case. Postmortem clustering was frequently worse than random clustering. Regularization and the size of the hidden space have strong effects on the result of the clustering, which can be avoided by using our proposed models.
-
-For large numbers of clusters, postmortem methods actually reliably performed worse than random clustering. This unexpected result should caution against using postmortem clustering to help visualize continuous representation.
+Although clustering hidden representations should intuitively capture information related to the objective, we found that this was frequently not the case. Postmortem clustering was frequently worse than random clustering. Regularization and the size of the hidden space have strong effects on the result of the clustering, which can be avoided by using our proposed models. For large numbers of clusters, postmortem methods actually reliably performed worse than random clustering. This result should caution against using postmortem clustering to visualize continuous representations.
 
 \section{Conclusion}
-Discrete structured representations are natural and understandable. There are many challenges involved in adapting a model to learn discrete representations, above and beyond challenges intrinsic to the model. Learning a knowledge representation comparable to a traditional semantic ontology like WordNet or PropBank will require both datasets containing semantic content and a data structure and model capable of representing the complexities of semantic relationships.
+Discrete structured representations are natural and understandable. There are many challenges involved in adapting a model to learn discrete representations. Learning a knowledge representation comparable to a traditional semantic ontology like WordNet or PropBank will require both datasets containing semantic content and a data structure and model capable of representing the complexities of semantic relationships.
 
-These experiments address the simplest possible ontology, a binary tree. Even such a simple model can be interpreted as a decision tree, and is more explainable and understandable than a dense calculation. Further systems for discrete optimization should enable a higher class of structures, potentially able to represent discrete logic.
+These experiments address the simplest possible ontology, a binary tree. Even such a simple model can be interpreted as a decision tree, and is more explainable and understandable than a dense neural network. Further methods for discrete optimization should enable a higher class of models, potentially able to represent discrete logic.
+
+We hope that future development of structured discrete representations can merge machine learning with traditional linguistics and knowledge representation.
 
 \bibliography{tacl}
 \bibliographystyle{acl2012}
