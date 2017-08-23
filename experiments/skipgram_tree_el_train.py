@@ -11,10 +11,12 @@ def main():
     z_k = 2
     z_depth = 10
     outputpath = "output/skipgram_tree_el"
-    betas = [0.5,
-             0.85,
-             1.2,
-             2.0]
+    betas = [
+        0.5,
+        0.85,
+        1.2,
+        2.0
+    ]
     weights = [1e-13,
                1e-12,
                1e-11,

@@ -36,7 +36,7 @@
 \author{Benjamin Striner \\
   {\tt bstriner@andrew.cmu.edu} \\}
 
-\date{October 19, 2017}
+\date{}
 
 \begin{document}
 \maketitle
@@ -46,7 +46,9 @@ Discrete structured representations are more understandable and explainable than
 
 \section{Introduction}
 
-Hidden representations inferred by neural networks are commonly dense and continuous. Continuous dense representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are applied to make hidden representations understandable \cite{Montavon}. These analyses are commonly applied `postmortem' (after training).
+Hidden representations inferred by neural networks are commonly dense and continuous \cite{pennington2014glove} \cite{Mikolov1301} \cite{MikolovSCCD13}. Continuous dense representations are hard to interpret, so techniques for clustering, visualization, and dimensionality reduction are required to make hidden representations understandable \cite{Montavon}. These analyses may be applied `postmortem' (after training) without objective validation that clustering or dimensionality reduction is meaningful. Apophenia could account for perceived patterns in visualizations that have not been objectively considered.
+
+%\cite{DBLP:journals/corr/LebretC14a} uses kmeans after a nn
 
 Traditional knowledge representations are structured and discrete, such as tables, trees, or networks. For example, knowledge can be represented by a network such as Wikipedia (which also contains tabular data), sentences can be diagrammed as networks, and logical proofs can be represented as trees. Conventional linguistic ontologies attempt to organize words, concepts, or other objects into discrete structures, such as WordNet \cite{Miller:1995:WLD:219717.219748} or PropBank \cite{Kingsbury02fromtreebank}. These types of representations tend to be more understandable than neural networks.
 
@@ -331,7 +333,7 @@ Discrete structured representations are natural and understandable. There are ma
 
 These experiments address the simplest possible ontology, a binary tree. Even such a simple model can be interpreted as a decision tree, and is more explainable and understandable than a dense neural network. Further methods for discrete optimization should enable a higher class of models, potentially able to represent discrete logic.
 
-We hope that future development of structured discrete representations can merge machine learning with traditional linguistics and knowledge representation.
+We hope that future development of structured discrete representations will further synthesize machine learning and traditional linguistics.
 
 \bibliography{tacl}
 \bibliographystyle{acl2012}

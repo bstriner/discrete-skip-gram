@@ -3,7 +3,7 @@ from discrete_skip_gram.tree_train import train_tree_battery
 
 def main():
     epochs = 10
-    iters = 3
+    iters = 5
     batches = 4096
     z_k = 2
     z_depth = 10

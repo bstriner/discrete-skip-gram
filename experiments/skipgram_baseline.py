@@ -8,7 +8,7 @@ def main():
     batches = 4096
     cooccurrence = np.load('output/cooccurrence.npy')
     z_ks = [512, 256, 128, 64, 32]
-    iters = 5
+    iters = 10
     run_baseline(cooccurrence=cooccurrence,
                  z_ks=z_ks,
                  iters=iters,
