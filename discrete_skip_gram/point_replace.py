@@ -69,25 +69,37 @@ class PointReplaceModel(object):
 
     def train(self, output_path, frequency=1):
         result_path = "{}.npy".format(output_path)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        path, last_epoch = latest_file(output_path, r'z-(\d+).npy')
+        if path:
+            K.set_value(self.z_shared, np.load(path))
+            epoch = last_epoch + 1
+        else:
+            epoch = 0
         if not os.path.exists(result_path):
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)
-            path, last_epoch = latest_file(output_path, r'z-(\d+).npy')
-            if path:
-                K.set_value(self.z_shared, np.load(path))
-                epoch = last_epoch + 1
-            else:
-                epoch = 0
             flag = True
             t = tqdm(desc="Training")
             if epoch > 0:
                 t.update(epoch)
             while flag:
                 flag = self.train_batch()
-                if epoch % frequency == 0:
+                if (not flag) or (epoch % frequency == 0):
                     np.save(os.path.join(output_path, 'z-{:08d}.npy'.format(epoch)), K.get_value(self.z_shared))
                 t.update(1)
                 epoch += 1
             val = self.val_fun()
             np.savetxt("{}.txt".format(output_path), val.reshape((1, 1)))
             np.save(result_path, val)
+        return self.val_fun()
+
+
+def train_battery(output_path, iters, cooccurrence, z_k):
+    vs = []
+    for i in range(iters):
+        path = os.path.join(output_path, "iter-{}".format(i))
+        m = PointReplaceModel(cooccurrence=cooccurrence, z_k=z_k)
+        v = m.train(output_path=path)
+        vs.append(v)
+    vs = np.array(vs)
+    np.save("{}.npy".format(output_path), vs)
