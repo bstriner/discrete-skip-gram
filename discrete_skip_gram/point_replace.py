@@ -70,10 +70,12 @@ class PointReplaceModel(object):
     def train(self, output_path, frequency=1):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
-        path, initial_epoch = latest_file(output_path, r'z-(\d+).npy')
+        path, last_epoch = latest_file(output_path, r'z-(\d+).npy')
         if path:
             K.set_value(self.z_shared, np.load(path))
-        epoch = initial_epoch
+            epoch = last_epoch + 1
+        else:
+            epoch = 0
         flag = True
         t = tqdm(desc="Training")
         if epoch > 0:
