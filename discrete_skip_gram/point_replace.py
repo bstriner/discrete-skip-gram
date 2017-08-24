@@ -64,25 +64,30 @@ class PointReplaceModel(object):
             entn, changed = self.train_fun(i)
             if changed > 0:
                 flag = True
-            t.desc = 'Batch [{:.04f}]'.format(np.asscalar(entn))
+            t.desc = 'Batch [{:.04f}]{}'.format(np.asscalar(entn), '*' if flag else '')
         return flag
 
     def train(self, output_path, frequency=1):
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
-        path, last_epoch = latest_file(output_path, r'z-(\d+).npy')
-        if path:
-            K.set_value(self.z_shared, np.load(path))
-            epoch = last_epoch + 1
-        else:
-            epoch = 0
-        flag = True
-        t = tqdm(desc="Training")
-        if epoch > 0:
-            t.update(epoch)
-        while (flag):
-            flag = self.train_batch()
-            if epoch % frequency == 0:
-                np.save(os.path.join(output_path, 'z-{:08d}.npy'.format(epoch)), K.get_value(self.z_shared))
-            t.update(1)
-            epoch += 1
+        result_path = "{}.npy".format(output_path)
+        if not os.path.exists(result_path):
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
+            path, last_epoch = latest_file(output_path, r'z-(\d+).npy')
+            if path:
+                K.set_value(self.z_shared, np.load(path))
+                epoch = last_epoch + 1
+            else:
+                epoch = 0
+            flag = True
+            t = tqdm(desc="Training")
+            if epoch > 0:
+                t.update(epoch)
+            while flag:
+                flag = self.train_batch()
+                if epoch % frequency == 0:
+                    np.save(os.path.join(output_path, 'z-{:08d}.npy'.format(epoch)), K.get_value(self.z_shared))
+                t.update(1)
+                epoch += 1
+            val = self.val_fun()
+            np.savetxt("{}.txt".format(output_path), val.reshape((1, 1)))
+            np.save(result_path, val)
