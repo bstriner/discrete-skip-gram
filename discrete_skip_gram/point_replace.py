@@ -57,8 +57,9 @@ class PointReplaceModel(object):
 
         self.val_fun = theano.function([], ent)
 
-    def train_batch(self):
-        t = tqdm(range(self.n), desc='Batch')
+    def train_batch(self, idx):
+        np.random.shuffle(idx)
+        t = tqdm(idx, desc='Batch')
         flag = False
         for i in t:
             entn, changed = self.train_fun(i)
@@ -82,8 +83,9 @@ class PointReplaceModel(object):
             t = tqdm(desc="Training")
             if epoch > 0:
                 t.update(epoch)
+            idx = np.arange(self.n)
             while flag:
-                flag = self.train_batch()
+                flag = self.train_batch(idx)
                 if (not flag) or (epoch % frequency == 0):
                     np.save(os.path.join(output_path, 'z-{:08d}.npy'.format(epoch)), K.get_value(self.z_shared))
                 t.update(1)
@@ -96,7 +98,7 @@ class PointReplaceModel(object):
 
 def train_battery(output_path, iters, cooccurrence, z_k):
     vs = []
-    for i in range(iters):
+    for i in tqdm(range(iters), desc='Metaiteration'):
         path = os.path.join(output_path, "iter-{}".format(i))
         m = PointReplaceModel(cooccurrence=cooccurrence, z_k=z_k)
         v = m.train(output_path=path)
