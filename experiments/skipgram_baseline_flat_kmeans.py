@@ -5,7 +5,7 @@ from discrete_skip_gram.clustering.kmeans import validate_cluster_km
 
 def main():
     bzks = [512, 256, 128, 64, 32]
-    iters = 3
+    iters = 10
     z_k = 1024
     output_path = "output/skipgram_baseline_flat_kmeans"
     cooccurrence = np.load('output/cooccurrence.npy')

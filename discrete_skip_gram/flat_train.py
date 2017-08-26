@@ -18,13 +18,15 @@ def train_flat_model(outputpath,
                      cooccurrence,
                      z_k,
                      opt,
+                     scale=1e-2,
                      pz_regularizer=None,
                      pz_weight_regularizer=None):
     model = FlatModel(cooccurrence=cooccurrence,
                       z_k=z_k,
                       opt=opt,
                       pz_regularizer=pz_regularizer,
-                      pz_weight_regularizer=pz_weight_regularizer)
+                      pz_weight_regularizer=pz_weight_regularizer,
+                      scale=scale)
     model.train(outputpath, epochs=epochs, batches=batches)
     return run_flat_validation(input_path=outputpath,
                                output_path=os.path.join(outputpath, "validate.txt"),
