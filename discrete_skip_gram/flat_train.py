@@ -19,6 +19,8 @@ def train_flat_model(outputpath,
                      z_k,
                      opt,
                      scale=1e-2,
+                     watchdog=None,
+                     reset_n=200,
                      pz_regularizer=None,
                      pz_weight_regularizer=None):
     model = FlatModel(cooccurrence=cooccurrence,
@@ -27,7 +29,7 @@ def train_flat_model(outputpath,
                       pz_regularizer=pz_regularizer,
                       pz_weight_regularizer=pz_weight_regularizer,
                       scale=scale)
-    model.train(outputpath, epochs=epochs, batches=batches)
+    model.train(outputpath, epochs=epochs, batches=batches, watchdog=watchdog, reset_n=reset_n)
     return run_flat_validation(input_path=outputpath,
                                output_path=os.path.join(outputpath, "validate.txt"),
                                cooccurrence=cooccurrence)
