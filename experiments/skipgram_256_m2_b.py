@@ -17,7 +17,7 @@ def main():
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     scale = 1e-1
     opt = AdamOptimizer(1e-3)
-    reg = BalanceRegularizer(1e-4)
+    reg = BalanceRegularizer(1e-5)
     model = FlatModel(cooccurrence=cooccurrence,
                       z_k=z_k,
                       opt=opt,
