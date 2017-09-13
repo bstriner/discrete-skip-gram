@@ -5,12 +5,15 @@ Columnar analysis. Parameters are p(z|x). Each batch is a set of buckets.
 import csv
 import os
 
+import keras
 import numpy as np
 import theano
 import theano.tensor as T
+from keras import backend as K
 from theano.tensor.shared_randomstreams import RandomStreams
 from tqdm import tqdm
 
+from .optimizers import Optimizer
 from .tensor_util import save_weights, load_latest_weights
 from .tensor_util import softmax_nd
 
@@ -22,15 +25,19 @@ class FlatModel(object):
                  opt,
                  pz_weight_regularizer=None,
                  pz_regularizer=None,
+                 initial_pz=None,
                  eps=1e-9,
-                 scale=1e-2):
+                 scale=1e-2,
+                 mode=0):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
         self.z_k = z_k
+        self.opt = opt
         x_k = cooccurrence.shape[0]
         self.x_k = x_k
         self.pz_weight_regularizer = pz_weight_regularizer
         self.pz_regularizer = pz_regularizer
+        self.mode = mode
 
         # cooccurrence matrix
         n = np.sum(cooccurrence, axis=None)
@@ -39,14 +46,15 @@ class FlatModel(object):
         _co_m = np.sum(_co, axis=1, keepdims=True)
         co_m = T.constant(_co_m, name="co_m")  # (x_k,1)
         _co_c = _co / _co_m
-        _co_h = np.sum(_co * -np.log(eps+_co_c), axis=1, keepdims=True) # (x_k, 1)
+        _co_h = np.sum(_co * -np.log(eps + _co_c), axis=1, keepdims=True)  # (x_k, 1)
         print "COh: {}".format(np.sum(_co_h))
         co_h = T.constant(_co_h, name="co_h")
 
         # parameters
         # P(z|x)
-        initial_pz = np.random.normal(loc=0, scale=scale, size=(x_k * z_k,)).astype(np.float32)
-        pz_weight = theano.shared(initial_pz, name="pz_weight")  # (x_k, z_k)
+        if initial_pz is None:
+            initial_pz = np.random.normal(loc=0, scale=scale, size=(x_k, z_k)).astype(np.float32)
+        pz_weight = K.variable(initial_pz, name="pz_weight")  # (x_k, z_k)
         params = [pz_weight]
 
         # p_z
@@ -67,17 +75,9 @@ class FlatModel(object):
             reg_loss += pz_regularizer(p_z)
         loss += reg_loss
 
-        #updates = opt.get_updates(params, {}, loss)
-
-        #train = theano.function([], [nll, reg_loss, loss], updates=updates)
-        val = theano.function([], [nll, reg_loss, loss])
-        encodings = theano.function([], p_z)
-
-        #self.train_fun = train
-        self.val_fun = val
-        self.encodings_fun = encodings
+        self.val_fun = theano.function([], [nll, reg_loss, loss])
+        self.encodings_fun = theano.function([], p_z)
         self.z_fun = theano.function([], T.argmax(p_z, axis=1))  # (x_k,)
-
 
         srng = RandomStreams(123)
         reset_opt = [(w, T.zeros_like(w)) for w in opt.weights]
@@ -95,39 +95,75 @@ class FlatModel(object):
         """
 
         # reset by softening
-        """
-        soften = scale
-        #reset_rnd = srng.normal(avg=0, std=scale, size=(x_k, z_k))
+
+        soften = 1e0
+        # reset_rnd = srng.normal(avg=0, std=scale, size=(x_k, z_k))
         # reset_updates = [(pz_weight, (pz_weight*soften) + reset_rnd)]
         m = T.mean(pz_weight, axis=1, keepdims=True)
         s = T.std(pz_weight, axis=1, keepdims=True)
         reset_updates = [(pz_weight, ((pz_weight - m) * soften / (eps + s)))]
-
         self.reset_fun = theano.function([], [], updates=reset_updates + reset_opt)
-        """
-        # custom training
-        nllc = -T.log(cond)  # (z_k, x_k)
-        # upper bound
-        g2 = T.dot(co, T.transpose(nllc, (1, 0)))  # (x_k, z_k)
-        # lower bound
-        g3 = co_h
-        # alpha
-        # co_m (x_k, 1)
-        # marg (z_k, 1)
-        remain_p = 1 - p_z # (x_k, z_k)
-        remain_m = remain_p * co_m # (x_k, z_k)
-        alpha = remain_m / (remain_m + T.transpose(marg, (1, 0)))  # (x_k, z_k)
 
-        gmerge = (alpha * g3) + ((1 - alpha) * g2)
-        gmerge = theano.gradient.zero_grad(gmerge)
+        if mode == 0:
+            assert isinstance(opt, keras.optimizers.Optimizer)
+            updates = opt.get_updates(params=params, loss=loss)
+            self.train_fun = theano.function([], [nll, reg_loss, loss], updates=updates)
+        elif mode == 1:
+            # custom training
+            nllc = -T.log(eps + cond)  # (z_k, x_k)
+            # upper bound
+            g2 = T.dot(co, T.transpose(nllc, (1, 0)))  # (x_k, z_k)
+            # lower bound
+            g3 = co_h
+            # alpha
+            # co_m (x_k, 1)
+            # marg (z_k, 1)
+            remain_p = 1 - p_z  # (x_k, z_k)
+            remain_m = remain_p * co_m  # (x_k, z_k)
+            alpha = remain_m / (remain_m + T.transpose(marg, (1, 0)))  # (x_k, z_k)
 
-        s = T.sum(gmerge * p_z, axis=None)
-        updates = opt.get_updates([pz_weight], {}, s)
-        # g = T.grad(s, wrt=pz_weight)
-        # lr = 1e-1
-        # newp = pz_weight - (lr*g)
-        # updates = [(pz_weight, newp)]
-        self.train_fun2 = theano.function([], [nll, s, loss], updates=updates)
+            # alpha = alpha**2
+
+            gmerge = (alpha * g3) + ((1 - alpha) * g2)
+            # gmerge = T.log((alpha * T.exp(g3)) + ((1 - alpha) * T.exp(g2)))
+            # gmerge = gmerge / (eps+co_m)
+            # gmerge = gmerge * co_m * 1e2
+            gmerge = theano.gradient.zero_grad(gmerge)
+
+            s = T.sum(gmerge * p_z, axis=None)
+            updates = opt.get_updates(params, {}, s)
+            # g = T.grad(s, wrt=pz_weight)
+            # lr = 1e-1
+            # newp = pz_weight - (lr*g)
+            # updates = [(pz_weight, newp)]
+            self.train_fun = theano.function([], [nll, s, loss], updates=updates)
+        elif mode == 2:
+            assert isinstance(opt, Optimizer)
+            idx = T.ivector(name='idx')  # [0-x_k] (n,)
+            pzx = p_z[idx, :]  # (n, z_k)
+
+            cox = co[idx, :]  # (n, x_k)
+            h1 = (pzx.dimshuffle((0, 1, 'x'))) * (cox.dimshuffle((0, 'x', 1)))  # (n,z_k,x_k)
+            p1 = (p_b.dimshuffle(('x', 0, 1))) - h1  # (n, z_k, x_k)
+            m1 = T.sum(p1, axis=2, keepdims=True)
+            c1 = p1 / (m1 + eps)
+            e1 = T.sum(p1 * -T.log(eps+c1), axis=2)  # (n, z_k)
+
+            remain = 1. - pzx  # (n, z_k)
+            h2 = (remain.dimshuffle((0, 1, 'x'))) * (cox.dimshuffle((0, 'x', 1)))  # (n,z_k,x_k)
+            p2 = (p_b.dimshuffle(('x', 0, 1))) + h2  # (n, z_k, x_k)
+            m2 = T.sum(p2, axis=2, keepdims=True)
+            c2 = p2 / (m2 + eps)
+            e2 = T.sum(p2 * -T.log(eps+c2), axis=2)  # (n, z_k)
+
+            d = e2 - e1  # (n, z_k)
+            d = theano.gradient.zero_grad(d)
+            subloss = T.sum(d * pzx, axis=None)  # scalar
+            opt.make_apply(params=params)
+            self.train_fun = opt.make_train(inputs=[idx], outputs=[], loss=subloss)
+        else:
+            raise ValueError()
+
         self.weights = params + opt.weights
 
     def calc_usage(self):
@@ -154,6 +190,24 @@ class FlatModel(object):
             loss += _loss
         return nll, reg_loss, loss
 
+    def trainm2(self, batch_size=128):
+        assert self.mode == 2
+        i = 0
+        while i < self.x_k:
+            j = i + batch_size
+            if j > self.x_k:
+                j = self.x_k
+            self.train_fun(np.arange(i, j).astype(np.int32))
+            i = j
+        self.opt.apply()
+        return self.val_fun()
+
+    def train_batch(self):
+        if self.mode == 2:
+            return self.trainm2()
+        else:
+            return self.train_fun()
+
     def train(self, outputpath, epochs,
               batches,
               watchdog=None,
@@ -172,7 +226,7 @@ class FlatModel(object):
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                     for _ in it:
-                        nll, reg_loss, loss = self.train_fun2()
+                        nll, reg_loss, loss = self.train_batch()
                         it.desc = "Epoch {} NLL {:.4f} Reg Loss {:.4f} Loss {:.4f}".format(epoch,
                                                                                            np.asscalar(nll),
                                                                                            np.asscalar(reg_loss),

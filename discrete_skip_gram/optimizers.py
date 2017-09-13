@@ -35,6 +35,7 @@ class Optimizer(object):
         self.apply_fun()
 
     def make_train(self, inputs, outputs, loss, disconnected_inputs='raise'):
+        assert self.params is not None
         grads = [T.grad(loss, p, disconnected_inputs=disconnected_inputs) for p in self.params]
         grads1 = [acc + grad for acc, grad in zip(self.accs, grads)]
         grad_updates = [(acc, grad1) for acc, grad1 in zip(self.accs, grads1)]

@@ -105,3 +105,5 @@ def train_battery(output_path, iters, cooccurrence, z_k):
         vs.append(v)
     vs = np.array(vs)
     np.save("{}.npy".format(output_path), vs)
+    for i in range(iters):
+        print("Iter {}: {}".format(i, vs[i]))
