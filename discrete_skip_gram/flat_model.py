@@ -69,10 +69,13 @@ class FlatModel(object):
         loss = nll
 
         reg_loss = T.constant(0.)
+        self.regularize = False
         if pz_weight_regularizer:
             reg_loss += pz_weight_regularizer(pz_weight)
+            self.regularize = True
         if pz_regularizer:
             reg_loss += pz_regularizer(p_z)
+            self.regularize = True
         loss += reg_loss
 
         self.val_fun = theano.function([], [nll, reg_loss, loss])
@@ -148,21 +151,22 @@ class FlatModel(object):
             p1 = (p_b.dimshuffle(('x', 0, 1))) - h1  # (n, z_k, x_k)
             m1 = T.sum(p1, axis=2, keepdims=True)
             c1 = p1 / (m1 + eps)
-            e1 = T.sum(p1 * -T.log(eps+c1), axis=2)  # (n, z_k)
+            e1 = T.sum(p1 * -T.log(eps + c1), axis=2)  # (n, z_k)
 
             remain = 1. - pzx  # (n, z_k)
             h2 = (remain.dimshuffle((0, 1, 'x'))) * (cox.dimshuffle((0, 'x', 1)))  # (n,z_k,x_k)
             p2 = (p_b.dimshuffle(('x', 0, 1))) + h2  # (n, z_k, x_k)
             m2 = T.sum(p2, axis=2, keepdims=True)
             c2 = p2 / (m2 + eps)
-            e2 = T.sum(p2 * -T.log(eps+c2), axis=2)  # (n, z_k)
+            e2 = T.sum(p2 * -T.log(eps + c2), axis=2)  # (n, z_k)
 
             d = e2 - e1  # (n, z_k)
             d = theano.gradient.zero_grad(d)
             subloss = T.sum(d * pzx, axis=None)  # scalar
-            subloss += reg_loss
             opt.make_apply(params=params)
             self.train_fun = opt.make_train(inputs=[idx], outputs=[], loss=subloss)
+            if self.regularize:
+                self.train_reg_fun = opt.make_train(inputs=[], outputs=[], loss=reg_loss)
         else:
             raise ValueError()
 
@@ -201,6 +205,8 @@ class FlatModel(object):
                 j = self.x_k
             self.train_fun(np.arange(i, j).astype(np.int32))
             i = j
+        if self.regularize:
+            self.train_reg_fun()
         self.opt.apply()
         return self.val_fun()
 
