@@ -125,7 +125,8 @@ class FlatModel(object):
             # alpha = alpha**2
 
             gmerge = (alpha * g3) + ((1 - alpha) * g2)
-            # gmerge = T.log((alpha * T.exp(g3)) + ((1 - alpha) * T.exp(g2)))
+            # todo: retry this line (w/w.o eps)
+            # gmerge = T.log(eps + (alpha * T.exp(g3)) + ((1 - alpha) * T.exp(g2)))
             # gmerge = gmerge / (eps+co_m)
             # gmerge = gmerge * co_m * 1e2
             gmerge = theano.gradient.zero_grad(gmerge)
@@ -159,6 +160,7 @@ class FlatModel(object):
             d = e2 - e1  # (n, z_k)
             d = theano.gradient.zero_grad(d)
             subloss = T.sum(d * pzx, axis=None)  # scalar
+            subloss += reg_loss
             opt.make_apply(params=params)
             self.train_fun = opt.make_train(inputs=[idx], outputs=[], loss=subloss)
         else:
