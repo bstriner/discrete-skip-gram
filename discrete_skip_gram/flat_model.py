@@ -26,7 +26,7 @@ class FlatModel(object):
                  pz_weight_regularizer=None,
                  pz_regularizer=None,
                  initial_pz=None,
-                 eps=1e-9,
+                 eps=1e-8,
                  scale=1e-2,
                  mode=0):
         cooccurrence = cooccurrence.astype(np.float32)

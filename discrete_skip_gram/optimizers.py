@@ -1,9 +1,8 @@
+import keras
+import keras.backend as K
 import numpy as np
 import theano
 import theano.tensor as T
-
-import keras
-import keras.backend as K
 
 
 class Optimizer(object):
@@ -64,7 +63,7 @@ class AdamOptimizer(Optimizer):
         for p, g, m, v in zip(self.params, self.accs, ms, vs):
             m_t = (self.beta_1 * m) + (1. - self.beta_1) * g
             v_t = (self.beta_2 * v) + (1. - self.beta_2) * K.square(g)
-            p_t = p - self.lr * m_t / (K.sqrt(v_t) + self.epsilon)
+            p_t = p - self.lr * m_t / (K.sqrt(v_t + self.epsilon) + self.epsilon)
 
             ms1.append(m_t)
             vs1.append(v_t)
