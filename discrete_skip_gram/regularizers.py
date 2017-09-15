@@ -21,8 +21,7 @@ class L2Mean(Regularizer):
 
 
 class L2(Regularizer):
-    def __init__(self, weight, axis):
-        self.axis = axis
+    def __init__(self, weight):
         super(L2, self).__init__(weight)
 
     def __call__(self, x):
