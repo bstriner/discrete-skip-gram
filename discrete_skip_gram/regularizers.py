@@ -20,6 +20,15 @@ class L2Mean(Regularizer):
         return self.weight * T.sum(T.square(T.mean(x, axis=self.axis)), axis=None)
 
 
+class L2(Regularizer):
+    def __init__(self, weight, axis):
+        self.axis = axis
+        super(L2, self).__init__(weight)
+
+    def __call__(self, x):
+        return self.weight * T.sum(T.square(x), axis=None)
+
+
 class ExclusiveLasso(Regularizer):
     def __init__(self, weight):
         super(ExclusiveLasso, self).__init__(weight)
