@@ -130,6 +130,7 @@ class FlatModel(object):
             gmerge = (alpha * g3) + ((1 - alpha) * g2)
             # todo: retry this line (w/w.o eps)
             # gmerge = T.log(eps + (alpha * T.exp(g3)) + ((1 - alpha) * T.exp(g2)))
+            # gmerge = self.x_k * T.log(eps + (alpha * T.exp(g3/self.x_k)) + ((1 - alpha) * T.exp(g2/self.x_k)))
             # gmerge = gmerge / (eps+co_m)
             # gmerge = gmerge * co_m * 1e2
             gmerge = theano.gradient.zero_grad(gmerge)
@@ -161,12 +162,13 @@ class FlatModel(object):
             e2 = T.sum(p2 * -T.log(eps + c2), axis=2)  # (n, z_k)
 
             d = e2 - e1  # (n, z_k)
+            #todo: experiment with this line
             d = theano.gradient.zero_grad(d)
             subloss = T.sum(d * pzx, axis=None)  # scalar
             opt.make_apply(params=params)
             self.train_fun = opt.make_train(inputs=[idx], outputs=[], loss=subloss)
             if self.regularize:
-                self.train_reg_fun = opt.make_train(inputs=[], outputs=[], loss=reg_loss)
+                self.train_reg_fun = opt.make_train(inputs=[], outputs=[nll, reg_loss, loss], loss=reg_loss)
         else:
             raise ValueError()
 
@@ -196,7 +198,7 @@ class FlatModel(object):
             loss += _loss
         return nll, reg_loss, loss
 
-    def trainm2(self, batch_size=128):
+    def trainm2(self, batch_size=64):
         assert self.mode == 2
         i = 0
         while i < self.x_k:
@@ -206,9 +208,12 @@ class FlatModel(object):
             self.train_fun(np.arange(i, j).astype(np.int32))
             i = j
         if self.regularize:
-            self.train_reg_fun()
-        self.opt.apply()
-        return self.val_fun()
+            ret=self.train_reg_fun()
+            self.opt.apply()
+            return ret
+        else:
+            self.opt.apply()
+            return self.val_fun()
 
     def train_batch(self):
         if self.mode == 2:

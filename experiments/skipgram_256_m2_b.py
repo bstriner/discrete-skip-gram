@@ -6,7 +6,7 @@ import numpy as np
 from discrete_skip_gram.flat_model import FlatModel
 from discrete_skip_gram.flat_validation import run_flat_validation
 from discrete_skip_gram.optimizers import AdamOptimizer
-from discrete_skip_gram.regularizers import BalanceRegularizer
+from discrete_skip_gram.regularizers import BalanceRegularizer, L2Mean
 
 
 def main():
@@ -17,12 +17,14 @@ def main():
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     scale = 1e-1
     opt = AdamOptimizer(1e-3)
-    reg = BalanceRegularizer(1e-5)
+    pz_weight_regularizer = L2Mean(weight=1e-5, axis=1)
+    pz_regularizer = BalanceRegularizer(1e-5)
     model = FlatModel(cooccurrence=cooccurrence,
                       z_k=z_k,
                       opt=opt,
                       mode=2,
-                      pz_regularizer=reg,
+                      pz_regularizer=pz_regularizer,
+                      pz_weight_regularizer=pz_weight_regularizer,
                       scale=scale)
     model.train(outputpath,
                 epochs=epochs,

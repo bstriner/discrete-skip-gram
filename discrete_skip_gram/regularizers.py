@@ -1,6 +1,5 @@
-import theano.tensor as T
-
 import keras.regularizers
+import theano.tensor as T
 
 
 class Regularizer(keras.regularizers.Regularizer):
@@ -10,6 +9,15 @@ class Regularizer(keras.regularizers.Regularizer):
 
     def __str__(self):
         return "{}(weight={})".format(self.__class__.__name__, self.weight)
+
+
+class L2Mean(Regularizer):
+    def __init__(self, weight, axis):
+        self.axis = axis
+        super(L2Mean, self).__init__(weight)
+
+    def __call__(self, x):
+        return self.weight * T.sum(T.square(T.mean(x, axis=self.axis)), axis=None)
 
 
 class ExclusiveLasso(Regularizer):
