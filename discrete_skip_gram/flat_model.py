@@ -45,7 +45,7 @@ class FlatModel(object):
         co = T.constant(_co, name="co")  # (x_k, x_k)
         _co_m = np.sum(_co, axis=1, keepdims=True)
         co_m = T.constant(_co_m, name="co_m")  # (x_k,1)
-        _co_c = _co / _co_m
+        _co_c = _co / (eps+_co_m)
         _co_h = np.sum(_co * -np.log(eps + _co_c), axis=1, keepdims=True)  # (x_k, 1)
         print "COh: {}".format(np.sum(_co_h))
         co_h = T.constant(_co_h, name="co_h")
@@ -112,6 +112,7 @@ class FlatModel(object):
             updates = opt.get_updates(params=params, loss=loss)
             self.train_fun = theano.function([], [nll, reg_loss, loss], updates=updates)
         elif mode == 1:
+            assert isinstance(opt, keras.optimizers.Optimizer)
             # custom training
             nllc = -T.log(eps + cond)  # (z_k, x_k)
             # upper bound
@@ -123,27 +124,28 @@ class FlatModel(object):
             # marg (z_k, 1)
             remain_p = 1 - p_z  # (x_k, z_k)
             remain_m = remain_p * co_m  # (x_k, z_k)
-            alpha = remain_m / (remain_m + T.transpose(marg, (1, 0)))  # (x_k, z_k)
+            alpha = remain_m / (eps+remain_m + T.transpose(marg, (1, 0)))  # (x_k, z_k)
 
             # alpha = alpha**2
 
-            gmerge = (alpha * g3) + ((1 - alpha) * g2)
+            # gmerge = (alpha * g3) + ((1 - alpha) * g2)
             # todo: retry this line (w/w.o eps)
             # gmerge = T.log(eps + (alpha * T.exp(g3)) + ((1 - alpha) * T.exp(g2)))
-            # gmerge = self.x_k * T.log(eps + (alpha * T.exp(g3/self.x_k)) + ((1 - alpha) * T.exp(g2/self.x_k)))
+            #gmerge = -self.x_k * T.log(eps + (alpha * T.exp(-g3/self.x_k)) + ((1. - alpha) * T.exp(-g2/self.x_k)))
+            gmerge = -co_m * T.log(eps + (alpha * T.exp(-g3 / co_m)) + ((1. - alpha) * T.exp(-g2 / co_m)))
             # gmerge = gmerge / (eps+co_m)
             # gmerge = gmerge * co_m * 1e2
-            gmerge = theano.gradient.zero_grad(gmerge)
+            #gmerge = theano.gradient.zero_grad(gmerge)
 
             s = T.sum(gmerge * p_z, axis=None)
+            s += reg_loss
             updates = opt.get_updates(params, {}, s)
             # g = T.grad(s, wrt=pz_weight)
             # lr = 1e-1
             # newp = pz_weight - (lr*g)
             # updates = [(pz_weight, newp)]
             self.train_fun = theano.function([], [nll, s, loss], updates=updates)
-        elif mode == 2:
-            assert isinstance(opt, Optimizer)
+        elif mode == 2 or mode == 3:
             idx = T.ivector(name='idx')  # [0-x_k] (n,)
             pzx = p_z[idx, :]  # (n, z_k)
 
@@ -165,10 +167,17 @@ class FlatModel(object):
             #todo: experiment with this line
             d = theano.gradient.zero_grad(d)
             subloss = T.sum(d * pzx, axis=None)  # scalar
-            opt.make_apply(params=params)
-            self.train_fun = opt.make_train(inputs=[idx], outputs=[], loss=subloss)
-            if self.regularize:
-                self.train_reg_fun = opt.make_train(inputs=[], outputs=[nll, reg_loss, loss], loss=reg_loss)
+            if mode == 2:
+                assert isinstance(opt, Optimizer)
+                opt.make_apply(params=params)
+                self.train_fun = opt.make_train(inputs=[idx], outputs=[], loss=subloss)
+                if self.regularize:
+                    self.train_reg_fun = opt.make_train(inputs=[], outputs=[nll, reg_loss, loss], loss=reg_loss)
+            elif mode == 3:
+                assert isinstance(opt, keras.optimizers.Optimizer)
+                updates = opt.get_updates(subloss+reg_loss, params)
+                self.train_fun = theano.function(inputs=[idx], outputs=[nll, reg_loss, loss], updates=updates)
+
         else:
             raise ValueError()
 
@@ -215,9 +224,16 @@ class FlatModel(object):
             self.opt.apply()
             return self.val_fun()
 
+    def trainm3(self, batch_size=64):
+        assert self.mode == 3
+        idx = np.random.choice(a=np.arange(self.x_k, dtype=np.int32), size=batch_size, replace=False)
+        return self.train_fun(idx)
+
     def train_batch(self):
         if self.mode == 2:
             return self.trainm2()
+        elif self.mode==3:
+            return self.trainm3()
         else:
             return self.train_fun()
 

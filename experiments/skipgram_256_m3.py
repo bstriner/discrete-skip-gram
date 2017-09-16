@@ -6,21 +6,21 @@ import numpy as np
 from discrete_skip_gram.flat_model import FlatModel
 from discrete_skip_gram.flat_validation import run_flat_validation
 from keras.optimizers import Adam
-from discrete_skip_gram.regularizers import  BalanceRegularizer
+from discrete_skip_gram.regularizers import BalanceRegularizer
 
 def main():
     epochs = 1000
     batches = 4096
     z_k = 256
-    outputpath = "output/skipgram_256_m1"
+    outputpath = "output/skipgram_256_m3"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     scale = 1e-2
     opt = Adam(1e-3)
-    pz_regularizer = BalanceRegularizer(1e-7)
+    pz_regularizer = BalanceRegularizer(1e-6)
     model = FlatModel(cooccurrence=cooccurrence,
                       z_k=z_k,
                       opt=opt,
-                      mode=1,
+                      mode=3,
                       pz_regularizer=pz_regularizer,
                       scale=scale)
     model.train(outputpath,

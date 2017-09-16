@@ -52,7 +52,8 @@ class BalanceRegularizer(Regularizer):
 
     def __call__(self, x):
         assert x.ndim == 2
-        return -self.weight * T.sum(T.log(T.mean(x, axis=0)), axis=0)
+        eps = 1e-8
+        return -self.weight * T.sum(T.log(eps + T.mean(x, axis=0)), axis=0)
 
 
 class BalanceWeightedRegularizer(Regularizer):
