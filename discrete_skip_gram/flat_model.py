@@ -128,14 +128,14 @@ class FlatModel(object):
 
             # alpha = alpha**2
 
-            # gmerge = (alpha * g3) + ((1 - alpha) * g2)
+            #gmerge = (alpha * g3) + ((1 - alpha) * g2)
             # todo: retry this line (w/w.o eps)
             # gmerge = T.log(eps + (alpha * T.exp(g3)) + ((1 - alpha) * T.exp(g2)))
-            #gmerge = -self.x_k * T.log(eps + (alpha * T.exp(-g3/self.x_k)) + ((1. - alpha) * T.exp(-g2/self.x_k)))
+            # gmerge = -self.x_k * T.log(eps + (alpha * T.exp(-g3/self.x_k)) + ((1. - alpha) * T.exp(-g2/self.x_k)))
             gmerge = -co_m * T.log(eps + (alpha * T.exp(-g3 / co_m)) + ((1. - alpha) * T.exp(-g2 / co_m)))
             # gmerge = gmerge / (eps+co_m)
             # gmerge = gmerge * co_m * 1e2
-            #gmerge = theano.gradient.zero_grad(gmerge)
+            gmerge = theano.gradient.zero_grad(gmerge)
 
             s = T.sum(gmerge * p_z, axis=None)
             s += reg_loss
