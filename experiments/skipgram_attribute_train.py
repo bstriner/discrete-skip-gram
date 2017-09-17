@@ -7,14 +7,15 @@ from discrete_skip_gram.attribute_model import AttributeModel
 
 def main():
     epochs = 1000
-    batches = 2048
+    batches = 512
     zks = [4] * 5
     outputpath = "output/skipgram_attribute"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     scale = 1e-2
     opt = Adam(1e-3)
     model = AttributeModel(cooccurrence=cooccurrence,
-                           zks=zks,
+                           zk=4,
+                           ak=5,
                            opt=opt,
                            reg_weight=1e-8,
                            scale=scale)
