@@ -1,14 +1,14 @@
 import numpy as np
+# import os
+# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 from keras.optimizers import Adam
 
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 from discrete_skip_gram.attribute_model import AttributeModel
 
 
 def main():
-    epochs = 1000
-    batches = 512
-    zks = [4] * 5
+    epochs = 10
+    batches = 50000
     outputpath = "output/skipgram_attribute"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     scale = 1e-2
@@ -17,7 +17,7 @@ def main():
                            zk=4,
                            ak=5,
                            opt=opt,
-                           reg_weight=1e-8,
+                           reg_weight=1e-6,
                            scale=scale)
     model.train(outputpath,
                 epochs=epochs,
