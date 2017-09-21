@@ -40,3 +40,6 @@ def load_latest_weights(dir_path, fmt, weights):
         return epoch + 1
     else:
         return 0
+
+def leaky_relu(x):
+    return T.nnet.relu(x, 0.2)

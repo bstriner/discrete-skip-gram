@@ -22,9 +22,9 @@ class AttributeModel(object):
                  zk,
                  ak,
                  opt,
+                 pz_regularizer=None,
                  eps=1e-9,
-                 scale=1e-2,
-                 reg_weight=1e-9):
+                 scale=1e-2):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
         self.zk = zk
@@ -60,13 +60,12 @@ class AttributeModel(object):
         nlls = T.sum(pb * -T.log(eps + cond), axis=(1, 2))  # (a,)
         loss += T.sum(nlls)
 
-        pzw = pz * (co_m.dimshuffle(('x', 0, 1)))  # (a,x,z)
-        # pz (a,x,z)
-        h = T.dot(T.transpose(pzw, (0, 2, 1)), pz)  # (a, z, a, z)
-        assert h.ndim == 4
-        reg_loss = -reg_weight * T.sum(T.log(eps + h), axis=None)
+        total_loss = loss
+        reg_loss = T.constant(0)
+        if pz_regularizer:
+            reg_loss = pz_regularizer(pz, co_m)
+            total_loss = reg_loss + loss
 
-        total_loss = loss + reg_loss
         encodings = T.argmax(pz, axis=2)  # (a, x_k)
 
         self.encodings_fun = theano.function([], encodings)  # (x_k,)
@@ -125,3 +124,5 @@ class AttributeModel(object):
                     z = self.encodings_fun()  # (n,)
                     np.savez(os.path.join(outputpath, 'encodings-{:08d}.npz'.format(epoch)), z)
                     save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
+        nlls, reg_loss, loss, v_nll = self.val_fun()
+        return nlls, v_nll

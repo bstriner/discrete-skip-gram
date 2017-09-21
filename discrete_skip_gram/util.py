@@ -93,3 +93,13 @@ def calc_stats(x, axis=None):
 
 def stats_string(x, axis=None):
     return "Mean {}, Std {}, Min {}, Max {}, N {}".format(*calc_stats(x, axis=axis))
+
+
+def generate_ngrams(corpus, n):
+    assert len(corpus.shape) == 1
+    l1 = corpus.shape[0]
+    l2 = l1 - n + 1
+    a = [corpus[i:(i + l2)] for i in range(n)]
+    b = np.stack(a, axis=1)
+    assert len(b.shape) == 2
+    return b

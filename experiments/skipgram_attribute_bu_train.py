@@ -2,22 +2,23 @@ import numpy as np
 # import os
 # os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 from keras.optimizers import Adam
-
+from discrete_skip_gram.attribute_regularizers import AttributeBarrierUniformRegularizer
 from discrete_skip_gram.attribute_model import AttributeModel
 
 
 def main():
     epochs = 10
     batches = 50000
-    outputpath = "output/skipgram_attribute"
+    outputpath = "output/skipgram_attribute_bu"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     scale = 1e-2
     opt = Adam(1e-3)
+    reg = AttributeBarrierUniformRegularizer(1e-2)
     model = AttributeModel(cooccurrence=cooccurrence,
                            zk=4,
                            ak=5,
                            opt=opt,
-                           reg_weight=1e-2,
+                           pz_regularizer=reg,
                            scale=scale)
     model.train(outputpath,
                 epochs=epochs,
