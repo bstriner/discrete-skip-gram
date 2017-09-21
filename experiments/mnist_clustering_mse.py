@@ -23,8 +23,8 @@ def main():
     z_k = 10
     input_units = 28 * 28
     pz_regularizer = BalanceRegularizer(1e-2)
-    reg_weight_encoding = 1e-3
-    reg_weight_grad = 1e-3
+    reg_weight_encoding = 1e-2
+    reg_weight_grad = 1e-2
 
     ((x, y), (xt, yt)) = mnist.load_data()
     x = np.float32(x) / 255.

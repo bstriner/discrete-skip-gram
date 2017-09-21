@@ -148,7 +148,7 @@ class FCGAN(object):
         zs = np.arange(self.z_k)
         zs = np.repeat(np.reshape(zs, (-1, 1)), axis=1, repeats=samples)
         zin = np.reshape(zs, (-1,))
-        img = self.fun_gen(zin)
+        img = self.fun_gen(np.int32(zin))
         img = np.reshape(img, (self.z_k, samples, 28, 28))
         img = np.transpose(img, (0, 2, 1, 3))
         img = np.reshape(img, (self.z_k * 28, samples * 28))

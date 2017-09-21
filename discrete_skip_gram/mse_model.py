@@ -45,7 +45,7 @@ class MSEModel(object):
                                    generator_b)  # (n, z_k, units)
         generated = generator.call(generator_ctx)  # (n, z_k, input_dim)
 
-        mse = T.sum(T.square(generated - x_input), axis=2)  # (n, z_k)
+        mse = T.sum(T.square(generated - (x_input.dimshuffle((0, 'x', 1)))), axis=2)  # (n, z_k)
         loss_mse = T.mean(T.sum(mse * pz, axis=1), axis=0)
         params = ([generator_z_embedding, generator_encoding_weight, generator_b] +
                   generator.params + classifier.params +
@@ -65,12 +65,12 @@ class MSEModel(object):
 
         # regularize generator
         if reg_weight_grad > 0:
-            samples = 256
+            samples = 64
             idx1 = srng.random_integers(low=0, high=n - 1, size=(samples,))
             idx2 = srng.random_integers(low=0, high=n - 1, size=(samples,))
             s1 = encoding[idx1, :]
             s2 = encoding[idx2, :]
-            alphas = srng.uniform(low=0, high=1, size=(samples,))
+            alphas = srng.uniform(low=0, high=1, size=(samples,)).dimshuffle((0, 'x'))
             esamp = (alphas * s1) + ((1 - alphas) * s2)  # (samples, input_units)
             zsamp = srng.random_integers(low=0, high=z_k - 1, size=(samples,))
 
@@ -142,10 +142,11 @@ class MSEModel(object):
         samples = rows * columns
         idx = np.random.random_integers(low=0, high=n - 1, size=(samples,))
         xs = x[idx, :]  # (samples, input_dim)
-        img = self.fun_autoencode(xs)
-        img = np.reshape(img, (rows, columns, 28, 28))
-        img = np.transpose(img, (0, 2, 1, 3))
-        img = np.reshape(img, (rows * 28, columns * 28))
+        ae = self.fun_autoencode(xs)
+        img = np.stack((xs, ae), axis=0)  # (2, samples, input_dim)
+        img = np.reshape(img, (2, rows, columns, 28, 28))
+        img = np.transpose(img, (1, 3, 2, 0, 4))  # (rows,28, cols, 2, 28)
+        img = np.reshape(img, (rows * 28, columns * 28 * 2))
         write_image(img, output_path)
 
     def train(self,
@@ -173,12 +174,13 @@ class MSEModel(object):
                         for a, b in zip(data, d):
                             a.append(b)
                         stats = [np.asscalar(np.mean(a)) for a in data]
-                        it2.desc = 'Epoch {}, gloss {:.03f}, greg {:.03f}, dloss {:.03f}, dreg {:.03f}'.format(
+                        it2.desc = ('Epoch {}, MSE {:.03f}, PZ Reg {:.03f}, Enc Reg {:.03f}, ' +
+                                    'Grad Reg {:.03f}, Loss {:03f}').format(
                             e, *stats
                         )
 
                     self.visualize_classifier(x, "{}/classifier-{:08d}.png".format(output_path, e))
-                    self.visualize_autoencoder("{}/autoencoder-{:08d}.png".format(output_path, e))
+                    self.visualize_autoencoder(x, "{}/autoencoder-{:08d}.png".format(output_path, e))
                     pz = self.fun_pz(x)
                     np.savetxt("{}/encodings-{:08d}.txt".format(output_path, e), pz)
                     stats = [np.asscalar(np.mean(a)) for a in data]
