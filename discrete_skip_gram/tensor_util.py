@@ -1,7 +1,9 @@
+from os.path import exists
+
 import h5py
+import keras.backend as K
 import theano.tensor as T
 
-import keras.backend as K
 from .util import latest_file
 from .util import make_path
 
@@ -11,9 +13,11 @@ def softmax_nd(x, axis=-1):
     out = e_x / T.sum(e_x, axis=axis, keepdims=True)
     return out
 
+
 def smoothmax_nd(x, axis=-1, keepdims=True):
     sm = softmax_nd(x, axis=axis)
-    return T.sum(sm*x, axis=axis, keepdims=keepdims)
+    return T.sum(sm * x, axis=axis, keepdims=keepdims)
+
 
 def weight_name(i, weight):
     return "param_{}".format(i)
@@ -33,13 +37,14 @@ def load_weights(path, weights):
 
 
 def load_latest_weights(dir_path, fmt, weights):
-    path, epoch = latest_file(dir_path, fmt)
-    if path:
-        print("Loading epoch {}: {}".format(epoch, path))
-        load_weights(path, weights)
-        return epoch + 1
-    else:
-        return 0
+    if exists(dir_path):
+        path, epoch = latest_file(dir_path, fmt)
+        if path:
+            print("Loading epoch {}: {}".format(epoch, path))
+            load_weights(path, weights)
+            return epoch + 1
+    return 0
+
 
 def leaky_relu(x):
     return T.nnet.relu(x, 0.2)
