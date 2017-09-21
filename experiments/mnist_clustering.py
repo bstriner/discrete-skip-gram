@@ -1,5 +1,10 @@
 # import os
 # os.environ["THEANO_FLAGS"]='optimizer=None,device=cpu'
+
+import matplotlib as mpl
+
+# This line allows mpl to run with no DISPLAY defined
+mpl.use('Agg')
 import numpy as np
 import theano.tensor as T
 from keras.datasets import mnist
