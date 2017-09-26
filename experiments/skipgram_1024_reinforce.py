@@ -1,10 +1,10 @@
 import os
 
+#os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 import numpy as np
 from keras.optimizers import Adam
 
 from discrete_skip_gram.flat_validation import run_flat_validation
-# os.environ["THEANO_FLAGS"]="optimizer=None,device=cpu"
 from discrete_skip_gram.reinforce_model import ReinforceModel
 
 
