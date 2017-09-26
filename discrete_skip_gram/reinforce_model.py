@@ -65,9 +65,10 @@ class ReinforceModel(object):
 
         # sampled
         srng = RandomStreams(123)
-        rng = srng.uniform(low=0, high=1, size=(x_k,))
+        rng = srng.uniform(low=0., high=1., size=(x_k,))
         cs = T.cumsum(p_z, axis=1)
         sel = T.sum(T.gt(rng.dimshuffle((0, 'x')), cs), axis=1)  # (x_k,)
+        sel = T.clip(sel, 0, z_k - 1)
 
         b = T.zeros((z_k, x_k))
         b = T.set_subtensor(b[sel, T.arange(x_k)], 1)
@@ -98,7 +99,7 @@ class ReinforceModel(object):
         assert isinstance(opt, keras.optimizers.Optimizer)
 
         def get_gradients(loss, params):
-            assert len(params)==1
+            assert len(params) == 1
             assert params[0] == pz_weight
             return [grad_tot]
 
