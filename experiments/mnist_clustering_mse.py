@@ -14,8 +14,8 @@ from discrete_skip_gram.mlp import MLP
 from discrete_skip_gram.mse_model import MSEModel
 from discrete_skip_gram.regularizers import BalanceRegularizer
 from discrete_skip_gram.tensor_util import leaky_relu, softmax_nd
-from discrete_skip_gram.resnet import Resnet
 from keras.regularizers import L1L2
+import theano.tensor as T
 
 
 def main():
@@ -23,9 +23,9 @@ def main():
     encoding_units = 128
     z_k = 10
     input_units = 28 * 28
-    pz_regularizer = BalanceRegularizer(1e-2)
-    reg_weight_encoding = 1e-0
-    gen_regularizer = L1L2(0, 1e-1)
+    pz_regularizer = BalanceRegularizer(1e-1)
+    reg_weight_encoding = 1e-1
+    gen_regularizer = L1L2(1e-2, 1e-2)
 
     ((x, y), (xt, yt)) = mnist.load_data()
     x = np.float32(x) / 255.
@@ -38,24 +38,29 @@ def main():
                      hidden_activation=leaky_relu,
                      initializer=initializer,
                      output_activation=softmax_nd)
-    encoder = MLP(input_units=input_units,
+    encoder = MLP(input_units=units,
                   hidden_units=units,
                   output_units=encoding_units,
                   hidden_depth=2,
                   hidden_activation=leaky_relu,
                   initializer=initializer,
                   output_activation=leaky_relu)
-    generator = Resnet(input_units=input_units + encoding_units,
-                       res_units=units,
-                       depth=1,
-                       initializer=initializer,
-                       activation=leaky_relu)
+    generator = MLP(input_units=encoding_units,
+                    hidden_units=units,
+                    output_units=input_units,
+                    hidden_depth=2,
+                    hidden_activation=leaky_relu,
+                    initializer=initializer,
+                    output_activation=T.nnet.sigmoid)
 
     model = MSEModel(
         z_k=z_k,
+        mode=2,
         classifier=classifier,
         encoder=encoder,
         generator=generator,
+        units=units,
+        encoding_units=encoding_units,
         opt=Adam(1e-3),
         input_units=input_units,
         reg_weight_encoding=reg_weight_encoding,

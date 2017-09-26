@@ -21,9 +21,12 @@ class MSEModel(object):
                  generator,
                  opt,
                  input_units,
+                 units,
+                 encoding_units,
                  activation=leaky_relu,
                  reg_weight_encoding=1e-3,
                  initializer=RandomUniform(minval=-0.05, maxval=0.05),
+                 mode=1,
                  pz_regularizer=None,
                  gen_regularizer=None):
         self.z_k = z_k
@@ -32,23 +35,39 @@ class MSEModel(object):
         x_input = T.fmatrix(name='x_input')  # (n, input_units)
         n = x_input.shape[0]
         pz = classifier.call(x_input)  # (n, z_k)
-        encoding = encoder.call(x_input)  # (n, encoding_units)
 
-        generator_z_embedding = K.variable(initializer((z_k, input_units)))
-        assert encoding.ndim == 2
-        assert generator_z_embedding.ndim == 2
-        zr = T.repeat(generator_z_embedding.dimshuffle(('x', 0, 1)), repeats=n, axis=0)
-        er = T.repeat(encoding.dimshuffle((0, 'x', 1)), repeats=z_k, axis=1)
-        ctx = T.concatenate((zr, er), axis=2)
-        # ctx_units = encoding_units+input_units
-        # (n, z_k, input_units+encoding_units)
+        encoder_z_embedding = K.variable(initializer((z_k, units)))
+        encoder_x_embedding = K.variable(initializer((input_units, units)))
+        encoder_b = K.variable(initializer((units,)))
+        h1 = T.dot(x_input, encoder_x_embedding).dimshuffle((0, 'x', 1))
+        h2 = encoder_z_embedding.dimshuffle(('x', 0, 1))
+        encoder_ctx = activation(h1 + h2 + encoder_b)
+        encoding = encoder.call(encoder_ctx)  # (n, k, encoding_units)
 
-        blob = generator.call(ctx)  # (n, z_k, input_dim+encodingunits)
-        generated = T.nnet.sigmoid(blob[:, :, :input_units])
+        if mode == 1:
+            generator_z_embedding = K.variable(initializer((z_k, input_units)))
+            assert encoding.ndim == 2
+            assert generator_z_embedding.ndim == 2
+            zr = T.repeat(generator_z_embedding.dimshuffle(('x', 0, 1)), repeats=n, axis=0)
+            er = T.repeat(encoding.dimshuffle((0, 'x', 1)), repeats=z_k, axis=1)
+            ctx = T.concatenate((zr, er), axis=2)
+            # ctx_units = encoding_units+input_units
+            # (n, z_k, input_units+encoding_units)
 
+            blob = generator.call(ctx)  # (n, z_k, input_dim+encodingunits)
+            generated = T.nnet.sigmoid(blob[:, :, :input_units])
+        elif mode == 2:
+            generator_z_embedding = K.variable(initializer((z_k, encoding_units)))
+            ctx = (generator_z_embedding.dimshuffle(('x', 0, 1))) + encoding
+            generated = generator.call(ctx)
+        else:
+            raise ValueError()
+
+        assert generated.ndim == 3
         mse = T.sum(T.square(generated - (x_input.dimshuffle((0, 'x', 1)))), axis=2)  # (n, z_k)
+        assert mse.ndim == 2
         loss_mse = T.mean(T.sum(mse * pz, axis=1), axis=0)
-        params = ([generator_z_embedding] +
+        params = ([generator_z_embedding, encoder_z_embedding, encoder_x_embedding, encoder_b] +
                   generator.params +
                   classifier.params +
                   encoder.params)
@@ -61,7 +80,7 @@ class MSEModel(object):
 
         # regularize encoding
         if reg_weight_encoding > 0:
-            loss_reg_enc = reg_weight_encoding * T.mean(T.sum(T.square(encoding), axis=1), axis=0)
+            loss_reg_enc = reg_weight_encoding * T.mean(T.sum(pz * T.sum(T.square(encoding), axis=2), axis=1), axis=0)
         else:
             loss_reg_enc = T.constant(0)
 
@@ -71,6 +90,10 @@ class MSEModel(object):
             for w in generator.ws:
                 loss_reg_gen += gen_regularizer(w)
 
+        assert loss_mse.ndim == 0
+        assert loss_reg_pz.ndim == 0
+        assert loss_reg_enc.ndim == 0
+        assert loss_reg_gen.ndim == 0
         loss_tot = loss_mse + loss_reg_pz + loss_reg_enc + loss_reg_gen
         updates = opt.get_updates(loss_tot, params=params)
         outputs = [loss_mse, loss_reg_pz, loss_reg_enc, loss_reg_gen, loss_tot]
@@ -81,10 +104,13 @@ class MSEModel(object):
         zmax = T.argmax(pz, axis=1)  # (n,)
         xgensel = generated[T.arange(n), zmax, :]
 
-        #m = T.mean(generator_z_embedding, axis=1, keepdims=True)
-        #s = T.std(generator_z_embedding, axis=1, keepdims=True)
-        #proto = T.nnet.sigmoid((generator_z_embedding-m)/(s+1e-9))
-        proto = T.nnet.sigmoid(generator_z_embedding)
+        # m = T.mean(generator_z_embedding, axis=1, keepdims=True)
+        # s = T.std(generator_z_embedding, axis=1, keepdims=True)
+        # proto = T.nnet.sigmoid((generator_z_embedding-m)/(s+1e-9))
+        if mode == 1:
+            proto = T.nnet.sigmoid(generator_z_embedding)
+        else:
+            proto = generator.call(generator_z_embedding)
         xprotosel = proto[zmax, :]
         self.fun_autoencode = theano.function([x_input], [xprotosel, xgensel])
 

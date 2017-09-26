@@ -20,12 +20,18 @@ class MLP(object):
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
         self.params = []
-        self.params.append(K.variable(initializer((input_units, hidden_units))))
+        self.ws = []
+
+        def append_w(w):
+            self.params.append(w)
+            self.ws.append(w)
+
+        append_w(K.variable(initializer((input_units, hidden_units))))
         self.params.append(K.variable(initializer((hidden_units,))))
         for i in range(hidden_depth):
-            self.params.append(K.variable(initializer((hidden_units, hidden_units))))
+            append_w(K.variable(initializer((hidden_units, hidden_units))))
             self.params.append(K.variable(initializer((hidden_units,))))
-        self.params.append(K.variable(initializer((hidden_units, output_units))))
+        append_w(K.variable(initializer((hidden_units, output_units))))
         self.params.append(K.variable(initializer((output_units,))))
 
     def call(self, x):
