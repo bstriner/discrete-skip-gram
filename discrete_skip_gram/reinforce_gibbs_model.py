@@ -136,9 +136,11 @@ class ReinforceGibbsModel(object):
         self.train_fun = theano.function([], current_nll, updates=updates + avg_updates)
         self.weights = params + opt.weights + [current_sample, avg_nll]
 
+        t = self.calc_utilization()
+
     def calc_utilization(self):
         z = self.encodings_fun()
-        s = set(z[i] for i in range(z.shape[0]))
+        s = set(np.asscalar(z[i]) for i in range(z.shape[0]))
         return len(s)
 
     def train(self,
