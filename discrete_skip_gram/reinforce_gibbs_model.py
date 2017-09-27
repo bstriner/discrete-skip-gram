@@ -138,7 +138,8 @@ class ReinforceGibbsModel(object):
 
     def calc_utilization(self):
         z = self.encodings_fun()
-        return len(set(list(z)))
+        s = set(z[i] for i in range(z.shape[0]))
+        return len(s)
 
     def train(self,
               outputpath,
