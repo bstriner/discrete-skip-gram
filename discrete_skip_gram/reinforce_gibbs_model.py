@@ -140,8 +140,7 @@ class ReinforceGibbsModel(object):
 
     def calc_utilization(self):
         z = self.encodings_fun()
-        s = set(np.asscalar(z[i]) for i in range(z.shape[0]))
-        return len(s)
+        return len(set(np.asarray(z)))
 
     def train(self,
               outputpath,
