@@ -48,3 +48,12 @@ def load_latest_weights(dir_path, fmt, weights):
 
 def leaky_relu(x):
     return T.nnet.relu(x, 0.2)
+
+
+def tensor_one_hot(x, k):
+    assert x.ndim == 1
+    assert x.dtype == 'int32' or x.dtype=='int64'
+    ret = T.zeros((x.shape[0], k), dtype='float32')
+    idx = T.arange(x.shape[0], dtype='int32')
+    ret = T.set_subtensor(ret[idx, x], 1.)
+    return ret

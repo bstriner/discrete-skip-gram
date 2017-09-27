@@ -79,7 +79,8 @@ class ReinforceModel(object):
         sampled_nll = theano.gradient.zero_grad(sampled_nll)
         sampled_lp = T.sum(T.log(p_z[T.arange(x_k), sel]))  # scalar
         glp = T.grad(sampled_lp, pz_weight)
-        sampled_grad = sampled_nll * glp
+        #todo: check math!
+        sampled_grad = -sampled_nll * glp
         grad_tot = sampled_grad
 
         reg_loss = T.constant(0.)
