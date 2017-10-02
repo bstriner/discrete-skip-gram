@@ -80,6 +80,7 @@ class ReinforceGibbsModel(object):
             current_masked = T.set_subtensor(current_oh[idx, current_sample[idx]], 0)  # (x_k, z_k)
             # todo: test this p calculation
             e_add = T.dot(T.log(eps + pzidx) - T.log(eps + 1 - pzidx), current_masked)  # (n, z_k)
+            #e_add = T.dot(T.log(eps + pzidx), current_masked)  # (n, z_k)
             p_add = softmax_nd(e_add)
             cs = T.cumsum(p_add, axis=1)
             rnd = srng.uniform(low=0., high=1., size=(idx.shape[0],))

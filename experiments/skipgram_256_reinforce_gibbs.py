@@ -10,7 +10,7 @@ def main():
     epochs = 1000
     batches = 4096
     z_k = 256
-    steps = 40
+    steps = 5
     gibbs_batch_size = 256
     outputpath = "output/skipgram_256_reinforce_gibbs"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
