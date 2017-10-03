@@ -1,10 +1,7 @@
 import keras.backend as K
 import numpy as np
 import theano.tensor as T
-
-
-def normal_initializer(scale):
-    return lambda size: np.random.uniform(low=-scale, high=scale, size=size)
+from .initializers import uniform_initializer
 
 
 class MLP(object):
@@ -13,7 +10,7 @@ class MLP(object):
                  hidden_units,
                  output_units,
                  hidden_depth,
-                 initializer=normal_initializer(0.05),
+                 initializer=uniform_initializer(0.05),
                  hidden_activation=None,
                  output_activation=None):
         self.hidden_depth = hidden_depth
