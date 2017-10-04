@@ -103,3 +103,19 @@ def generate_ngrams(corpus, n):
     b = np.stack(a, axis=1)
     assert len(b.shape) == 2
     return b
+
+
+def logit(x):
+    return np.log(x / (1. - x))
+
+
+def one_hot_np(x, k, dtype=np.float32):
+    assert len(x.shape) == 1
+    r = np.zeros((x.shape[0], k), dtype=dtype)
+    r[np.arange(x.shape[0]), x] = 1
+    return r
+
+def softmax_np(x, axis=-1):
+    e_x = np.exp(x - np.max(x,axis=axis, keepdims=True))
+    out = e_x / np.sum(e_x, axis=axis, keepdims=True)
+    return out

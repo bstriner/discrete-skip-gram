@@ -18,6 +18,7 @@ class ReinforceFactoredModel(object):
                  z_k,
                  opt,
                  initializer,
+                 initial_pz_weight=None,
                  beta=0.02,
                  eps=1e-9):
         cooccurrence = cooccurrence.astype(np.float32)
@@ -39,7 +40,11 @@ class ReinforceFactoredModel(object):
         co_h = T.constant(_co_h, name="co_h")
 
         # parameters
-        pz_weight = K.variable(initializer((x_k, z_k)))
+        if initial_pz_weight is None:
+            initial_pz_weight = initializer((x_k, z_k))
+        else:
+            print("Using stored weights")
+        pz_weight = K.variable(initial_pz_weight)
         params = [pz_weight]
 
         # p(z|x)
