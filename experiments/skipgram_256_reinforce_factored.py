@@ -16,7 +16,7 @@ def main():
     outputpath = "output/skipgram_256_reinforce_factored"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     opt = Adam(1e-3)
-    initializer = uniform_initializer(1)
+    initializer = uniform_initializer(5)
     model = ReinforceFactoredModel(cooccurrence=cooccurrence,
                                    z_k=z_k,
                                    opt=opt,

@@ -10,11 +10,14 @@ class IndependentParameterization(object):
                  z_k,
                  initializer,
                  srng,
+                 initial_pz_weight=None,
                  pz_weight_regularizer=None,
                  pz_regularizer=None):
         self.z_k = z_k
 
-        pz_weight = K.variable(initializer((x_k, z_k)))
+        if initial_pz_weight is None:
+            initial_pz_weight = initializer((x_k, z_k))
+        pz_weight = K.variable(initial_pz_weight)
         pz = softmax_nd(pz_weight)
 
         cs = T.cumsum(pz, axis=1)
