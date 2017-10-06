@@ -5,7 +5,6 @@ Columnar analysis. Parameters are p(z|x). Each batch is a set of buckets.
 import csv
 import os
 
-import keras
 import numpy as np
 import theano
 import theano.tensor as T
@@ -59,28 +58,19 @@ class ReinforceModel(object):
         theano.function([], [], updates=[(avg_nll, sampled_nll)])()
 
         # todo: check sign!
-        sampled_grad = [(sampled_nll - avg_nll) * T.grad(logpz, p) for p in parameterization.params]
+        sampled_loss = theano.gradient.zero_grad(sampled_nll - avg_nll) * logpz
+
         utilization = T.sum(T.gt(T.sum(b, axis=1), 0), axis=0)
-
+        reg_loss = T.constant(0.)
         if parameterization.regularize:
-            grad_reg = [T.grad(parameterization.loss, p) for p in parameterization.params]
-            grad_tot = [a + b for a, b in zip(sampled_grad, grad_reg)]
-        else:
-            grad_tot = sampled_grad
+            reg_loss = parameterization.loss
+        loss = reg_loss + sampled_loss
 
-        assert isinstance(opt, keras.optimizers.Optimizer)
-
-        def get_gradients(loss, params):
-            assert len(params) == len(parameterization.params)
-            return grad_tot
-
-        opt.get_gradients = get_gradients
-
-        updates = opt.get_updates(loss=T.constant(0.), params=parameterization.params)
+        updates = opt.get_updates(loss=loss, params=parameterization.params)
 
         self.val_fun = theano.function([], [sampled_nll])
         self.encodings_fun = theano.function([], encoding)
-        self.train_fun = theano.function([], [sampled_nll, utilization], updates=updates + avg_updates)
+        self.train_fun = theano.function([], [sampled_nll, reg_loss, loss, utilization], updates=updates + avg_updates)
         self.weights = parameterization.params + opt.weights + [avg_nll]
 
     def train_batch(self):
@@ -94,31 +84,50 @@ class ReinforceModel(object):
         if initial_epoch < epochs:
             with open(os.path.join(outputpath, 'history.csv'), 'ab') as f:
                 w = csv.writer(f)
-                w.writerow(['Epoch', 'Mean NLL', 'Min NLL', 'Mean Utilization', 'Min Utilization', 'Max Utilization'])
+                w.writerow(['Epoch',
+                            'Mean NLL',
+                            'Min NLL',
+                            'Mean Utilization',
+                            'Min Utilization',
+                            'Max Utilization',
+                            'Regularization Loss',
+                            'Loss'])
                 f.flush()
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                     nlls = []
+                    reg_losses = []
+                    losses = []
                     utilizations = []
                     for _ in it:
-                        nll, utilization = self.train_batch()
+                        nll, reg_loss, loss, utilization = self.train_batch()
                         nlls.append(nll)
+                        reg_losses.append(reg_loss)
+                        losses.append(loss)
                         utilizations.append(utilization)
                         it.desc = ("Epoch {}: " +
                                    "Mean NLL {:.4f} " +
                                    "Min NLL {:.4f} " +
                                    "Current NLL {:.4f} " +
-                                   "Current Utilization {}").format(epoch,
-                                                                    np.asscalar(np.mean(nlls)),
-                                                                    np.asscalar(np.min(nlls)),
-                                                                    np.asscalar(nll),
-                                                                    np.asscalar(utilization))
+                                   "Current Utilization {} " +
+                                    "Mean Regularization Loss {:.4f} " +
+                                   "Mean Loss {:.4f} " +
+                                   "Current Loss {:.4f}").format(epoch,
+                                                                 np.asscalar(np.mean(nlls)),
+                                                                 np.asscalar(np.min(nlls)),
+                                                                 np.asscalar(nll),
+                                                                 np.asscalar(utilization),
+                                                                 np.asscalar(np.mean(reg_losses)),
+                                                                 np.asscalar(np.mean(losses)),
+                                                                 np.asscalar(loss))
                     w.writerow([epoch,
                                 np.asscalar(np.mean(nlls)),
                                 np.asscalar(np.min(nlls)),
                                 np.asscalar(np.mean(utilizations)),
                                 np.asscalar(np.min(utilizations)),
-                                np.asscalar(np.max(utilizations))])
+                                np.asscalar(np.max(utilizations)),
+                                np.asscalar(np.mean(reg_losses)),
+                                np.asscalar(np.mean(losses))])
                     f.flush()
                     enc = self.encodings_fun()  # (n, x_k)
                     np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)

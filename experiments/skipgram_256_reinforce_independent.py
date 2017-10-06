@@ -16,7 +16,7 @@ def main():
     epochs = 1000
     batches = 4096
     z_k = 256
-    initializer = uniform_initializer(0.05)
+    initializer = uniform_initializer(5)
     srng = RandomStreams(123)
     opt = Adam(1e-3)
     # build and train

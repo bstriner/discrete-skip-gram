@@ -65,7 +65,8 @@ class BalanceSqRegularizer(Regularizer):
         eps = 1e-8
         return self.weight * T.sum(T.square(T.log(eps + T.mean(x, axis=0))), axis=0)
 
-#todo: test this
+
+# todo: test this
 class BarrierDivRegularizer(Regularizer):
     def __init__(self, weight):
         super(BarrierDivRegularizer, self).__init__(weight)
@@ -73,7 +74,7 @@ class BarrierDivRegularizer(Regularizer):
     def __call__(self, x):
         assert x.ndim == 2
         eps = 1e-8
-        return self.weight * T.sum(1/(eps + T.mean(x, axis=0)), axis=0)
+        return self.weight * T.sum(1 / (eps + T.mean(x, axis=0)), axis=0)
 
 
 class BalanceSumRegularizer(Regularizer):
@@ -95,3 +96,13 @@ class BalanceWeightedRegularizer(Regularizer):
         assert x.ndim == 2
         p = T.sum(x * (self.marginal.dimshuffle((0, 'x'))), axis=0)
         return -self.weight * T.sum(T.log(p), axis=0)
+
+
+class EntropyRegularizer(Regularizer):
+    def __init__(self, weight):
+        super(EntropyRegularizer, self).__init__(weight)
+
+    def __call__(self, x):
+        assert x.ndim == 2
+        eps = 1e-9
+        return self.weight * T.sum(x * T.log(eps + x), axis=None)

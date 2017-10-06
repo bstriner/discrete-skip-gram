@@ -19,6 +19,7 @@ class ReinforceFactoredModel(object):
                  opt,
                  initializer,
                  initial_pz_weight=None,
+                 pz_regularizer=None,
                  beta=0.02,
                  eps=1e-9):
         cooccurrence = cooccurrence.astype(np.float32)
@@ -51,11 +52,19 @@ class ReinforceFactoredModel(object):
         pz = softmax_nd(pz_weight)
 
         # sample
+        sample_mode = 0
         srng = RandomStreams(123)
-        cs = T.cumsum(pz, axis=1)
-        rnd = srng.uniform(low=0., high=1., dtype='float32', size=(x_k,))
-        encoding = T.sum(T.gt(rnd.dimshuffle((0, 'x')), cs), axis=1)
-        encoding = T.clip(encoding, 0, z_k - 1)
+        if sample_mode == 0:
+            cs = T.cumsum(pz, axis=1)
+            rnd = srng.uniform(low=0., high=1., dtype='float32', size=(x_k,))
+            encoding = T.sum(T.gt(rnd.dimshuffle((0, 'x')), cs), axis=1)
+            encoding = T.clip(encoding, 0, z_k - 1)
+        elif sample_mode == 1:
+            rnd = srng.uniform(low=0. + eps, high=1. - eps, dtype='float32', size=(x_k, z_k))
+            h = T.log(pz) - T.log(-T.log(rnd))
+            encoding = T.argmax(h, axis=1)
+        else:
+            raise ValueError()
 
         # log p
         pzt = pz[T.arange(x_k), encoding]  # (x_k,)
@@ -83,13 +92,21 @@ class ReinforceFactoredModel(object):
         # todo: check sign!
         r = theano.gradient.zero_grad(nllpart - avg_nll)
         loss = T.sum(r * logpzt)  # scalar
+
+        reg_loss = T.constant(0.)
+        if pz_regularizer:
+            reg_loss = pz_regularizer(pz)
+
+        total_loss = loss + reg_loss
+
         utilization = T.sum(T.gt(T.sum(b, axis=1), 0), axis=0)
 
-        updates = opt.get_updates(loss=loss, params=params)
+        updates = opt.get_updates(loss=total_loss, params=params)
 
-        self.val_fun = theano.function([], [nlltot, loss, utilization])
+        self.val_fun = theano.function([], [nlltot, total_loss, utilization])
         self.encodings_fun = theano.function([], encoding)
-        self.train_fun = theano.function([], [nlltot, loss, utilization], updates=updates + avg_updates)
+        self.train_fun = theano.function([], [nlltot, reg_loss, total_loss, utilization, encoding],
+                                         updates=updates + avg_updates)
         self.weights = params + opt.weights + [avg_nll]
 
     def train_batch(self):
@@ -109,29 +126,39 @@ class ReinforceFactoredModel(object):
                             'Mean Utilization',
                             'Min Utilization',
                             'Max Utilization',
+                            'Regularization Loss',
                             'Loss'])
                 f.flush()
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                     nlls = []
-                    utilizations = []
+                    reg_losses = []
                     losses = []
+                    utilizations = []
+                    min_nll = None
+                    min_enc = None
                     for _ in it:
-                        nll, loss, utilization = self.train_batch()
+                        nll, reg_loss, loss, utilization, enc = self.train_batch()
                         nlls.append(nll)
+                        reg_losses.append(reg_loss)
                         losses.append(loss)
                         utilizations.append(utilization)
+                        if (min_nll is None) or (nll < min_nll):
+                            min_enc = enc
+                            min_nll = nll
                         it.desc = ("Epoch {}: " +
                                    "Mean NLL {:.4f} " +
                                    "Min NLL {:.4f} " +
                                    "Current NLL {:.4f} " +
                                    "Current Utilization {} " +
+                                   "Mean Regularization Loss {:.4f} " +
                                    "Mean Loss {:.4f} " +
                                    "Current Loss {:.4f}").format(epoch,
                                                                  np.asscalar(np.mean(nlls)),
                                                                  np.asscalar(np.min(nlls)),
                                                                  np.asscalar(nll),
                                                                  np.asscalar(utilization),
+                                                                 np.asscalar(np.mean(reg_losses)),
                                                                  np.asscalar(np.mean(losses)),
                                                                  np.asscalar(loss))
                     w.writerow([epoch,
@@ -140,8 +167,8 @@ class ReinforceFactoredModel(object):
                                 np.asscalar(np.mean(utilizations)),
                                 np.asscalar(np.min(utilizations)),
                                 np.asscalar(np.max(utilizations)),
+                                np.asscalar(np.mean(reg_losses)),
                                 np.asscalar(np.mean(losses))])
                     f.flush()
-                    enc = self.encodings_fun()  # (n, x_k)
-                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
+                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), min_enc)
                     save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)
