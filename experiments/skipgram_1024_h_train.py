@@ -9,12 +9,10 @@ def main():
     epochs = 10
     batches = 4096
     z_k = 1024
-    iters = 5
+    iters = 3
     outputpath = "output/skipgram_1024_h"
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     weights = [
-        1e1,
-        1,
         1e-1,
         1e-2,
         1e-3,

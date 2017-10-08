@@ -20,7 +20,9 @@ class GumbelModel2(object):
                  initializer,
                  initial_pz_weight=None,
                  pz_regularizer=None,
-                 decay=1e-6,
+                 tao0=5.,
+                 tao_min=0.25,
+                 tao_decay=1e-6,
                  eps=1e-9):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
@@ -50,7 +52,7 @@ class GumbelModel2(object):
         gumbel = -T.log(eps + T.nnet.relu(-T.log(eps + rnd)))
 
         iteration = K.variable(0, dtype='int32')
-        temp = 1. / (1. + (decay * iteration))
+        temp = T.max(T.stack((tao_min, tao0 / (1. + (tao_decay * iteration)))))
 
         z = softmax_nd((T.log(eps + pz) + gumbel) / (eps + temp)) # p(z|x) (x_k, z_k)
 
@@ -67,7 +69,7 @@ class GumbelModel2(object):
 
         decay_updates = [(iteration, iteration + 1)]
 
-        encoding = T.argmax(pz, axis=1)
+        encoding = T.argmax(pz_weight, axis=1)
         one_hot_encoding = tensor_one_hot(encoding, z_k)  # (x_k, z_k)
 
         pb = T.dot(T.transpose(one_hot_encoding, (1, 0)), co)
