@@ -12,18 +12,15 @@ from .tensor_util import save_weights, load_latest_weights
 from .tensor_util import softmax_nd, tensor_one_hot
 
 
-class GumbelModel1(object):
+class GumbelModel2(object):
     def __init__(self,
                  cooccurrence,
                  z_k,
                  opt,
                  initializer,
                  initial_pz_weight=None,
-                 initial_b=None,
                  pz_regularizer=None,
-                 tao0=5.,
-                 tao_min=0.25,
-                 tao_decay=1e-6,
+                 decay=1e-6,
                  eps=1e-9):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
@@ -53,19 +50,16 @@ class GumbelModel1(object):
         gumbel = -T.log(eps + T.nnet.relu(-T.log(eps + rnd)))
 
         iteration = K.variable(0, dtype='int32')
-        temp = T.max(T.stack((tao_min, tao0 / (1. + (tao_decay * iteration)))))
+        temp = 1. / (1. + (decay * iteration))
 
-        z = softmax_nd((T.log(eps + pz) + gumbel) / (eps + temp))
-        # z = pz
-        w = K.variable(initializer((z_k, x_k)))
-        if initial_b is None:
-            initial_b = initializer((x_k,))
-        b = K.variable(initial_b)
-        y = softmax_nd(T.dot(z, w) + b)
+        z = softmax_nd((T.log(eps + pz) + gumbel) / (eps + temp)) # p(z|x) (x_k, z_k)
 
-        self.params = [pz_weight, w, b]
+        pb = T.dot(T.transpose(z, (1,0)), co) # (x_k, z_k)
+        m = T.sum(pb, axis=1, keepdims=True)
+        c = pb / (m+eps)
+        nll_loss = -T.sum(pb * T.log(eps+c), axis = None)
 
-        nll_loss = -T.sum(co * T.log(eps + y), axis=None)
+        self.params = [pz_weight]
         reg_loss = T.constant(0.)
         if pz_regularizer:
             reg_loss = pz_regularizer(pz)

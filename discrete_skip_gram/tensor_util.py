@@ -52,8 +52,20 @@ def leaky_relu(x):
 
 def tensor_one_hot(x, k):
     assert x.ndim == 1
-    assert x.dtype == 'int32' or x.dtype=='int64'
+    assert x.dtype == 'int32' or x.dtype == 'int64'
     ret = T.zeros((x.shape[0], k), dtype='float32')
     idx = T.arange(x.shape[0], dtype='int32')
     ret = T.set_subtensor(ret[idx, x], 1.)
     return ret
+
+
+def fix_update((a, b), verbose=True):
+    if a.dtype != b.dtype:
+        print("Mismatch {}: {}->{}".format(a, a.dtype, b.dtype))
+        return a, T.cast(b, a.dtype)
+    else:
+        return a, b
+
+
+def fix_updates(updates, verbose=True):
+    return [fix_update(update, verbose) for update in updates]

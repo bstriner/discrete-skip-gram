@@ -10,16 +10,16 @@ from tqdm import tqdm
 
 from .tensor_util import save_weights, load_latest_weights
 from .tensor_util import softmax_nd, tensor_one_hot
+from .tensor_util import fix_updates
 
-
-class GumbelModel1(object):
+class GumbelModel3(object):
     def __init__(self,
                  cooccurrence,
                  z_k,
                  opt,
                  initializer,
+                 mlp,
                  initial_pz_weight=None,
-                 initial_b=None,
                  pz_regularizer=None,
                  tao0=5.,
                  tao_min=0.25,
@@ -50,20 +50,17 @@ class GumbelModel1(object):
 
         srng = RandomStreams(123)
         rnd = srng.uniform(low=0., high=1., dtype='float32', size=(x_k, z_k))
-        gumbel = -T.log(eps + T.nnet.relu(-T.log(eps + rnd)))
+        gumbel = -T.log(eps -T.log(eps + rnd))
 
         iteration = K.variable(0, dtype='int32')
         temp = T.max(T.stack((tao_min, tao0 / (1. + (tao_decay * iteration)))))
 
         z = softmax_nd((T.log(eps + pz) + gumbel) / (eps + temp))
+        #z = softmax_nd((pz_weight + gumbel) / (eps + temp))
         # z = pz
-        w = K.variable(initializer((z_k, x_k)))
-        if initial_b is None:
-            initial_b = initializer((x_k,))
-        b = K.variable(initial_b)
-        y = softmax_nd(T.dot(z, w) + b)
-
-        self.params = [pz_weight, w, b]
+        h = mlp.call(z)
+        y = softmax_nd(h)
+        self.params = [pz_weight] + mlp.params
 
         nll_loss = -T.sum(co * T.log(eps + y), axis=None)
         reg_loss = T.constant(0.)
@@ -73,7 +70,8 @@ class GumbelModel1(object):
 
         decay_updates = [(iteration, iteration + 1)]
 
-        encoding = T.argmax(pz, axis=1)
+        #encoding = T.argmax(pz, axis=1)
+        encoding = T.argmax(pz_weight, axis=1)
         one_hot_encoding = tensor_one_hot(encoding, z_k)  # (x_k, z_k)
 
         pb = T.dot(T.transpose(one_hot_encoding, (1, 0)), co)
@@ -87,7 +85,7 @@ class GumbelModel1(object):
         self.val_fun = theano.function([], validation_nll)
         self.encodings_fun = theano.function([], encoding)
         self.train_fun = theano.function([], [reg_loss, nll_loss, utilization, temp],
-                                         updates=updates + decay_updates)
+                                         updates=fix_updates(updates + decay_updates))
         self.weights = self.params + opt.weights + [iteration]
 
     def train_batch(self):
@@ -125,12 +123,14 @@ class GumbelModel1(object):
                         it.desc = ("Epoch {}: " +
                                    "Reg Loss {:.4f} " +
                                    "Mean Loss {:.4f} " +
+                                   "Min Loss {:.4f} " +
                                    "Current Loss {:.4f} " +
                                    "Current Utilization {} " +
                                    "Current Temperature {:.4f}").format(epoch,
                                                                         np.asscalar(reg_loss),
                                                                         np.asscalar(np.mean(losses)),
                                                                         np.asscalar(np.min(losses)),
+                                                                        np.asscalar(loss),
                                                                         np.asscalar(utilization),
                                                                         np.asscalar(temp))
                     validation_nll = self.val_fun()
