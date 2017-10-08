@@ -24,7 +24,7 @@ def main():
     units = 512
     tao0 = 5.
     tao_min = 0.1
-    tao_decay = 2e-3
+    tao_decay = 2e-4
     mlp = MLP(input_units=z_k,
               output_units=cooccurrence.shape[0],
               hidden_units=units,
@@ -34,7 +34,7 @@ def main():
               hidden_activation=leaky_relu)
     initial_b = np.log(np.sum(cooccurrence, axis=0))
     K.set_value(mlp.bs[-1], initial_b)
-    pz_regularizer = EntropyRegularizer(3e-6)
+    pz_regularizer = EntropyRegularizer(3e-7)
     # build and train
     outputpath = "output/skipgram_256_gumbel3"
     model = GumbelModel3(cooccurrence=cooccurrence,
