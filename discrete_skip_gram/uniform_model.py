@@ -12,17 +12,15 @@ from .tensor_util import save_weights, load_latest_weights
 from .tensor_util import softmax_nd, tensor_one_hot
 
 
-class GumbelModel2(object):
+class UniformModel(object):
     def __init__(self,
                  cooccurrence,
                  z_k,
                  opt,
                  initializer,
                  initial_pz_weight=None,
+                 initial_b=None,
                  pz_regularizer=None,
-                 tao0=5.,
-                 tao_min=0.25,
-                 tao_decay=1e-6,
                  eps=1e-9):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
@@ -46,28 +44,27 @@ class GumbelModel2(object):
             initial_pz_weight = initializer((x_k, z_k))
         pz_weight = K.variable(initial_pz_weight)
         pz = softmax_nd(pz_weight)
-
+        initial_w = initializer((z_k, x_k))
+        w = K.variable(initial_w, name="w")  # (z_k, x_k)
+        if initial_b is None:
+            initial_b = initializer((x_k,))
+        b = K.variable(initial_b, name="b")
+        yw = softmax_nd(w+b)  # (z_k, x_k)
         srng = RandomStreams(123)
-        rnd = srng.uniform(low=0., high=1., dtype='float32', size=(x_k, z_k))
-        gumbel = -T.log(eps + T.nnet.relu(-T.log(eps + rnd)))
+        zsamp = srng.random_integers(size=(x_k,), low=0, high=z_k - 1)
 
-        iteration = K.variable(0, dtype='int32')
-        temp = T.max(T.stack((tao_min, tao0 / (1. + (tao_decay * iteration)))))
+        yt = yw[zsamp, :]  # (x_k, x_k)
+        lt = -T.sum(co * T.log(eps + yt), axis=1)  # (x_k,)
+        pt = pz[T.arange(pz.shape[0]), zsamp]
+        assert lt.ndim == 1
+        assert pt.ndim == 1
+        nll_loss = T.sum(pt * lt, axis=None) * z_k
 
-        z = softmax_nd((T.log(eps + pz) + gumbel) / (eps + temp)) # p(z|x) (x_k, z_k)
-
-        pb = T.dot(T.transpose(z, (1,0)), co) # (x_k, z_k)
-        m = T.sum(pb, axis=1, keepdims=True)
-        c = pb / (m+eps)
-        nll_loss = -T.sum(pb * T.log(eps+c), axis = None)
-
-        self.params = [pz_weight]
+        self.params = [pz_weight, w, b]
         reg_loss = T.constant(0.)
         if pz_regularizer:
             reg_loss = pz_regularizer(pz)
         total_loss = nll_loss + reg_loss
-
-        decay_updates = [(iteration, iteration + 1)]
 
         encoding = T.argmax(pz_weight, axis=1)
         one_hot_encoding = tensor_one_hot(encoding, z_k)  # (x_k, z_k)
@@ -80,11 +77,11 @@ class GumbelModel2(object):
         utilization = T.sum(T.gt(T.sum(one_hot_encoding, axis=0), 0), axis=0)
         updates = opt.get_updates(loss=total_loss, params=self.params)
 
-        self.val_fun = theano.function([], validation_nll)
+        self.val_fun = theano.function([], [validation_nll, utilization])
         self.encodings_fun = theano.function([], encoding)
-        self.train_fun = theano.function([], [reg_loss, nll_loss, utilization, temp],
-                                         updates=updates + decay_updates)
-        self.weights = self.params + opt.weights + [iteration]
+        self.train_fun = theano.function([], [reg_loss, nll_loss, total_loss],
+                                         updates=updates)
+        self.weights = self.params + opt.weights
 
     def train_batch(self):
         return self.train_fun()
@@ -99,48 +96,38 @@ class GumbelModel2(object):
                 w = csv.writer(f)
                 w.writerow(['Epoch',
                             'Mean Reg Loss',
-                            'Mean Loss',
-                            'Min Loss',
-                            'Mean Utilization',
-                            'Min Utilization',
-                            'Max Utilization',
-                            'Temperature',
-                            'Validation NLL'])
+                            'Mean NLL Loss',
+                            'Mean Total Loss',
+                            'Validation NLL',
+                            'Utilization'])
                 f.flush()
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
-                    reg_losses = []
-                    losses = []
-                    utilizations = []
-                    temp = None
+                    data = [[] for _ in range(3)]
                     for _ in it:
-                        reg_loss, loss, utilization, temp = self.train_batch()
-                        reg_losses.append(reg_loss)
-                        losses.append(loss)
-                        utilizations.append(utilization)
+                        reg_loss, nll_loss, loss = self.train_batch()
+                        for i, d in enumerate((reg_loss, nll_loss, loss)):
+                            data[i].append(d)
                         it.desc = ("Epoch {}: " +
                                    "Reg Loss {:.4f} " +
-                                   "Mean Loss {:.4f} " +
-                                   "Min Loss {:.4f} " +
+                                   "NLL Loss {:.4f} " +
+                                   "Mean NLL {:.4f} " +
                                    "Current Loss {:.4f} " +
-                                   "Current Utilization {} " +
-                                   "Current Temperature {:.4f}").format(epoch,
-                                                                        np.asscalar(reg_loss),
-                                                                        np.asscalar(np.mean(losses)),
-                                                                        np.asscalar(np.min(losses)),
-                                                                        np.asscalar(loss),
-                                                                        np.asscalar(utilization),
-                                                                        np.asscalar(temp))
-                    validation_nll = self.val_fun()
+                                   "Mean Loss {:.4f} " +
+                                   "Min Loss {:.4f}").format(epoch,
+                                                             np.asscalar(reg_loss),
+                                                             np.asscalar(nll_loss),
+                                                             np.asscalar(np.mean(data[1])),
+                                                             np.asscalar(loss),
+                                                             np.asscalar(np.mean(data[2])),
+                                                             np.asscalar(np.min(data[2])))
+                    val_nll, utilization = self.val_fun()
                     w.writerow([epoch,
-                                np.asscalar(np.mean(reg_losses)),
-                                np.asscalar(np.mean(losses)),
-                                np.asscalar(np.min(losses)),
-                                np.asscalar(np.mean(utilizations)),
-                                np.asscalar(np.min(utilizations)),
-                                np.asscalar(np.max(utilizations)),
-                                np.asscalar(temp),
-                                np.asscalar(validation_nll)])
+                                np.asscalar(np.mean(data[0])),
+                                np.asscalar(np.mean(data[1])),
+                                np.asscalar(np.mean(data[2])),
+                                np.asscalar(val_nll),
+                                np.asscalar(utilization)])
                     f.flush()
                     enc = self.encodings_fun()  # (n, x_k)
                     np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)

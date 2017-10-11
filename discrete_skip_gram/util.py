@@ -10,8 +10,9 @@ import numpy as np
 
 
 def make_path(path):
-    if not os.path.exists(os.path.dirname(path)):
-        os.makedirs(os.path.dirname(path))
+    dirpath = os.path.dirname(os.path.abspath(path))
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
 
 
 def latest_file(path, fmt):

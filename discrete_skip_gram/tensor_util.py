@@ -69,3 +69,19 @@ def fix_update((a, b), verbose=True):
 
 def fix_updates(updates, verbose=True):
     return [fix_update(update, verbose) for update in updates]
+
+
+def bernoulli_px(p, x):
+    # p 0-1
+    # x 0 or 1
+    assert x.dtype == 'int32' or x.dtype == 'int64'
+    return (x * p) + ((1 - x) * (1 - p))
+
+
+def sample_from_distribution(p, srng):
+    assert p.ndim == 2
+    cs = T.cumsum(p, axis=1)
+    rnd = srng.uniform(low=0., high=1., dtype='float32', size=(p.shape[0],))
+    sel = T.sum(T.gt(rnd.dimshuffle((0, 'x')), cs), axis=1)
+    sel = T.clip(sel, 0, p.shape[1] - 1)
+    return T.cast(sel, 'int32')
