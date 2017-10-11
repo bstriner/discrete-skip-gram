@@ -23,6 +23,7 @@ class ReinforceSmoothedModel(object):
                  initial_pz_weight=None,
                  initial_b=None,
                  pz_regularizer=None,
+                 beta=0.02,
                  eps=1e-9):
         cooccurrence = cooccurrence.astype(np.float32)
         self.cooccurrence = cooccurrence
@@ -69,7 +70,11 @@ class ReinforceSmoothedModel(object):
         nllpart = -T.sum(co * T.log(eps + ysamp), axis=1)  # (x,)
         nll_loss = T.sum(nllpart)
 
-        reinforce = theano.gradient.zero_grad(nllpart * factor)
+        initial_nll = theano.function([], nllpart)()
+        avg_nll = theano.shared(np.float32(initial_nll), name='avg_nll')
+        new_avg = ((1. - beta) * avg_nll) + (beta * nllpart)
+        avg_updates = [(avg_nll, new_avg)]
+        reinforce = theano.gradient.zero_grad((nllpart - avg_nll) * factor)
         rloss = T.sum(reinforce * T.log(pt), axis=0)
         nloss = T.sum(nllpart * factor, axis=0)
 
@@ -94,8 +99,8 @@ class ReinforceSmoothedModel(object):
         self.val_fun = theano.function([], [validation_nll, utilization])
         self.encodings_fun = theano.function([], encoding)
         self.train_fun = theano.function([], [reg_loss, nll_loss, total_loss],
-                                         updates=updates)
-        self.weights = self.params + opt.weights
+                                         updates=updates + avg_updates)
+        self.weights = self.params + opt.weights + [avg_nll]
 
     def train_batch(self):
         return self.train_fun()
