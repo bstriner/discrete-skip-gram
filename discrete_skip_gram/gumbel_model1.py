@@ -55,7 +55,7 @@ class GumbelModel1(object):
         iteration = K.variable(0, dtype='int32')
         temp = T.max(T.stack((tao_min, tao0 / (1. + (tao_decay * iteration)))))
 
-        z = softmax_nd((T.log(eps + pz) + gumbel) / (eps + temp))
+        z = softmax_nd((pz_weight + gumbel) / (eps + temp))
         # z = pz
         w = K.variable(initializer((z_k, x_k)))
         if initial_b is None:

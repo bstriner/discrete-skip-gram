@@ -98,7 +98,7 @@ class ReinforceSmoothedModel(object):
 
         self.val_fun = theano.function([], [validation_nll, utilization])
         self.encodings_fun = theano.function([], encoding)
-        self.train_fun = theano.function([], [reg_loss, nll_loss, total_loss],
+        self.train_fun = theano.function([], [reg_loss, nll_loss, total_loss, sample],
                                          updates=updates + avg_updates)
         self.weights = self.params + opt.weights + [avg_nll]
 
@@ -123,20 +123,27 @@ class ReinforceSmoothedModel(object):
                 for epoch in tqdm(range(initial_epoch, epochs), desc="Training"):
                     it = tqdm(range(batches), desc="Epoch {}".format(epoch))
                     data = [[] for _ in range(3)]
+                    minenc = None
+                    minnll = None
                     for _ in it:
-                        reg_loss, nll_loss, loss = self.train_batch()
+                        reg_loss, nll_loss, loss, enc = self.train_batch()
+                        if (minnll is None) or (nll_loss < minnll):
+                            minnll = nll_loss
+                            minenc = enc
                         for i, d in enumerate((reg_loss, nll_loss, loss)):
                             data[i].append(d)
                         it.desc = ("Epoch {}: " +
                                    "Reg Loss {:.4f} " +
                                    "NLL Loss {:.4f} " +
                                    "Mean NLL {:.4f} " +
+                                   "Min NLL {:.4f} " +
                                    "Current Loss {:.4f} " +
                                    "Mean Loss {:.4f} " +
                                    "Min Loss {:.4f}").format(epoch,
                                                              np.asscalar(reg_loss),
                                                              np.asscalar(nll_loss),
                                                              np.asscalar(np.mean(data[1])),
+                                                             np.asscalar(np.min(data[1])),
                                                              np.asscalar(loss),
                                                              np.asscalar(np.mean(data[2])),
                                                              np.asscalar(np.min(data[2])))
@@ -148,6 +155,5 @@ class ReinforceSmoothedModel(object):
                                 np.asscalar(val_nll),
                                 np.asscalar(utilization)])
                     f.flush()
-                    enc = self.encodings_fun()  # (n, x_k)
-                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), enc)
+                    np.save(os.path.join(outputpath, 'encodings-{:08d}.npy'.format(epoch)), minenc)
                     save_weights(os.path.join(outputpath, 'model-{:08d}.h5'.format(epoch)), self.weights)

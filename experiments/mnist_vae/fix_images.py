@@ -15,6 +15,7 @@ def fix_images(path):
 
 def main():
     fix_images('../output/mnist/gumbel_vae')
+    fix_images('../output/mnist/gumbel_vae1')
 
 
 if __name__ == '__main__':

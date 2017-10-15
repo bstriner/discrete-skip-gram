@@ -19,7 +19,7 @@ def main():
     cooccurrence = np.load('output/cooccurrence.npy').astype(np.float32)
     opt = Adam(1e-3)
     initializer = uniform_initializer(0.05)
-    reg = EntropyRegularizer(1e-6)
+    reg = EntropyRegularizer(1e-5)
     initial_b = np.log(np.sum(cooccurrence, axis=0))
     initial_pz_weight = uniform_initializer(5.)((cooccurrence.shape[0], z_k))
     model = ReinforceSmoothedModel(cooccurrence=cooccurrence,
