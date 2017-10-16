@@ -16,7 +16,7 @@ def preprocess(data_path, output_path):
     vocab = list(set(itertools.chain.from_iterable(tokens)))
     vocab.sort()
     vocab_map = {v: i for i, v in enumerate(vocab)}
-    corpus = [[vocab_map[t] for t in tok] for tok in tokens]
+    corpus = [np.array([vocab_map[t] for t in tok], dtype=np.int32) for tok in tokens]
     make_dir(output_path)
     with open(os.path.join(output_path, 'vocab.pkl'), 'wb') as f:
         pickle.dump(vocab, f)
