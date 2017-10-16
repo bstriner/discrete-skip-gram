@@ -13,7 +13,11 @@ class LanguageModel(object):
         self.train_headers = train_headers
         self.val_headers = val_headers
 
-    def save_output(self, epoch, xvalid, xtest):
+    def generate(self, samples, depth):
+        # override in child
+        pass
+
+    def save_output(self, output_path, epoch, xvalid, xtest):
         # override in child
         pass
 
@@ -67,16 +71,19 @@ class LanguageModel(object):
                     headers.append('Test {}'.format(h))
                 w.writerow(headers)
                 f.flush()
-                it = tqdm(range(epochs), desc='Training')
+                it = tqdm(range(initial_epoch, epochs), desc='Training')
                 for epoch in it:
                     train_stats = self.train_batches(xtrain=xtrain,
                                                      label="Epoch {}".format(epoch),
                                                      **kwargs)
-                    save_weights(path='{}/model-{:08d}.h5'.format(output_path, epoch),
-                                 weights=self.weights)
+                    self.save_output(output_path=output_path,
+                                     epoch=epoch,
+                                     xvalid=xvalid,
+                                     xtest=xtest)
                     w.writerow([epoch] +
                                train_stats +
                                self.validate(xvalid, **kwargs) +
                                self.validate(xtest, **kwargs))
                     f.flush()
-                    self.save_output(epoch=epoch, xvalid=xvalid, xtest=xtest)
+                    save_weights(path='{}/model-{:08d}.h5'.format(output_path, epoch),
+                                 weights=self.weights)

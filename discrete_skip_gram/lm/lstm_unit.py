@@ -31,7 +31,8 @@ class LSTMUnit(object):
     def step(self, xs, h0, params):
         assert len(xs) == len(self.input_units)
         k = len(self.input_units) + 2
-        assert len(params) == k * 4
+        if not len(params) == k * 4:
+            raise ValueError("Expected {} params but got {}".format(k*4, len(params)))
         funs = [T.nnet.sigmoid, T.nnet.sigmoid, T.tanh, T.nnet.sigmoid]
         sets = [params[k * i:k * (i + 1)] for i in range(4)]
         f, i, c, o = [fun(self.calc(xs, h0, p)) for fun, p in zip(funs, sets)]

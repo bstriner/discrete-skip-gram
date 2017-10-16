@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 from keras.optimizers import Adam
 from theano.tensor.shared_randomstreams import RandomStreams
+
 from discrete_skip_gram.initializers import uniform_initializer
 from discrete_skip_gram.lm.lstm_softmax_vanilla import LSTMSoftmaxVanilla
 
@@ -25,11 +26,10 @@ def main():
     x = np.load('output/corpus/corpus.npz')
     with open('output/corpus/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
-    x_k = len(vocab)
     xtrain, xvalid, xtest = x["train"], x["valid"], x["test"]
 
     model = LSTMSoftmaxVanilla(units=units,
-                               x_k=x_k,
+                               vocab=vocab,
                                opt=opt,
                                zoneout=zoneout,
                                srng=srng,
