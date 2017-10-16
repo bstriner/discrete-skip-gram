@@ -15,6 +15,11 @@ def make_path(path):
         os.makedirs(dirpath)
 
 
+def make_dir(dirpath):
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
+
 def latest_file(path, fmt):
     prog = re.compile(fmt)
     latest_epoch = -1
@@ -44,6 +49,16 @@ def generate_batches(data, batch_size):
         batch = data[idx0:idx1]
         batches.append(batch)
     return batches
+
+
+def generate_batch_indices(n, batch_size):
+    batch_count = int(math.ceil(float(n) / float(batch_size)))
+    for i in range(batch_count):
+        idx0 = batch_size * i
+        idx1 = batch_size * (i + 1)
+        if idx1 > n:
+            idx1 = n
+        yield (idx0, idx1)
 
 
 def generate_sequences(z_depth, z_k):
@@ -116,7 +131,8 @@ def one_hot_np(x, k, dtype=np.float32):
     r[np.arange(x.shape[0]), x] = 1
     return r
 
+
 def softmax_np(x, axis=-1):
-    e_x = np.exp(x - np.max(x,axis=axis, keepdims=True))
+    e_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
     out = e_x / np.sum(e_x, axis=axis, keepdims=True)
     return out
