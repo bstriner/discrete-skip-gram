@@ -38,4 +38,5 @@ class LSTMUnit(object):
         f, i, c, o = [fun(self.calc(xs, h0, p)) for fun, p in zip(funs, sets)]
         h1 = (f * h0) + (i * c)
         y1 = o * T.tanh(h1)
+        #y1 = o * h1
         return [h1, y1]

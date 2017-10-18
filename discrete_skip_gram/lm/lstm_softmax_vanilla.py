@@ -17,23 +17,32 @@ class LSTMSoftmaxVanilla(LanguageModel):
                  opt,
                  initializer,
                  srng,
+                 layers=1,
+                 regularizer=None,
+                 activity_reg=0,
+                 temporal_activity_reg=0,
                  zoneout=0.5,
-                 input_droput=0.5,
+                 input_droput=0.1,
                  output_dropout=0.5,
                  eps=1e-9):
-
+        assert layers > 0
         # Parameters
-        self.lstm = LSTMUnit(
-            input_units=[units],
-            units=units,
-            initializer=initializer
-        )
         self.vocab = vocab
+        self.zoneout = zoneout
         x_k = len(vocab)
         xembed = K.variable(initializer((x_k + 1, units)))
         yw = K.variable(initializer((units, x_k)))
         yb = K.variable(initializer((x_k,)))
-        self.params = [xembed, yw, yb] + self.lstm.params
+        self.lstms = []
+        self.params = [xembed, yw, yb]
+        for i in range(layers):
+            lstm = LSTMUnit(
+                input_units=[units],
+                units=units,
+                initializer=initializer
+            )
+            self.lstms.append(lstm)
+            self.params += lstm.params
 
         # Input
         input_x = T.imatrix(name='input_x')  # (n, depth)
@@ -47,43 +56,74 @@ class LSTMSoftmaxVanilla(LanguageModel):
 
         xembedded = xembed[xrs, :]
         if input_droput > 0:
-            input_dropout_mask = T.cast(srng.binomial(size=(depth, n, units), p=input_droput, n=1), 'float32')
-            xembedded = (xembedded * input_dropout_mask) / input_droput
+            input_dropout_mask = T.cast(srng.binomial(size=(n, units), p=1. - input_droput, n=1),
+                                        'float32').dimshuffle(('x', 0, 1))
+            xembedded = (xembedded * input_dropout_mask) / (1. - input_droput)
 
-        zoneout_mask = T.cast(srng.binomial(size=(depth, n, units), p=zoneout, n=1), 'float32')
-        sequences = [xembedded, zoneout_mask]
-        # outputs_info = [self.lstm.h0]
-        outputs_info = [T.repeat(self.lstm.h0, repeats=n, axis=0), None]
-        non_sequences = self.lstm.recurrent_params
-        (h1, y1), _ = theano.scan(self.scan,
-                                  sequences=sequences,
-                                  outputs_info=outputs_info,
-                                  non_sequences=non_sequences)
-        if output_dropout > 0:
-            output_dropout_mask = T.cast(srng.binomial(size=(depth, n, units), p=output_dropout, n=1), 'float32')
-            y1 = (y1 * output_dropout_mask) / output_dropout
+        y0 = xembedded
+        y1s = []
+        for i in range(layers):
+            lstm = self.lstms[i]
+            zoneout_mask = T.cast(srng.binomial(size=(depth, n, units), p=zoneout, n=1), 'float32')
+            sequences = [y0, zoneout_mask]
+            outputs_info = [T.repeat(lstm.h0, repeats=n, axis=0), None]
+            non_sequences = lstm.recurrent_params
+            (h1, y1), _ = theano.scan(self.scan(i),
+                                      sequences=sequences,
+                                      outputs_info=outputs_info,
+                                      non_sequences=non_sequences)
+            y1s.append(y1)
+            if output_dropout > 0:
+                output_dropout_mask = T.cast(srng.binomial(size=(n, units), p=1. - output_dropout, n=1),
+                                             'float32').dimshuffle(('x', 0, 1))
+                y1 = (y1 * output_dropout_mask) / (1. - output_dropout)
+            y0 = y1
         # y1: (depth, n, units)
-        p1 = softmax_nd(T.dot(y1, yw) + yb)  # (depth, n, x_k)
+        p1 = softmax_nd(T.dot(y0, yw) + yb)  # (depth, n, x_k)
         # p1: (depth, n, x_k)
         mgrid = T.mgrid[0:depth, 0:n]
         pt = p1[mgrid[0], mgrid[1], xr]  # (depth, n)
-        nllr = -T.log2(eps + pt)  # (depth, n)
+        nllr = -T.log(eps + pt)  # (depth, n)
         nll = T.mean(nllr, axis=None)  # scalar
         # ppl = T.mean(T.power(2, logt), axis=None) # scalar
-        updates = opt.get_updates(nll, self.params)
-        self.train_fun = theano.function([input_x], [nll], updates=updates)
+
+        loss_activity = T.constant(0.)
+        loss_temporal_activity = T.constant(0.)
+        loss_param_reg = T.constant(0.)
+        if activity_reg > 0:
+            for h in y1s:
+                loss_activity += activity_reg * T.mean(T.square(h), axis=None)
+        if temporal_activity_reg > 0:
+            for h in y1s:
+                loss_temporal_activity += temporal_activity_reg * T.mean(T.square((h[1:, :, :]) - (h[:-1, :, :])),
+                                                                         axis=None)
+        if regularizer:
+            for p in self.params:
+                if p.ndim > 1:
+                    loss_param_reg += regularizer(p)
+        loss = nll + loss_activity + loss_temporal_activity + loss_param_reg
+
+        updates = opt.get_updates(loss, self.params)
+        self.train_fun = theano.function([input_x], [nll, loss_activity, loss_temporal_activity, loss_param_reg, loss],
+                                         updates=updates)
 
         # Validation
         xembedded = xembed[xrs, :]
-        sequences = [xembedded]
-        (h1, y1), _ = theano.scan(self.scan_val,
-                                  sequences=sequences,
-                                  outputs_info=outputs_info,
-                                  non_sequences=non_sequences)
-        p1 = softmax_nd(T.dot(y1, yw) + yb)  # (depth, n, x_k)
+        y0 = xembedded
+        for i in range(layers):
+            lstm = self.lstms[i]
+            sequences = [y0]
+            outputs_info = [T.repeat(lstm.h0, repeats=n, axis=0), None]
+            non_sequences = lstm.recurrent_params
+            (h1, y1), _ = theano.scan(self.scan_val(i),
+                                      sequences=sequences,
+                                      outputs_info=outputs_info,
+                                      non_sequences=non_sequences)
+            y0 = y1
+        p1 = softmax_nd(T.dot(y0, yw) + yb)  # (depth, n, x_k)
         mgrid = T.mgrid[0:depth, 0:n]
         pt = p1[mgrid[0], mgrid[1], xr]  # (depth, n)
-        nllr = -T.log2(eps + pt)  # (depth, n)
+        nllr = -T.log(eps + pt)  # (depth, n)
         nll = T.transpose(nllr, (1, 0))
         self.nll_fun = theano.function([input_x], nll)
 
@@ -92,43 +132,76 @@ class LSTMSoftmaxVanilla(LanguageModel):
         gen_depth = T.iscalar(name='depth')
         rnd = srng.uniform(low=0., high=1., dtype='float32', size=(gen_depth, gen_n))
         sequences = [rnd]
-        outputs_info = [T.repeat(self.lstm.h0, repeats=gen_n, axis=0), T.zeros((gen_n,), dtype='int32')]
-        non_sequences = [xembed, yw, yb] + self.lstm.recurrent_params
-        (h1, x1r), _ = theano.scan(self.scan_gen,
-                                   sequences=sequences,
-                                   outputs_info=outputs_info,
-                                   non_sequences=non_sequences)
+        outputs_info = [T.zeros((gen_n,), dtype='int32')]
+        for lstm in self.lstms:
+            outputs_info.append(T.repeat(lstm.h0, repeats=gen_n, axis=0))
+        non_sequences = [xembed, yw, yb]
+        for lstm in self.lstms:
+            non_sequences += lstm.recurrent_params
+        ret, _ = theano.scan(self.scan_gen,
+                             sequences=sequences,
+                             outputs_info=outputs_info,
+                             non_sequences=non_sequences)
+        x1r = ret[0]
         x1 = T.transpose(x1r, (1, 0)) - 1
         self.gen_fun = theano.function([gen_n, gen_depth], x1)
 
-        train_headers = ['NLL']
+        train_headers = ['NLL', 'Activity Reg', 'Temporal Reg', 'Weight Reg', 'Loss']
         val_headers = ['NLL', 'PPL']
         weights = self.params + opt.weights
         super(LSTMSoftmaxVanilla, self).__init__(weights=weights,
                                                  train_headers=train_headers,
                                                  val_headers=val_headers)
 
-    def scan(self, x0, zo, h0, *params):
-        assert h0.ndim == 2
-        h1, y1 = self.lstm.step(xs=[x0], h0=h0, params=params)
-        h1 = (zo * h0) + ((1. - zo) * h1)  # zoneout
-        return [h1, y1]
+    def scan(self, i):
+        def fun(x0,
+                zo,
+                h0, *params):
+            assert h0.ndim == 2
+            h1, y1 = self.lstms[i].step(xs=[x0], h0=h0, params=params)
+            h1 = (zo * h0) + ((1. - zo) * h1)  # zoneout
+            return [h1, y1]
 
-    def scan_val(self, x0, h0, *params):
-        assert h0.ndim == 2
-        h1, y1 = self.lstm.step(xs=[x0], h0=h0, params=params)
-        return [h1, y1]
+        return fun
 
-    def scan_gen(self, rng, h0, x0, xembed, yw, yb, *params):
-        assert h0.ndim == 2
+    def scan_val(self, i):
+        def fun(x0, h0, *params):
+            assert h0.ndim == 2
+            h1, y1 = self.lstms[i].step(xs=[x0], h0=h0, params=params)
+            h1 = (self.zoneout * h0) + ((1 - self.zoneout) * h1)
+            return [h1, y1]
+
+        return fun
+
+    def scan_gen(self, rng, x0, *params):
+        # sequences, outputs, non_sequences
+        idx = 0
+        h0s = params[idx:idx + len(self.lstms)]
+        idx += len(self.lstms)
+
+        xembed = params[idx]
+        idx += 1
+        yw = params[idx]
+        idx += 1
+        yb = params[idx]
+        idx += 1
+
         xe = xembed[x0, :]
-        h1, y1 = self.lstm.step(xs=[xe], h0=h0, params=params)
-        p1 = softmax_nd(T.dot(y1, yw) + yb)
+        y0 = xe
+        h1s = []
+        for i, lstm in enumerate(self.lstms):
+            p = params[idx:idx + len(lstm.recurrent_params)]
+            idx += len(lstm.recurrent_params)
+            h1, y1 = lstm.step(xs=[y0], h0=h0s[i], params=p)
+            h1s.append(h1)
+            y0 = y1
+        p1 = softmax_nd(T.dot(y0, yw) + yb)
         cs = T.cumsum(p1, axis=1)
         x1 = T.sum(T.gt(rng.dimshuffle((0, 'x')), cs), axis=1)
         x1 = T.clip(x1, 0, cs.shape[1] - 1)
         x1 = T.cast(x1 + 1, 'int32')
-        return [h1, x1]
+        assert idx == len(params)
+        return [x1] + h1s
 
     def save_output(self, output_path, epoch, xvalid, xtest):
         samples = 64
@@ -159,7 +232,7 @@ class LSTMSoftmaxVanilla(LanguageModel):
         nllsel = np.concatenate((p0, p1), axis=0)
         assert nllsel.shape[0] == x.shape[0]
         avgnll = np.mean(nllsel)
-        return [np.asscalar(avgnll), np.asscalar(np.power(2, avgnll))]
+        return [np.asscalar(avgnll), np.asscalar(np.exp(avgnll))]
 
     def train_batchx(self, x, **kwargs):
         return self.train_fun(x)
