@@ -8,11 +8,11 @@ from keras.regularizers import l2
 from theano.tensor.shared_randomstreams import RandomStreams
 
 from discrete_skip_gram.initializers import uniform_initializer
-from discrete_skip_gram.lm.lstm_softmax_vanilla import LSTMSoftmaxVanilla
+from discrete_skip_gram.lm.lstm_softmax_sparse import LSTMSoftmaxSparse
 
 
 def main():
-    output_path = 'output/lstm_softmax_vanilla'
+    output_path = 'output/lstm_softmax_sparse_128'
     epochs = 100
     batches = 5000
     units = 1024
@@ -29,22 +29,24 @@ def main():
     opt = Adam(1e-3)
     srng = RandomStreams(123)
     x = np.load('output/corpus/corpus.npz')
+    encoding = np.load('output/random_encodings/units-128/iter-0.npy')
     with open('output/corpus/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
     xtrain, xvalid, xtest = x["train"], x["valid"], x["test"]
 
-    model = LSTMSoftmaxVanilla(units=units,
-                               vocab=vocab,
-                               opt=opt,
-                               zoneout=zoneout,
-                               srng=srng,
-                               layers=layers,
-                               regularizer=regularizer,
-                               activity_reg=activity_reg,
-                               temporal_activity_reg=temporal_activity_reg,
-                               input_droput=input_droput,
-                               output_dropout=output_dropout,
-                               initializer=initializer)
+    model = LSTMSoftmaxSparse(units=units,
+                              vocab=vocab,
+                              opt=opt,
+                              zoneout=zoneout,
+                              srng=srng,
+                              encoding=encoding,
+                              layers=layers,
+                              regularizer=regularizer,
+                              activity_reg=activity_reg,
+                              temporal_activity_reg=temporal_activity_reg,
+                              input_droput=input_droput,
+                              output_dropout=output_dropout,
+                              initializer=initializer)
     model.train(output_path=output_path,
                 epochs=epochs,
                 batches=batches,

@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 
 from ..tensor_util import load_latest_weights, save_weights
+from ..util import generate_batch_indices
 from ..util import make_dir
 
 
@@ -24,10 +25,6 @@ class LanguageModel(object):
     def train_batchx(self, x, **kwargs):
         # override in child
         return 1
-
-    def validate(self, x, batch_size=64):
-        # override in child
-        return []
 
     def train_batch(self, xtrain, depth=35, batch_size=64, **kwargs):
         max_idx = xtrain.shape[0] - depth
@@ -87,3 +84,23 @@ class LanguageModel(object):
                     f.flush()
                     save_weights(path='{}/model-{:08d}.h5'.format(output_path, epoch),
                                  weights=self.weights)
+
+    def validate(self, x, batch_size=64, depth=35, **kwargs):
+        # calc perplexity on test set
+        stack = []
+        n = x.shape[0]
+        idx = list(generate_batch_indices(n=n - depth + 1, batch_size=batch_size))
+        for idx0, idx1 in tqdm(idx, desc='Validating'):
+            i1 = np.arange(idx0, idx1).reshape((-1, 1))
+            i2 = np.arange(depth).reshape((1, -1))
+            i = i1 + i2
+            xb = x[i]
+            nll = self.nll_fun(xb)
+            stack.append(nll)
+        nll = np.concatenate(stack, axis=0)
+        p0 = nll[0, :]  # (d,)
+        p1 = nll[1:, depth - 1]  # (n-d,)
+        nllsel = np.concatenate((p0, p1), axis=0)
+        assert nllsel.shape[0] == x.shape[0]
+        avgnll = np.mean(nllsel)
+        return [np.asscalar(avgnll), np.asscalar(np.power(2, avgnll))]

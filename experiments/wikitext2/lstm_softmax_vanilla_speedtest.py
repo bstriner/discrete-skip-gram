@@ -14,12 +14,12 @@ from discrete_skip_gram.lm.speedtest import run_speedtest
 def main():
     output_path = 'output/lstm_softmax_vanilla_speedtest.npz'
     iters = 1000
-    units = 1024
+    units = 512
     depth = 35
     batch_size = 64
-    zoneout = 0.5
-    input_droput = 0.5
-    output_dropout = 0.5
+    zoneout = 0.
+    input_droput = 0.
+    output_dropout = 0.
     initializer = uniform_initializer(0.05)
     opt = Adam(1e-3)
     srng = RandomStreams(123)
