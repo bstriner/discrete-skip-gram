@@ -26,11 +26,15 @@ class LanguageModel(object):
         # override in child
         return 1
 
-    def train_batch(self, xtrain, depth=35, batch_size=64, **kwargs):
+    def batch_data(self,xtrain, depth=35, batch_size=64):
         max_idx = xtrain.shape[0] - depth
         idx = np.random.random_integers(low=0, high=max_idx, size=(batch_size,))
         ids = (idx.reshape((-1, 1))) + (np.arange(depth).reshape((1, -1)))
         xsel = xtrain[ids]
+        return xsel
+
+    def train_batch(self, xtrain, depth=35, batch_size=64, **kwargs):
+        xsel = self.batch_data(xtrain=xtrain, depth=depth, batch_size=batch_size)
         return self.train_batchx(xsel, **kwargs)
 
     def train_batches(self, xtrain, label, batches=1024, **kwargs):
@@ -103,4 +107,5 @@ class LanguageModel(object):
         nllsel = np.concatenate((p0, p1), axis=0)
         assert nllsel.shape[0] == x.shape[0]
         avgnll = np.mean(nllsel)
+        tqdm.write("Validation: {}, {}".format(avgnll, np.power(2, avgnll)))
         return [np.asscalar(avgnll), np.asscalar(np.power(2, avgnll))]

@@ -23,6 +23,7 @@ class LSTMModel(object):
         # Parameters
         xembed = K.variable(initializer((x_k + 1, units)))
         self.params = [xembed]
+        self.xembed = xembed
         self.lstms = []
         for i in range(layers):
             lstm = LSTMUnit(

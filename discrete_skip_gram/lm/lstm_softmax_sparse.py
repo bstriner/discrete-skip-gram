@@ -5,6 +5,7 @@ import theano.tensor as T
 
 from .lstm_model import LSTMModel
 from .model import LanguageModel
+from ..tensor_util import softmax_nd
 
 
 class LSTMSoftmaxSparse(LanguageModel):
@@ -50,9 +51,9 @@ class LSTMSoftmaxSparse(LanguageModel):
         p1 = T.nnet.sigmoid(T.dot(self.lstm.train_y, yw) + yb)  # (depth, n, code)
         xcode = self.encoding[self.lstm.xr, :]  # (depth, n, code)
         assert xcode.ndim == 3
-        #nllrp = (xcode * T.log2(eps + p1)) + ((1 - xcode) * (T.log2(eps + 1. - p1))) # (depth, n, code)
+        # nllrp = (xcode * T.log2(eps + p1)) + ((1 - xcode) * (T.log2(eps + 1. - p1))) # (depth, n, code)
         nllrp = T.switch(xcode, p1, 1. - p1)  # (depth, n, code)
-        nllr = -T.sum(T.log(eps+nllrp), axis=2)
+        nllr = -T.sum(T.log(eps + nllrp), axis=2)
         nll = T.mean(nllr, axis=None)
         loss_param_reg = T.constant(0.)
         if regularizer:
@@ -70,11 +71,25 @@ class LSTMSoftmaxSparse(LanguageModel):
                                          updates=updates)
 
         # Testing
+        # old version
+        """
         p1 = T.nnet.sigmoid(T.dot(self.lstm.test_y, yw) + yb)  # (depth, n, code)
         #nllrp = (xcode * T.log(eps + p1)) + ((1 - xcode) * (T.log(eps + 1. - p1)))
         nllrp = T.switch(xcode, p1, 1. - p1)
         nllr = -T.sum(T.log(eps+nllrp), axis=2)  # (depth, n)
         nll_part = T.transpose(nllr, (1, 0))  # (n, depth)
+        self.nll_fun = theano.function([self.lstm.input_x], nll_part)
+        """
+        p1 = T.nnet.sigmoid(T.dot(self.lstm.test_y, yw) + yb)  # (depth, n, code)
+        # xcode: (depth, n, code)
+        # encoding: (x_k, code)
+        h = (T.dot(T.log(eps + p1), T.transpose(self.encoding, (1, 0))) +
+             T.dot(T.log(eps + 1. - p1), T.transpose(1 - self.encoding, (1, 0))))  # (depth, n, x_k)
+        p2 = softmax_nd(h)  # (depth, n, x_k)
+
+        mg = T.mgrid[0:p2.shape[0], 0:p2.shape[1]]
+        pt = p2[mg[0], mg[1], self.lstm.xr]  # (depth, n)
+        nll_part = T.transpose(-T.log(eps + pt),(1,0))
         self.nll_fun = theano.function([self.lstm.input_x], nll_part)
 
         train_headers = ['NLL', 'Activity Reg', 'Temporal Reg', 'Weight Reg', 'Loss']
