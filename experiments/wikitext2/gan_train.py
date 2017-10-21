@@ -32,7 +32,7 @@ def main():
     gopt = Adam(1e-4)
     regularizer = l2(1e-5)
     regularizer_samples = 128
-    regularizer_weight = 1.
+    regularizer_weight = 1e1
     #constraint = clip_constraint(1e-1)
     constraint = None
     initializer = uniform_initializer(0.05)
