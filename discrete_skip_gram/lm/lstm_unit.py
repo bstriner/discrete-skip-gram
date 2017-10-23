@@ -9,13 +9,17 @@ class LSTMUnit(object):
     def __init__(self,
                  input_units,
                  units,
-                 initializer):
+                 initializer,
+                 zoneout=0,
+                 srng=None):
         self.input_units = input_units
         self.units = units
         self.initializer = initializer
         self.h0 = K.variable(initializer((1, units)))
         self.recurrent_params = list(itertools.chain.from_iterable([self.variable_set() for _ in range(4)]))
         self.params = [self.h0] + self.recurrent_params
+        self.zoneout = zoneout
+        self.srng = srng
 
     def variable_set(self):
         wh = K.variable(self.initializer((self.units, self.units)))
@@ -57,14 +61,44 @@ class LSTMUnit(object):
         h1, y1 = self.step(xs=xs, h0=h0, params=lstm_params)
         return h1, y1
 
-    def call(self, xs):
+    def scan_zoneout(self, *params):
+        # sequences
+        zo = params[0]
+        h0 = params[len(self.input_units)+1]
+        h1, y1 = self.scan(*params[1:])
+        h1 = (zo*h0) + ((1.-zo)*h1)
+        return h1, y1
+
+    def scan_zoneout_val(self, *params):
+        h0 = params[len(self.input_units)]
+        h1, y1 = self.scan(*params)
+        h1 = (self.zoneout*h0)+((1.-self.zoneout)*h1)
+        return h1, y1
+
+    def call(self, xs, val=False):
         assert len(xs) == len(self.input_units)
         sequences = xs
+        depth = xs[0].shape[0]
         n = xs[0].shape[1]
         outputs_info = [T.repeat(self.h0, repeats=n, axis=0), None]
         non_sequences = self.recurrent_params
-        (h1, y1), _ = theano.scan(self.scan,
-                                  sequences=sequences,
-                                  outputs_info=outputs_info,
-                                  non_sequences=non_sequences)
-        return h1, y1
+        if self.zoneout > 0:
+            if val:
+                (h1, y1), _ = theano.scan(self.scan_zoneout_val,
+                                          sequences=sequences,
+                                          outputs_info=outputs_info,
+                                          non_sequences=non_sequences)
+                return h1, y1
+            else:
+                mask = self.srng.binomial(size=(depth, n, self.units), p=self.zoneout, n=1)
+                (h1, y1), _ = theano.scan(self.scan_zoneout,
+                                                  sequences=[mask]+sequences,
+                                                  outputs_info=outputs_info,
+                                                  non_sequences=non_sequences)
+                return h1, y1
+        else:
+            (h1, y1), _ = theano.scan(self.scan,
+                                      sequences=sequences,
+                                      outputs_info=outputs_info,
+                                      non_sequences=non_sequences)
+            return h1, y1

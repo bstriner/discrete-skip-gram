@@ -22,8 +22,13 @@ class GANLanguageModel(LanguageModel):
                  srng=RandomStreams(123),
                  d_layers=2,
                  d_units=512,
+                 d_input_dropout=0.1,
+                 d_dropout=0.5,
                  g_layers=2,
-                 g_units=512,
+                 g_units=1024,
+                 # g_dropout=0.5,
+                 # g_input_dropout=0.1,
+                 # g_zoneout=0.5,
                  regularizer=None,
                  regularizer_samples=128,
                  regularizer_weight=1e-3,
@@ -36,19 +41,27 @@ class GANLanguageModel(LanguageModel):
         self.vocab = vocab
         self.x_k = len(vocab)
         self.srng = srng
-        self.hard=hard
+        self.hard = hard
+        self.d_dropout = d_dropout
+        self.d_input_dropout = d_input_dropout
+        # self.g_dropout = g_dropout
+        # self.g_input_dropout = g_input_dropout
+        # self.g_zoneout = g_zoneout
         input_x = T.imatrix(name='input_x')  # (n, depth)
         n = input_x.shape[0]
         depth = input_x.shape[1]
 
+        tau0 = T.constant(tau0, name='tau_min', dtype='float32')
         iteration = K.variable(0, dtype='int32')
         iter_updates = [(iteration, iteration + 1)]
-        tau_min = T.constant(tau_min, name='tau_min', dtype='float32')
-        tau_decay = T.constant(tau_decay, name='tau_min', dtype='float32')
-        tau0 = T.constant(tau0, name='tau_min', dtype='float32')
-        tau = tau0 * T.exp(-iteration * tau_decay)
-        tau = T.cast(tau, 'float32')
-        self.tau = T.nnet.relu(tau - tau_min) + tau_min
+        if tau_decay > 0:
+            tau_min = T.constant(tau_min, name='tau_min', dtype='float32')
+            tau_decay = T.constant(tau_decay, name='tau_min', dtype='float32')
+            tau = tau0 * T.exp(-iteration * tau_decay)
+            tau = T.cast(tau, 'float32')
+            self.tau = T.nnet.relu(tau - tau_min) + tau_min
+        else:
+            self.tau = tau0
 
         # Discriminator parameters
         self.d_lstms = []
@@ -94,16 +107,16 @@ class GANLanguageModel(LanguageModel):
             idx2 = srng.random_integers(size=(regularizer_samples,), low=0, high=n - 1, dtype='int32')
             s1 = xreal_one_hot[:, idx1, :]  # (depth, samples, x_k)
             s2 = xfake[:, idx2, :]  # (depth, samples, x_k)
-            #alpha = srng.uniform(size=(depth, regularizer_samples,), low=0., high=1., dtype='float32').dimshuffle(
+            # alpha = srng.uniform(size=(depth, regularizer_samples,), low=0., high=1., dtype='float32').dimshuffle(
             #    (0, 1, 'x')
-            #)
+            # )
             alpha = srng.uniform(size=(regularizer_samples,), low=0., high=1., dtype='float32').dimshuffle(
                 ('x', 0, 'x')
             )
-            s = (alpha * s1) + ((1. - alpha) * s2) # (depth, samples, x_k)
-            d = T.sum(self.discriminator(s)) # scalar
-            g = T.grad(d, s) # (depth, samples, x_k)
-            g2 = T.sum(T.square(g),axis=(0,2)) # (samples,)
+            s = (alpha * s1) + ((1. - alpha) * s2)  # (depth, samples, x_k)
+            d = T.sum(self.discriminator(s))  # scalar
+            g = T.grad(d, s)  # (depth, samples, x_k)
+            g2 = T.sum(T.square(g), axis=(0, 2))  # (samples,)
             iwgreg = regularizer_weight * T.mean(g2)
         else:
             iwgreg = T.constant(0.)
@@ -154,7 +167,7 @@ class GANLanguageModel(LanguageModel):
         pt = p[mgrid[0], mgrid[1], xreal]  # (depth, n)
         val_nll = -T.mean(T.log(eps + pt))
         self.val_fun = theano.function([input_x], val_nll)
-        self.train_fun = theano.function([input_x], [d_loss, g_loss, iwgreg, d_reg, g_reg, val_nll, tau],
+        self.train_fun = theano.function([input_x], [d_loss, g_loss, iwgreg, d_reg, g_reg, val_nll, self.tau],
                                          updates=g_updates + iter_updates + d_updates)
 
         train_headers = ['D Loss', 'G Loss', 'Grad Reg', 'D Reg', 'G Reg', 'NLL', 'Tau']
@@ -180,14 +193,23 @@ class GANLanguageModel(LanguageModel):
     def discriminator(self, xr):
         # xr : (depth, n, x_k)
         y0 = T.dot(xr, self.d_embed)  # (depth, n, units)
+        if self.d_input_dropout > 0:
+            mask = self.srng.binomial(size=(y0.shape[1], y0.shape[2]), n=1, p=1. - self.d_input_dropout,
+                                      dtype='float32').dimshuffle(('x', 0, 1))
+            y0 = (mask * y0) / (1. - self.d_input_dropout)
         for l in self.d_lstms:
             h1, y1 = l.call([y0])
+            if self.d_dropout > 0:
+                mask = self.srng.binomial(size=(y1.shape[1], y1.shape[2]), n=1, p=1. - self.d_dropout,
+                                          dtype='float32').dimshuffle(
+                    ('x', 0, 1))
+                y1 = (mask * y1) / (1. - self.d_dropout)
             y0 = y1
         ylast = y0[-1, :, :]  # (n, units)
-        yout = T.dot(ylast, self.yw) #(n, 1)
-        return T.flatten(yout) # (n,)
-        #yout = T.dot(y0, self.yw)  # (depth, n,1)
-        #return T.flatten(yout, ndim=2)  # (depth, n,)
+        yout = T.dot(ylast, self.yw)  # (n, 1)
+        return T.flatten(yout)  # (n,)
+        # yout = T.dot(y0, self.yw)  # (depth, n,1)
+        # return T.flatten(yout, ndim=2)  # (depth, n,)
 
     def generator(self, n, depth):
         rnd = self.srng.uniform(size=(depth, n, self.x_k), low=self.eps, high=1. - self.eps, dtype='float32')
