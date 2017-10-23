@@ -206,16 +206,19 @@ class GANModel(LanguageModel):
         sequences = [gumbel]
         if self.g_zoneout > 0:
             for _ in self.g_lstms:
-                sequences.append(self.srng.binomial(size=(depth, n, self.g_units), n=1, p=self.g_zoneout))
+                sequences.append(self.srng.binomial(size=(depth, n, self.g_units), n=1, p=self.g_zoneout,
+                                                    dtype='float32'))
         x0 = T.zeros((n,), dtype='int32')
         outputs_info = [None, x0] + [T.repeat(l.h0, repeats=n, axis=0) for l in self.g_lstms]
         non_sequences = list(itertools.chain.from_iterable(l.recurrent_params for l in self.g_lstms))
         non_sequences += [self.g_embed, self.gw, self.gb]
         if self.g_input_dropout > 0:
-            non_sequences.append(self.srng.binomial(size=(n, self.g_units), n=1, p=1. - self.g_input_dropout))
+            non_sequences.append(self.srng.binomial(size=(n, self.g_units), n=1, p=1. - self.g_input_dropout,
+                                                    dtype='float32'))
         if self.g_dropout > 0:
             for _ in self.g_lstms:
-                non_sequences.append(self.srng.binomial(size=(n, self.g_units), n=1, p=1. - self.g_dropout))
+                non_sequences.append(self.srng.binomial(size=(n, self.g_units), n=1, p=1. - self.g_dropout,
+                                                        dtype='float32'))
         ret, _ = theano.scan(self.generator_scan,
                              sequences=sequences,
                              outputs_info=outputs_info,
