@@ -90,7 +90,7 @@ class LSTMUnit(object):
                                           non_sequences=non_sequences)
                 return h1, y1
             else:
-                mask = self.srng.binomial(size=(depth, n, self.units), p=self.zoneout, n=1)
+                mask = self.srng.binomial(size=(depth, n, self.units), p=self.zoneout, n=1, dtype='float32')
                 (h1, y1), _ = theano.scan(self.scan_zoneout,
                                                   sequences=[mask]+sequences,
                                                   outputs_info=outputs_info,
